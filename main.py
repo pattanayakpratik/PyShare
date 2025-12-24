@@ -52,7 +52,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 print("\n[STOP] Server stopped."); os._exit(0)
                 return
 
-            # --- DARK MODE FILE LIST ---
+            # --- FILE LIST WITH DARK MODE SUPPORT ---
             if self.path == '/list/':
                 self.send_response(200)
                 self.send_header("Content-type", "text/html; charset=utf-8")
@@ -81,8 +81,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         <div style="display:flex;align-items:center;">
                             <div style="font-size:24px;margin-right:15px;width:40px;text-align:center;">{icon}</div>
                             <div style="flex-grow:1;overflow:hidden;">
-                                <div class="fname" style="font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;">{f}</div>
-                                <small style="color:#bbb;">{size}</small>
+                                <div class="fname" style="font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{f}</div>
+                                <small class="fsize">{size}</small>
                             </div>
                         </div>
                         <div class="actions">
@@ -92,23 +92,26 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         </div>
                     </li>"""
                 
-                # CSS for Dark Mode
                 html = f"""
                 <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
                 <title>Files</title>
                 <style>
-                    body{{font-family:'Segoe UI',sans-serif;background:#121212;padding:15px;color:#e0e0e0; max-width:600px; margin:auto;}} 
+                    :root {{ --bg: #f4f7f6; --text: #333; --card: #fff; --sub: #888; --border: #ddd; }}
+                    [data-theme="dark"] {{ --bg: #121212; --text: #e0e0e0; --card: #1e1e1e; --sub: #bbb; --border: #333; }}
+                    
+                    body{{font-family:'Segoe UI',sans-serif; background:var(--bg); color:var(--text); padding:15px; max-width:600px; margin:auto; transition:0.3s;}} 
                     ul{{padding:0;list-style:none;}}
-                    h2 {{color: #ffffff;}}
-                    .file-item {{background:#1e1e1e;padding:12px;margin-bottom:10px;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,0.3); border:1px solid #333;}}
+                    h2 {{text-align:center; position:relative;}}
+                    .file-item {{background:var(--card); padding:12px; margin-bottom:10px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1); border:1px solid var(--border);}}
+                    .fname {{color:var(--text);}}
+                    .fsize {{color:var(--sub);}}
                     .actions {{display:flex;gap:5px;margin-top:10px;}}
-                    .act-btn {{flex:1;text-align:center;padding:8px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:13px;border:none;cursor:pointer;color:white; transition: opacity 0.2s;}}
-                    .act-btn:hover {{opacity: 0.8;}}
-                    .blue {{background:#2980b9;}} .green {{background:#27ae60;}} .red {{background:#c0392b;}}
-                    #search {{width:100%;padding:12px;background:#1e1e1e;border:1px solid #333;color:white;border-radius:8px;margin-bottom:20px;box-sizing:border-box;font-size:16px; outline:none;}}
-                    #search:focus {{border-color: #3498db;}}
-                    .back-btn {{display:block;text-align:center;margin-top:20px;color:#3498db;text-decoration:none;font-weight:bold;border:2px solid #3498db;padding:10px;border-radius:8px;transition:0.2s;}}
-                    .back-btn:hover {{background: #3498db; color: white;}}
+                    .act-btn {{flex:1;text-align:center;padding:8px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:13px;border:none;cursor:pointer;color:white;}}
+                    .blue {{background:#3498db;}} .green {{background:#27ae60;}} .red {{background:#e74c3c;}}
+                    #search {{width:100%;padding:12px;background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:8px; margin-bottom:20px; box-sizing:border-box; font-size:16px; outline:none;}}
+                    
+                    .toggle-btn {{ position:absolute; right:0; top:0; background:none; border:none; font-size:20px; cursor:pointer; }}
+                    .back-btn {{display:block;text-align:center;margin-top:20px;color:#3498db;text-decoration:none;font-weight:bold;border:2px solid #3498db;padding:10px;border-radius:8px;}}
                 </style>
                 <script>
                     function deleteFile(n){{if(confirm('Delete '+n+'?'))fetch('/delete/'+encodeURIComponent(n)).then(()=>location.reload());}}
@@ -118,9 +121,25 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                             li.style.display = li.getAttribute('data-name').includes(val) ? 'block' : 'none';
                         }});
                     }}
+                    
+                    // Theme Logic
+                    function toggleTheme() {{
+                        const current = document.documentElement.getAttribute('data-theme');
+                        const target = current === 'dark' ? 'light' : 'dark';
+                        document.documentElement.setAttribute('data-theme', target);
+                        localStorage.setItem('theme', target);
+                    }}
+                    
+                    // Init Theme
+                    (function(){{
+                        const saved = localStorage.getItem('theme');
+                        const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        if(saved) {{ document.documentElement.setAttribute('data-theme', saved); }}
+                        else if(sysDark) {{ document.documentElement.setAttribute('data-theme', 'dark'); }}
+                    }})();
                 </script>
                 </head><body>
-                <h2 style="text-align:center;">📂 File Manager</h2>
+                <h2>📂 Files <button class="toggle-btn" onclick="toggleTheme()">🌓</button></h2>
                 <input type="text" id="search" placeholder="🔍 Search files..." onkeyup="doSearch()">
                 <ul>{file_rows}</ul>
                 <a href="/" class="back-btn">⬅ Back to Upload</a>
