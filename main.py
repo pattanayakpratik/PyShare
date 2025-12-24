@@ -5,194 +5,178 @@ import socket
 import pyqrcode
 import urllib.parse
 import shutil
-from PIL import Image
+import sys
 
 PORT = 8010
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Directories for file storage
 UPLOAD_DIR = os.path.join(BASE_DIR, "SharedFiles", "From_Phone")
 DOWNLOAD_DIR = os.path.join(BASE_DIR, "SharedFiles", "From_PC")
 
-# Ensure folders exist
 for folder in [UPLOAD_DIR, DOWNLOAD_DIR]:
     os.makedirs(folder, exist_ok=True)
 
 def get_ip():
-    """Retrieves the local IP address for the server."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(('10.255.255.255', 1))
         IP = s.getsockname()[0]
-    except Exception: 
-        IP = '127.0.0.1'
-    finally: 
-        s.close()
+    except Exception: IP = '127.0.0.1'
+    finally: s.close()
     return IP
 
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
-    # Use HTTP 1.1 for more stable large file transfers
     protocol_version = 'HTTP/1.1'
 
     def do_GET(self):
-        # 1. Serve the Main UI (index.html)
-        if self.path == '/' or self.path == '/index.html':
-            self.send_response(200)
-            self.send_header("Content-type", "text/html; charset=utf-8")
-            self.end_headers()
-            index_path = os.path.join(BASE_DIR, "index.html")
-            if os.path.exists(index_path):
-                with open(index_path, "rb") as f:
-                    self.wfile.write(f.read())
-            return
-
-        # 2. Serve the generated QR Code
-        if self.path == '/qrcode.png':
-            if os.path.exists('qrcode.png'):
+        try:
+            if self.path == '/' or self.path == '/index.html':
                 self.send_response(200)
-                self.send_header("Content-type", "image/png")
+                self.send_header("Content-type", "text/html; charset=utf-8")
                 self.end_headers()
-                with open("qrcode.png", "rb") as f:
+                with open(os.path.join(BASE_DIR, "index.html"), "rb") as f:
                     self.wfile.write(f.read())
-            return
-
-        # 3. Enhanced File List with Icons and File Size
-        if self.path == '/list/':
-            self.send_response(200)
-            self.send_header("Content-type", "text/html; charset=utf-8")
-            self.end_headers()
-            
-            files = os.listdir(DOWNLOAD_DIR)
-            file_items = ""
-            for f in files:
-                ext = f.lower().split('.')[-1]
-                size = os.path.getsize(os.path.join(DOWNLOAD_DIR, f)) // 1024
-                
-                # Dynamic Visual Icons
-                if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']: icon = "🖼️"
-                elif ext in ['mp4', 'mkv', 'webm', 'mov']: icon = "🎬"
-                elif ext in ['mp3', 'wav', 'm4a']: icon = "🎵"
-                elif ext == 'pdf': icon = "📕"
-                elif ext in ['docx', 'doc']: icon = "📝"
-                elif ext in ['xlsx', 'xls']: icon = "📊"
-                elif ext in ['pptx', 'ppt']: icon = "📽️"
-                elif ext in ['py', 'js', 'html', 'css', 'txt', 'c', 'cpp', 'java', 'json']: icon = "💻"
-                else: icon = "📄"
-
-                file_items += f"""
-                <li style="display: flex; align-items: center; background: white; padding: 12px; margin-bottom: 10px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <div style="margin-right: 15px; font-size: 24px;">{icon}</div>
-                    <div style="flex-grow: 1; overflow: hidden;">
-                        <div style="font-weight: bold; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{f}</div>
-                        <div style="font-size: 11px; color: #888;">{size} KB</div>
-                    </div>
-                    <div style="display: flex; gap: 5px;">
-                        <a href="/view/{f}" target="_blank" style="background: #3498db; color: white; padding: 6px 10px; border-radius: 5px; text-decoration: none; font-size: 12px; font-weight: bold;">Review</a>
-                        <button onclick="deleteFile('{f}')" style="background: #e74c3c; color: white; border: none; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold;">Delete</button>
-                    </div>
-                </li>"""
-            
-            html = f"""<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>body{{font-family:'Segoe UI',sans-serif; background:#f0f2f5; padding:20px; color:#2c3e50;}} ul{{padding:0; list-style:none;}}</style>
-            <script>function deleteFile(name){{if(confirm('Delete '+name+'?')){{fetch('/delete/'+encodeURIComponent(name)).then(()=>location.reload());}}}}</script>
-            </head><body><h2 style="text-align:center;">📂 Universal Manager</h2><ul>{file_items if files else "<p style='text-align:center;'>No files in folder.</p>"}</ul>
-            <a href="/" style="display:block; text-align:center; margin-top:20px; color:#3498db; text-decoration:none; font-weight:bold; padding:10px; border:2px solid #3498db; border-radius:8px;">⬅ Back to Upload</a>
-            </body></html>"""
-            self.wfile.write(html.encode())
-            return
-
-        # 4. Universal Review/Open Logic (Handles MKV, Code, Office, etc.)
-        if self.path.startswith('/view/'):
-            filename = urllib.parse.unquote(self.path[6:])
-            filepath = os.path.join(DOWNLOAD_DIR, filename)
-            if os.path.exists(filepath):
-                self.send_response(200)
-                ext = filename.lower().split('.')[-1]
-                
-                # MIME Types for multimedia and documents
-                mime_types = {
-                    'mkv': 'video/x-matroska', 'mp4': 'video/mp4', 'webm': 'video/webm',
-                    'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'm4a': 'audio/mp4',
-                    'pdf': 'application/pdf',
-                    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp',
-                    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-                    'doc': 'application/msword'
-                }
-                # Code files served as text for browser viewing
-                code_exts = ['txt', 'py', 'js', 'html', 'css', 'c', 'cpp', 'java', 'json', 'md', 'php']
-                
-                if ext in mime_types:
-                    self.send_header("Content-Type", mime_types[ext])
-                elif ext in code_exts:
-                    self.send_header("Content-Type", "text/plain; charset=utf-8")
-                else:
-                    self.send_header("Content-Type", "application/octet-stream")
-                
-                self.end_headers()
-                with open(filepath, 'rb') as f:
-                    shutil.copyfileobj(f, self.wfile)
                 return
 
-        # 5. File Deletion Logic
-        if self.path.startswith('/delete/'):
-            filename = urllib.parse.unquote(self.path[8:])
-            filepath = os.path.join(DOWNLOAD_DIR, filename)
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            self.send_response(200)
-            self.end_headers()
-            return
-            
+            if self.path == '/qrcode.png':
+                if os.path.exists('qrcode.png'):
+                    self.send_response(200)
+                    self.send_header("Content-type", "image/png")
+                    self.end_headers()
+                    with open("qrcode.png", "rb") as f:
+                        self.wfile.write(f.read())
+                return
+
+            if self.path == '/shutdown':
+                self.send_response(200); self.end_headers()
+                self.wfile.write(b"Server stopped.")
+                print("\n[STOP] Server stopped."); os._exit(0)
+                return
+
+            if self.path == '/list/':
+                self.send_response(200)
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                self.end_headers()
+                try: files = os.listdir(DOWNLOAD_DIR)
+                except: files = []
+                file_items = ""
+                for f in files:
+                    ext = f.lower().split('.')[-1]
+                    try: size = f"{os.path.getsize(os.path.join(DOWNLOAD_DIR, f)) // 1024} KB"
+                    except: size = "0 KB"
+                    
+                    if ext in ['jpg', 'png', 'gif']: icon = "🖼️"
+                    elif ext in ['mp4', 'mkv']: icon = "🎬"
+                    elif ext == 'pdf': icon = "📕"
+                    elif ext in ['docx', 'xlsx']: icon = "📝"
+                    else: icon = "📄"
+
+                    file_items += f"""<li style="background:white;padding:15px;margin-bottom:10px;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                        <div style="display:flex;align-items:center;margin-bottom:10px;">
+                            <span style="font-size:24px;margin-right:15px;">{icon}</span>
+                            <div style="flex-grow:1;overflow:hidden;"><div style="font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{f}</div><small style="color:#888;">{size}</small></div>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <a href="/view/{f}" target="_blank" style="flex:1;text-align:center;background:#3498db;color:white;padding:10px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:14px;">Preview</a>
+                            <a href="/download/{f}" style="flex:1;text-align:center;background:#27ae60;color:white;padding:10px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:14px;">Download</a>
+                            <button onclick="deleteFile('{f}')" style="flex:1;background:#e74c3c;color:white;border:none;padding:10px;border-radius:5px;font-weight:bold;font-size:14px;">Delete</button>
+                        </div>
+                    </li>"""
+                
+                self.wfile.write(f"""<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{{font-family:sans-serif;background:#f0f2f5;padding:15px;color:#333;}} ul{{padding:0;list-style:none;}}</style><script>function deleteFile(n){{if(confirm('Delete '+n+'?'))fetch('/delete/'+encodeURIComponent(n)).then(()=>location.reload());}}</script></head><body><h2 style="text-align:center;">📂 Files</h2><ul>{file_items}</ul><a href="/" style="display:block;text-align:center;margin-top:20px;border:2px solid #3498db;padding:10px;border-radius:8px;text-decoration:none;font-weight:bold;color:#3498db;">⬅ Back</a></body></html>""".encode())
+                return
+
+            if self.path.startswith('/view/'):
+                fn = urllib.parse.unquote(self.path[6:])
+                fp = os.path.join(DOWNLOAD_DIR, fn)
+                if os.path.exists(fp):
+                    self.send_response(200)
+                    ext = fn.lower().split('.')[-1]
+                    mimes = {'pdf':'application/pdf','mp4':'video/mp4','jpg':'image/jpeg','png':'image/png'}
+                    self.send_header("Content-Type", mimes.get(ext, "application/octet-stream"))
+                    self.send_header("Content-Length", str(os.path.getsize(fp)))
+                    self.end_headers()
+                    with open(fp, 'rb') as f: shutil.copyfileobj(f, self.wfile)
+                return
+
+            if self.path.startswith('/download/'):
+                fn = urllib.parse.unquote(self.path[10:])
+                fp = os.path.join(DOWNLOAD_DIR, fn)
+                if os.path.exists(fp):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/octet-stream")
+                    self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
+                    self.send_header("Content-Length", str(os.path.getsize(fp)))
+                    self.end_headers()
+                    with open(fp, 'rb') as f: shutil.copyfileobj(f, self.wfile)
+                return
+
+            if self.path.startswith('/delete/'):
+                fn = urllib.parse.unquote(self.path[8:])
+                fp = os.path.join(DOWNLOAD_DIR, fn)
+                if os.path.exists(fp): os.remove(fp)
+                self.send_response(200); self.end_headers()
+                return
+
+        except: pass
         return super().do_GET()
 
     def do_POST(self):
         try:
-            content_type = self.headers.get('Content-Type')
-            boundary = content_type.split("boundary=")[1].encode()
-            content_length = int(self.headers.get('Content-Length'))
-
-            # Parse headers and get filename
-            line = self.rfile.readline(); content_length -= len(line)
-            line = self.rfile.readline(); content_length -= len(line)
-            fn = line.decode().split('filename=')[1].strip('"\r\n ')
-            fn = os.path.basename(urllib.parse.unquote(fn))
+            ctype = self.headers.get('Content-Type')
+            if not ctype: return
+            boundary = ctype.split("boundary=")[1].encode()
+            length = int(self.headers.get('Content-Length'))
             
-            line = self.rfile.readline(); content_length -= len(line)
-            line = self.rfile.readline(); content_length -= len(line)
+            line = self.rfile.readline()
+            read = len(line)
+            fn = "uploaded_file"
+            while line.strip():
+                if 'filename=' in line.decode(errors='ignore'):
+                    fn = line.decode(errors='ignore').split('filename=')[1].strip('"\r\n ')
+                    fn = os.path.basename(urllib.parse.unquote(fn))
+                line = self.rfile.readline()
+                read += len(line)
 
-            # Stream save with 1MB chunks to handle large files and network resets
-            out_path = os.path.join(UPLOAD_DIR, fn)
-            with open(out_path, 'wb') as out_file:
-                limit = content_length - len(boundary) - 6
-                while limit > 0:
-                    chunk = self.rfile.read(min(limit, 1024*1024))
+            out = os.path.join(UPLOAD_DIR, fn)
+            remain = length - read
+            
+            with open(out, 'wb') as f:
+                while remain > 0:
+                    chunk = self.rfile.read(min(remain, 65536))
                     if not chunk: break
-                    out_file.write(chunk)
-                    limit -= len(chunk)
-                self.rfile.read() # Final cleanup of buffer
+                    f.write(chunk)
+                    remain -= len(chunk)
 
+            with open(out, 'rb+') as f:
+                f.seek(0, 2); f_len = f.tell()
+                f.seek(max(0, f_len-300), 0)
+                tail = f.read()
+                loc = tail.find(b'--' + boundary)
+                if loc != -1:
+                    cut = max(0, f_len-300) + loc
+                    if cut > 2: f.truncate(cut - 2)
+                    else: f.truncate(cut)
+
+            # --- THE FIX IS HERE ---
+            response_body = b"Upload Complete"
             self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            # We MUST tell the phone how long the response is so it stops waiting
+            self.send_header("Content-Length", str(len(response_body)))
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Connection", "close") # Force close to ensure UI updates
             self.end_headers()
+            self.wfile.write(response_body)
+            # -----------------------
+            
             print(f"[SUCCESS] Uploaded: {fn}")
-        except (ConnectionResetError, ConnectionAbortedError):
-            print("[DISCONNECT] Client closed connection during upload.")
         except Exception as e:
             print(f"[ERROR] {e}")
-            try: self.send_error(500)
-            except: pass
 
-# Start Server and Generate QR Code
 ip = get_ip()
 url = f'http://{ip}:{PORT}'
 pyqrcode.create(url).png('qrcode.png', scale=6)
-
-print(f"--- SERVER LIVE ---")
-print(f"URL: {url}")
-print(f"-------------------")
-
-# Use Threading to allow multiple simultaneous connections
+print(f"--- SERVER LIVE: {url} ---")
 with socketserver.ThreadingTCPServer(("", PORT), FinalFileHandler) as httpd:
     httpd.allow_reuse_address = True
     httpd.serve_forever()

@@ -26,8 +26,8 @@
 
         h2 {
             color: #2c3e50;
-            margin-bottom: 20px;
             text-align: center;
+            margin-bottom: 20px;
         }
 
         .qr-section {
@@ -35,12 +35,6 @@
             margin-bottom: 25px;
             padding-bottom: 20px;
             border-bottom: 1px solid #eee;
-        }
-
-        input[type="file"] {
-            display: block;
-            width: 100%;
-            margin-bottom: 20px;
         }
 
         .btn {
@@ -53,6 +47,12 @@
             width: 100%;
             font-size: 16px;
             font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
         }
 
         .link-btn {
@@ -60,11 +60,22 @@
             background: #3498db;
             color: white;
             padding: 12px;
-            margin-top: 20px;
+            margin-top: 30px;
             text-decoration: none;
             border-radius: 8px;
             font-weight: bold;
             text-align: center;
+        }
+
+        .stop-btn {
+            background: #e74c3c;
+            margin-top: 20px;
+        }
+
+        input[type="file"] {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
         }
 
         #progress-container {
@@ -88,21 +99,30 @@
             font-size: 14px;
             color: #555;
             text-align: center;
+            font-weight: bold;
+            height: 20px;
+        }
+
+        img {
+            width: 150px;
+            height: 150px;
+            border: 1px solid #ddd;
+            padding: 5px;
+            border-radius: 10px;
         }
     </style>
 </head>
 
-<body>
+<body onload="document.getElementById('fileInput').value = ''">
     <div class="box">
         <div class="qr-section">
             <p style="font-size: 12px; color: #888; margin-bottom: 10px;">Scan to connect other devices</p>
-            <img src="/qrcode.png"
-                style="width: 150px; height: 150px; border: 1px solid #ddd; padding: 5px; border-radius: 10px;">
+            <img src="/qrcode.png" alt="QR Code">
         </div>
 
         <h2>📤 Send to PC</h2>
         <input type="file" id="fileInput">
-        <button class="btn" onclick="uploadFile()">Upload to PC</button>
+        <button class="btn" id="uploadBtn" onclick="uploadFile()">Upload to PC</button>
 
         <div id="progress-container">
             <div id="progress-bar"></div>
@@ -111,47 +131,77 @@
 
         <hr style="border:0; border-top:1px solid #eee; margin:25px 0;">
         <h2>📥 Get from PC</h2>
-        <a href="/list/" class="link-btn">📂 Browse & Review Files</a>
+        <a href="/list/" class="link-btn">📂 Browse & Preview Files</a>
+
+        <button class="btn stop-btn" onclick="disconnectServer()">🛑 Disconnect Server</button>
     </div>
 
     <script>
         function uploadFile() {
             const fileInput = document.getElementById('fileInput');
+            const btn = document.getElementById('uploadBtn');
+
             if (fileInput.files.length === 0) { alert("Please select a file first!"); return; }
 
-            const file = fileInput.files[0];
+            btn.disabled = true;
+            btn.innerText = "Uploading...";
+
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", fileInput.files[0]);
 
             const xhr = new XMLHttpRequest();
-            const progressBar = document.getElementById('progress-bar');
-            const progressContainer = document.getElementById('progress-container');
+            const bar = document.getElementById('progress-bar');
+            const container = document.getElementById('progress-container');
             const status = document.getElementById('status');
 
-            progressContainer.style.display = 'block';
+            container.style.display = 'block';
+            status.innerText = "Starting...";
 
-            // Real-time Upload Progress
-            xhr.upload.addEventListener("progress", (e) => {
+            xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     const percent = (e.loaded / e.total) * 100;
-                    progressBar.style.width = percent + "%";
+                    bar.style.width = percent + "%";
                     status.innerText = "Uploading: " + Math.round(percent) + "%";
                 }
-            });
+            };
 
-            // On Successful Upload
-            xhr.addEventListener("load", () => {
-                status.innerText = "✅ Success: " + file.name + " uploaded!";
-                fileInput.value = "";
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    status.innerText = "✅ Upload Complete!";
+                    status.style.color = "#27ae60";
+                    fileInput.value = "";
+                    btn.disabled = false;
+                    btn.innerText = "Upload to PC";
+                } else {
+                    status.innerText = "❌ Upload Failed";
+                    status.style.color = "#e74c3c";
+                    btn.disabled = false;
+                    btn.innerText = "Upload to PC";
+                }
+
                 setTimeout(() => {
-                    progressContainer.style.display = 'none';
-                    progressBar.style.width = "0%";
+                    container.style.display = 'none';
+                    bar.style.width = "0%";
                     status.innerText = "";
-                }, 3000);
-            });
+                }, 2000);
+            };
+
+            xhr.onerror = () => {
+                status.innerText = "❌ Network Error";
+                btn.disabled = false;
+                btn.innerText = "Upload to PC";
+            };
 
             xhr.open("POST", "/");
             xhr.send(formData);
+        }
+
+        function disconnectServer() {
+            if (confirm("Stop the server?")) {
+                fetch('/shutdown').then(() => {
+                    document.body.innerHTML = "<h2 style='text-align:center;margin-top:50px;color:#e74c3c;'>Disconnected</h2>";
+                }).catch(() => window.close());
+            }
         }
     </script>
 </body>
