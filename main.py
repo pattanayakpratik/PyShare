@@ -52,37 +52,81 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 print("\n[STOP] Server stopped."); os._exit(0)
                 return
 
+            # --- DARK MODE FILE LIST ---
             if self.path == '/list/':
                 self.send_response(200)
                 self.send_header("Content-type", "text/html; charset=utf-8")
                 self.end_headers()
-                try: files = os.listdir(DOWNLOAD_DIR)
+                
+                try: files = sorted(os.listdir(DOWNLOAD_DIR), key=str.lower)
                 except: files = []
-                file_items = ""
+                
+                file_rows = ""
                 for f in files:
                     ext = f.lower().split('.')[-1]
                     try: size = f"{os.path.getsize(os.path.join(DOWNLOAD_DIR, f)) // 1024} KB"
                     except: size = "0 KB"
                     
-                    if ext in ['jpg', 'png', 'gif']: icon = "🖼️"
-                    elif ext in ['mp4', 'mkv']: icon = "🎬"
+                    if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+                        icon = f'<img src="/view/{urllib.parse.quote(f)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">'
+                    elif ext in ['mp4', 'mkv', 'webm']: icon = "🎬"
+                    elif ext in ['mp3', 'wav']: icon = "🎵"
                     elif ext == 'pdf': icon = "📕"
-                    elif ext in ['docx', 'xlsx']: icon = "📝"
+                    elif ext in ['docx', 'xlsx', 'pptx']: icon = "📝"
+                    elif ext in ['py', 'js', 'html', 'css', 'json']: icon = "💻"
                     else: icon = "📄"
 
-                    file_items += f"""<li style="background:white;padding:15px;margin-bottom:10px;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-                        <div style="display:flex;align-items:center;margin-bottom:10px;">
-                            <span style="font-size:24px;margin-right:15px;">{icon}</span>
-                            <div style="flex-grow:1;overflow:hidden;"><div style="font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{f}</div><small style="color:#888;">{size}</small></div>
+                    file_rows += f"""
+                    <li class="file-item" data-name="{f.lower()}">
+                        <div style="display:flex;align-items:center;">
+                            <div style="font-size:24px;margin-right:15px;width:40px;text-align:center;">{icon}</div>
+                            <div style="flex-grow:1;overflow:hidden;">
+                                <div class="fname" style="font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;">{f}</div>
+                                <small style="color:#bbb;">{size}</small>
+                            </div>
                         </div>
-                        <div style="display:flex;gap:10px;">
-                            <a href="/view/{f}" target="_blank" style="flex:1;text-align:center;background:#3498db;color:white;padding:10px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:14px;">Preview</a>
-                            <a href="/download/{f}" style="flex:1;text-align:center;background:#27ae60;color:white;padding:10px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:14px;">Download</a>
-                            <button onclick="deleteFile('{f}')" style="flex:1;background:#e74c3c;color:white;border:none;padding:10px;border-radius:5px;font-weight:bold;font-size:14px;">Delete</button>
+                        <div class="actions">
+                            <a href="/view/{f}" target="_blank" class="act-btn blue">View</a>
+                            <a href="/download/{f}" class="act-btn green">Load</a>
+                            <button onclick="deleteFile('{f}')" class="act-btn red">Del</button>
                         </div>
                     </li>"""
                 
-                self.wfile.write(f"""<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{{font-family:sans-serif;background:#f0f2f5;padding:15px;color:#333;}} ul{{padding:0;list-style:none;}}</style><script>function deleteFile(n){{if(confirm('Delete '+n+'?'))fetch('/delete/'+encodeURIComponent(n)).then(()=>location.reload());}}</script></head><body><h2 style="text-align:center;">📂 Files</h2><ul>{file_items}</ul><a href="/" style="display:block;text-align:center;margin-top:20px;border:2px solid #3498db;padding:10px;border-radius:8px;text-decoration:none;font-weight:bold;color:#3498db;">⬅ Back</a></body></html>""".encode())
+                # CSS for Dark Mode
+                html = f"""
+                <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+                <title>Files</title>
+                <style>
+                    body{{font-family:'Segoe UI',sans-serif;background:#121212;padding:15px;color:#e0e0e0; max-width:600px; margin:auto;}} 
+                    ul{{padding:0;list-style:none;}}
+                    h2 {{color: #ffffff;}}
+                    .file-item {{background:#1e1e1e;padding:12px;margin-bottom:10px;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,0.3); border:1px solid #333;}}
+                    .actions {{display:flex;gap:5px;margin-top:10px;}}
+                    .act-btn {{flex:1;text-align:center;padding:8px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:13px;border:none;cursor:pointer;color:white; transition: opacity 0.2s;}}
+                    .act-btn:hover {{opacity: 0.8;}}
+                    .blue {{background:#2980b9;}} .green {{background:#27ae60;}} .red {{background:#c0392b;}}
+                    #search {{width:100%;padding:12px;background:#1e1e1e;border:1px solid #333;color:white;border-radius:8px;margin-bottom:20px;box-sizing:border-box;font-size:16px; outline:none;}}
+                    #search:focus {{border-color: #3498db;}}
+                    .back-btn {{display:block;text-align:center;margin-top:20px;color:#3498db;text-decoration:none;font-weight:bold;border:2px solid #3498db;padding:10px;border-radius:8px;transition:0.2s;}}
+                    .back-btn:hover {{background: #3498db; color: white;}}
+                </style>
+                <script>
+                    function deleteFile(n){{if(confirm('Delete '+n+'?'))fetch('/delete/'+encodeURIComponent(n)).then(()=>location.reload());}}
+                    function doSearch() {{
+                        let val = document.getElementById('search').value.toLowerCase();
+                        document.querySelectorAll('.file-item').forEach(li => {{
+                            li.style.display = li.getAttribute('data-name').includes(val) ? 'block' : 'none';
+                        }});
+                    }}
+                </script>
+                </head><body>
+                <h2 style="text-align:center;">📂 File Manager</h2>
+                <input type="text" id="search" placeholder="🔍 Search files..." onkeyup="doSearch()">
+                <ul>{file_rows}</ul>
+                <a href="/" class="back-btn">⬅ Back to Upload</a>
+                </body></html>"""
+                
+                self.wfile.write(html.encode())
                 return
 
             if self.path.startswith('/view/'):
@@ -157,18 +201,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     if cut > 2: f.truncate(cut - 2)
                     else: f.truncate(cut)
 
-            # --- THE FIX IS HERE ---
             response_body = b"Upload Complete"
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
-            # We MUST tell the phone how long the response is so it stops waiting
             self.send_header("Content-Length", str(len(response_body)))
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Connection", "close") # Force close to ensure UI updates
+            self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(response_body)
-            # -----------------------
-            
             print(f"[SUCCESS] Uploaded: {fn}")
         except Exception as e:
             print(f"[ERROR] {e}")

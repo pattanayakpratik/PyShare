@@ -6,9 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Modern File Share</title>
     <style>
+        /* DARK THEME COLORS */
         body {
             font-family: 'Segoe UI', sans-serif;
-            background-color: #f4f7f6;
+            background-color: #121212;
+            color: #e0e0e0;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -16,27 +18,72 @@
         }
 
         .box {
-            background: white;
+            background: #1e1e1e;
             padding: 30px;
             border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            max-width: 450px;
             width: 100%;
+            border: 1px solid #333;
         }
 
         h2 {
-            color: #2c3e50;
+            color: #ffffff;
             text-align: center;
             margin-bottom: 20px;
         }
 
+        /* QR Section */
         .qr-section {
             text-align: center;
             margin-bottom: 25px;
             padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #333;
         }
 
+        img.qr {
+            width: 150px;
+            height: 150px;
+            border: 4px solid #fff;
+            padding: 5px;
+            border-radius: 10px;
+            background: white;
+        }
+
+        /* Drag & Drop Zone */
+        .drop-zone {
+            border: 2px dashed #444;
+            background: #181818;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            color: #888;
+            margin-bottom: 15px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .drop-zone:hover {
+            border-color: #666;
+        }
+
+        .drop-zone.dragover {
+            border-color: #3498db;
+            background: #1a252f;
+            color: #3498db;
+        }
+
+        .drop-zone p {
+            margin: 0;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Buttons */
         .btn {
             background: #27ae60;
             color: white;
@@ -47,107 +94,161 @@
             width: 100%;
             font-size: 16px;
             font-weight: bold;
-            margin-top: 10px;
+            margin-top: 5px;
+            transition: 0.2s;
+        }
+
+        .btn:hover {
+            background: #2ecc71;
         }
 
         .btn:disabled {
-            background: #95a5a6;
+            background: #444;
+            color: #888;
             cursor: not-allowed;
         }
 
         .link-btn {
             display: block;
-            background: #3498db;
+            background: #2980b9;
             color: white;
             padding: 12px;
-            margin-top: 30px;
+            margin-top: 10px;
             text-decoration: none;
             border-radius: 8px;
             font-weight: bold;
             text-align: center;
+            transition: 0.2s;
+        }
+
+        .link-btn:hover {
+            background: #3498db;
         }
 
         .stop-btn {
-            background: #e74c3c;
+            background: #c0392b;
             margin-top: 20px;
         }
 
-        input[type="file"] {
-            display: block;
-            width: 100%;
-            margin-bottom: 10px;
+        .stop-btn:hover {
+            background: #e74c3c;
         }
 
+        /* Progress & Status */
         #progress-container {
             display: none;
-            margin-top: 20px;
+            margin-top: 15px;
             width: 100%;
-            background: #eee;
+            background: #333;
             border-radius: 10px;
             overflow: hidden;
         }
 
         #progress-bar {
             width: 0%;
-            height: 20px;
+            height: 15px;
             background: #27ae60;
             transition: width 0.1s;
         }
 
         #status {
             margin-top: 10px;
-            font-size: 14px;
-            color: #555;
+            font-size: 13px;
+            color: #bbb;
             text-align: center;
             font-weight: bold;
-            height: 20px;
+            min-height: 20px;
         }
 
-        img {
-            width: 150px;
-            height: 150px;
-            border: 1px solid #ddd;
-            padding: 5px;
-            border-radius: 10px;
+        /* Search Bar */
+        #searchBar {
+            width: 100%;
+            padding: 10px;
+            background: #2d2d2d;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        #searchBar:focus {
+            border-color: #3498db;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid #333;
+            margin: 25px 0;
         }
     </style>
 </head>
 
-<body onload="document.getElementById('fileInput').value = ''">
+<body>
     <div class="box">
         <div class="qr-section">
-            <p style="font-size: 12px; color: #888; margin-bottom: 10px;">Scan to connect other devices</p>
-            <img src="/qrcode.png" alt="QR Code">
+            <p style="font-size: 12px; color: #888; margin-bottom: 10px;">Scan to connect</p>
+            <img class="qr" src="/qrcode.png" alt="QR Code">
         </div>
 
-        <h2>📤 Send to PC</h2>
-        <input type="file" id="fileInput">
-        <button class="btn" id="uploadBtn" onclick="uploadFile()">Upload to PC</button>
+        <h2>📤 Upload Files</h2>
+
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <p>📁 Drag files here or click to select</p>
+            <p style="font-size:11px; margin-top:5px;">(Multiple files supported)</p>
+        </div>
+        <input type="file" id="fileInput" multiple onchange="handleFiles(this.files)">
 
         <div id="progress-container">
             <div id="progress-bar"></div>
         </div>
         <p id="status"></p>
 
-        <hr style="border:0; border-top:1px solid #eee; margin:25px 0;">
-        <h2>📥 Get from PC</h2>
-        <a href="/list/" class="link-btn">📂 Browse & Preview Files</a>
+        <hr>
+
+        <h2>📥 Browse PC</h2>
+        <a href="/list/" class="link-btn">📂 Open File Manager</a>
 
         <button class="btn stop-btn" onclick="disconnectServer()">🛑 Disconnect Server</button>
     </div>
 
     <script>
-        function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
-            const btn = document.getElementById('uploadBtn');
+        // --- Drag & Drop Logic ---
+        const dropZone = document.getElementById('dropZone');
 
-            if (fileInput.files.length === 0) { alert("Please select a file first!"); return; }
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
 
-            btn.disabled = true;
-            btn.innerText = "Uploading...";
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
 
+        // --- File Upload Logic (Queue) ---
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            uploadQueue(Array.from(files));
+        }
+
+        function uploadQueue(files) {
+            if (files.length === 0) {
+                document.getElementById('status').innerText = "✅ All uploads finished!";
+                setTimeout(() => document.getElementById('status').innerText = "", 3000);
+                return;
+            }
+
+            const file = files.shift();
+            uploadSingleFile(file, () => uploadQueue(files));
+        }
+
+        function uploadSingleFile(file, onComplete) {
             const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
+            formData.append("file", file);
 
             const xhr = new XMLHttpRequest();
             const bar = document.getElementById('progress-bar');
@@ -155,41 +256,26 @@
             const status = document.getElementById('status');
 
             container.style.display = 'block';
-            status.innerText = "Starting...";
+            status.innerText = `Uploading: ${file.name}...`;
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     const percent = (e.loaded / e.total) * 100;
                     bar.style.width = percent + "%";
-                    status.innerText = "Uploading: " + Math.round(percent) + "%";
                 }
             };
 
             xhr.onload = () => {
                 if (xhr.status === 200) {
-                    status.innerText = "✅ Upload Complete!";
-                    status.style.color = "#27ae60";
-                    fileInput.value = "";
-                    btn.disabled = false;
-                    btn.innerText = "Upload to PC";
+                    onComplete();
                 } else {
-                    status.innerText = "❌ Upload Failed";
+                    status.innerText = `❌ Error uploading ${file.name}`;
                     status.style.color = "#e74c3c";
-                    btn.disabled = false;
-                    btn.innerText = "Upload to PC";
                 }
-
-                setTimeout(() => {
-                    container.style.display = 'none';
-                    bar.style.width = "0%";
-                    status.innerText = "";
-                }, 2000);
             };
 
             xhr.onerror = () => {
                 status.innerText = "❌ Network Error";
-                btn.disabled = false;
-                btn.innerText = "Upload to PC";
             };
 
             xhr.open("POST", "/");
