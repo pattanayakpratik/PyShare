@@ -1,33 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Modern File Share</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .box { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
-        h2 { color: #2c3e50; margin-bottom: 20px; text-align: center; }
-        input[type="file"] { display: block; width: 100%; margin-bottom: 20px; }
-        .btn { background: #27ae60; color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
-        .link-btn { display: block; background: #3498db; color: white; padding: 12px; margin-top: 20px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; }
-        .qr-container { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
-        #progress-container { display: none; margin-top: 20px; width: 100%; background: #eee; border-radius: 10px; overflow: hidden; }
-        #progress-bar { width: 0%; height: 20px; background: #27ae60; transition: width 0.1s; }
-        #status { margin-top: 10px; font-size: 14px; color: #555; text-align: center; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .box {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .qr-section {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        input[type="file"] {
+            display: block;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: #27ae60;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .link-btn {
+            display: block;
+            background: #3498db;
+            color: white;
+            padding: 12px;
+            margin-top: 20px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        #progress-container {
+            display: none;
+            margin-top: 20px;
+            width: 100%;
+            background: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            width: 0%;
+            height: 20px;
+            background: #27ae60;
+            transition: width 0.1s;
+        }
+
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+            text-align: center;
+        }
     </style>
 </head>
+
 <body>
     <div class="box">
-        <div class="qr-container">
-            <p style="font-size: 14px; color: #666;">Scan to connect other devices</p>
-            <img src="/qrcode.png" alt="QR Code" style="width: 150px; height: 150px; border: 1px solid #ddd; padding: 5px; border-radius: 10px;">
+        <div class="qr-section">
+            <p style="font-size: 12px; color: #888; margin-bottom: 10px;">Scan to connect other devices</p>
+            <img src="/qrcode.png"
+                style="width: 150px; height: 150px; border: 1px solid #ddd; padding: 5px; border-radius: 10px;">
         </div>
 
         <h2>📤 Send to PC</h2>
         <input type="file" id="fileInput">
         <button class="btn" onclick="uploadFile()">Upload to PC</button>
-        
+
         <div id="progress-container">
             <div id="progress-bar"></div>
         </div>
@@ -35,16 +111,13 @@
 
         <hr style="border:0; border-top:1px solid #eee; margin:25px 0;">
         <h2>📥 Get from PC</h2>
-        <a href="/list/" class="link-btn">📂 Browse & Download</a>
+        <a href="/list/" class="link-btn">📂 Browse & Review Files</a>
     </div>
 
     <script>
         function uploadFile() {
             const fileInput = document.getElementById('fileInput');
-            if (fileInput.files.length === 0) {
-                alert("Please select a file first!");
-                return;
-            }
+            if (fileInput.files.length === 0) { alert("Please select a file first!"); return; }
 
             const file = fileInput.files[0];
             const formData = new FormData();
@@ -57,6 +130,7 @@
 
             progressContainer.style.display = 'block';
 
+            // Real-time Upload Progress
             xhr.upload.addEventListener("progress", (e) => {
                 if (e.lengthComputable) {
                     const percent = (e.loaded / e.total) * 100;
@@ -65,12 +139,13 @@
                 }
             });
 
+            // On Successful Upload
             xhr.addEventListener("load", () => {
                 status.innerText = "✅ Success: " + file.name + " uploaded!";
-                fileInput.value = ""; 
-                setTimeout(() => { 
-                    progressContainer.style.display = 'none'; 
-                    progressBar.style.width = "0%"; 
+                fileInput.value = "";
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressBar.style.width = "0%";
                     status.innerText = "";
                 }, 3000);
             });
@@ -80,4 +155,5 @@
         }
     </script>
 </body>
+
 </html>
