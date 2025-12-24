@@ -1,11 +1,27 @@
-# Ignore Python cache
+# --- Python Basics ---
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Ignore personal shared files
-SharedFiles/
+# --- Virtual Environments ---
+venv/
+env/
+.env
+
+# --- Project Specific ---
+# Ignore the generated QR code image
 qrcode.png
 
-# Ignore virtual environments
-.venv/
-venv/
+# --- Shared Data ---
+# Ignore the actual files inside these folders
+SharedFiles/From_Phone/*
+SharedFiles/From_PC/*
+
+# ...But keep the folders themselves (Create empty .gitkeep files inside them)
+!SharedFiles/From_Phone/.gitkeep
+!SharedFiles/From_PC/.gitkeep
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
