@@ -6,8 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Modern File Share</title>
     <style>
-        /* COLOR VARIABLES */
+        /* --- CSS VARIABLES FOR THEMING --- */
         :root {
+            /* Light Mode (Default) */
             --bg: #f4f7f6;
             --box: #ffffff;
             --text: #333;
@@ -17,7 +18,7 @@
             --drop-border: #ccc;
         }
 
-        /* DARK THEME OVERRIDES */
+        /* Dark Mode Overrides (Triggered by data-theme="dark") */
         [data-theme="dark"] {
             --bg: #121212;
             --box: #1e1e1e;
@@ -28,6 +29,7 @@
             --drop-border: #444;
         }
 
+        /* --- GLOBAL STYLES --- */
         body {
             font-family: 'Segoe UI', sans-serif;
             background-color: var(--bg);
@@ -37,8 +39,10 @@
             align-items: center;
             padding: 20px;
             transition: background 0.3s, color 0.3s;
+            /* Smooth theme transition */
         }
 
+        /* The Main Container Card */
         .box {
             background: var(--box);
             padding: 30px;
@@ -55,7 +59,7 @@
             margin-bottom: 20px;
         }
 
-        /* Toggle Button */
+        /* --- THEME TOGGLE BUTTON --- */
         .theme-toggle {
             position: absolute;
             top: 20px;
@@ -65,9 +69,16 @@
             font-size: 20px;
             cursor: pointer;
             color: var(--text);
+            padding: 5px;
+            border-radius: 50%;
+            transition: 0.2s;
         }
 
-        /* QR Section */
+        .theme-toggle:hover {
+            background: rgba(128, 128, 128, 0.2);
+        }
+
+        /* --- QR CODE DISPLAY --- */
         .qr-section {
             text-align: center;
             margin-bottom: 25px;
@@ -84,7 +95,7 @@
             background: white;
         }
 
-        /* Drag & Drop Zone */
+        /* --- DRAG & DROP AREA --- */
         .drop-zone {
             border: 2px dashed var(--drop-border);
             background: var(--drop-bg);
@@ -101,6 +112,7 @@
             border-color: #666;
         }
 
+        /* Class added via JS when dragging file over */
         .drop-zone.dragover {
             border-color: #3498db;
             background: rgba(52, 152, 219, 0.1);
@@ -113,11 +125,12 @@
             pointer-events: none;
         }
 
+        /* Hidden standard file input */
         input[type="file"] {
             display: none;
         }
 
-        /* Buttons */
+        /* --- BUTTONS --- */
         .btn {
             background: #27ae60;
             color: white;
@@ -134,11 +147,6 @@
 
         .btn:hover {
             background: #2ecc71;
-        }
-
-        .btn:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
         }
 
         .link-btn {
@@ -167,9 +175,10 @@
             background: #c0392b;
         }
 
-        /* Progress & Status */
+        /* --- PROGRESS BAR & STATUS --- */
         #progress-container {
             display: none;
+            /* Hidden until upload starts */
             margin-top: 15px;
             width: 100%;
             background: var(--border);
@@ -232,42 +241,55 @@
     </div>
 
     <script>
-        // --- THEME LOGIC ---
+        // --- 1. THEME LOGIC (Auto + Persistence) ---
         function toggleTheme() {
+            // Get current theme, switch it, and save to LocalStorage
             const current = document.documentElement.getAttribute('data-theme');
             const target = current === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', target);
             localStorage.setItem('theme', target);
         }
 
-        // Init Theme (Check Storage -> Then System Pref)
+        // Initialize Theme on Load
         (function () {
             const saved = localStorage.getItem('theme');
             const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (saved) { document.documentElement.setAttribute('data-theme', saved); }
-            else if (sysDark) { document.documentElement.setAttribute('data-theme', 'dark'); }
+
+            // Use saved preference if exists, otherwise check system settings
+            if (saved) {
+                document.documentElement.setAttribute('data-theme', saved);
+            } else if (sysDark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
         })();
 
-        // --- Drag & Drop Logic ---
+        // --- 2. DRAG & DROP EVENT LISTENERS ---
         const dropZone = document.getElementById('dropZone');
+
+        // Prevent default browser behavior (opening the file)
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, preventDefaults, false);
         });
         function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
 
+        // Add visual cues when dragging over
         dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'));
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+        // Handle the actual file drop
         dropZone.addEventListener('drop', (e) => {
             dropZone.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
 
-        // --- File Upload Logic (Queue) ---
+        // --- 3. FILE UPLOAD LOGIC ---
         function handleFiles(files) {
             if (files.length === 0) return;
+            // Convert FileList to Array and start queue
             uploadQueue(Array.from(files));
         }
 
+        // Recursive function to upload files one by one
         function uploadQueue(files) {
             if (files.length === 0) {
                 document.getElementById('status').innerText = "✅ All uploads finished!";
@@ -275,14 +297,15 @@
                 return;
             }
 
-            const file = files.shift();
-            uploadSingleFile(file, () => uploadQueue(files));
+            const file = files.shift(); // Take first file
+            uploadSingleFile(file, () => uploadQueue(files)); // On complete, call queue again
         }
 
         function uploadSingleFile(file, onComplete) {
             const formData = new FormData();
             formData.append("file", file);
 
+            // Use XMLHttpRequest for progress tracking (Fetch API doesn't do upload progress well)
             const xhr = new XMLHttpRequest();
             const bar = document.getElementById('progress-bar');
             const container = document.getElementById('progress-container');
@@ -291,6 +314,7 @@
             container.style.display = 'block';
             status.innerText = `Uploading: ${file.name}...`;
 
+            // Update Progress Bar
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     const percent = (e.loaded / e.total) * 100;
@@ -298,6 +322,7 @@
                 }
             };
 
+            // Handle Completion
             xhr.onload = () => {
                 if (xhr.status === 200) {
                     onComplete();
@@ -315,8 +340,10 @@
             xhr.send(formData);
         }
 
+        // --- 4. SERVER DISCONNECT ---
         function disconnectServer() {
             if (confirm("Stop the server?")) {
+                // Send request to /shutdown endpoint
                 fetch('/shutdown').then(() => {
                     document.body.innerHTML = "<h2 style='text-align:center;margin-top:50px;color:#e74c3c;'>Disconnected</h2>";
                 }).catch(() => window.close());

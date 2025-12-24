@@ -1,0 +1,11 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore personal shared files
+SharedFiles/
+qrcode.png
+
+# Ignore virtual environments
+.venv/
+venv/
