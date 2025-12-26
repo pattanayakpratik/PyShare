@@ -4,352 +4,73 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Modern File Share</title>
-    <style>
-        /* --- CSS VARIABLES FOR THEMING --- */
-        :root {
-            /* Light Mode (Default) */
-            --bg: #f4f7f6;
-            --box: #ffffff;
-            --text: #333;
-            --sub: #888;
-            --border: #eee;
-            --drop-bg: #fafafa;
-            --drop-border: #ccc;
-        }
-
-        /* Dark Mode Overrides (Triggered by data-theme="dark") */
-        [data-theme="dark"] {
-            --bg: #121212;
-            --box: #1e1e1e;
-            --text: #e0e0e0;
-            --sub: #bbb;
-            --border: #333;
-            --drop-bg: #252525;
-            --drop-border: #444;
-        }
-
-        /* --- GLOBAL STYLES --- */
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            transition: background 0.3s, color 0.3s;
-            /* Smooth theme transition */
-        }
-
-        /* The Main Container Card */
-        .box {
-            background: var(--box);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
-            max-width: 450px;
-            width: 100%;
-            border: 1px solid var(--border);
-            position: relative;
-        }
-
-        h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        /* --- THEME TOGGLE BUTTON --- */
-        .theme-toggle {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: var(--text);
-            padding: 5px;
-            border-radius: 50%;
-            transition: 0.2s;
-        }
-
-        .theme-toggle:hover {
-            background: rgba(128, 128, 128, 0.2);
-        }
-
-        /* --- QR CODE DISPLAY --- */
-        .qr-section {
-            text-align: center;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        img.qr {
-            width: 150px;
-            height: 150px;
-            border: 4px solid #fff;
-            padding: 5px;
-            border-radius: 10px;
-            background: white;
-        }
-
-        /* --- DRAG & DROP AREA --- */
-        .drop-zone {
-            border: 2px dashed var(--drop-border);
-            background: var(--drop-bg);
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            color: var(--sub);
-            margin-bottom: 15px;
-            transition: 0.2s;
-            cursor: pointer;
-        }
-
-        .drop-zone:hover {
-            border-color: #666;
-        }
-
-        /* Class added via JS when dragging file over */
-        .drop-zone.dragover {
-            border-color: #3498db;
-            background: rgba(52, 152, 219, 0.1);
-            color: #3498db;
-        }
-
-        .drop-zone p {
-            margin: 0;
-            font-size: 14px;
-            pointer-events: none;
-        }
-
-        /* Hidden standard file input */
-        input[type="file"] {
-            display: none;
-        }
-
-        /* --- BUTTONS --- */
-        .btn {
-            background: #27ae60;
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 5px;
-            transition: 0.2s;
-        }
-
-        .btn:hover {
-            background: #2ecc71;
-        }
-
-        .link-btn {
-            display: block;
-            background: #3498db;
-            color: white;
-            padding: 12px;
-            margin-top: 10px;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: bold;
-            text-align: center;
-            transition: 0.2s;
-        }
-
-        .link-btn:hover {
-            background: #2980b9;
-        }
-
-        .stop-btn {
-            background: #e74c3c;
-            margin-top: 20px;
-        }
-
-        .stop-btn:hover {
-            background: #c0392b;
-        }
-
-        /* --- PROGRESS BAR & STATUS --- */
-        #progress-container {
-            display: none;
-            /* Hidden until upload starts */
-            margin-top: 15px;
-            width: 100%;
-            background: var(--border);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        #progress-bar {
-            width: 0%;
-            height: 15px;
-            background: #27ae60;
-            transition: width 0.1s;
-        }
-
-        #status {
-            margin-top: 10px;
-            font-size: 13px;
-            color: var(--sub);
-            text-align: center;
-            font-weight: bold;
-            min-height: 20px;
-        }
-
-        hr {
-            border: 0;
-            border-top: 1px solid var(--border);
-            margin: 25px 0;
-        }
-    </style>
+    <title>PyShare</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-    <div class="box">
-        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark Mode">🌓</button>
-
-        <div class="qr-section">
-            <p style="font-size: 12px; color: var(--sub); margin-bottom: 10px;">Scan to connect</p>
-            <img class="qr" src="/qrcode.png" alt="QR Code">
+    <div id="qrOverlay" class="overlay" onclick="toggleQR()">
+        <div class="qr-card" onclick="event.stopPropagation()">
+            <h3>📱 Scan to Connect</h3>
+            <img src="/qrcode.png" alt="QR Code" class="qr-img">
+            <p>Connect devices to the same Wi-Fi</p>
+            <button class="btn-close" onclick="toggleQR()">Close</button>
         </div>
-
-        <h2>📤 Upload Files</h2>
-
-        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-            <p>📁 Drag files here or click to select</p>
-            <p style="font-size:11px; margin-top:5px;">(Multiple files supported)</p>
-        </div>
-        <input type="file" id="fileInput" multiple onchange="handleFiles(this.files)">
-
-        <div id="progress-container">
-            <div id="progress-bar"></div>
-        </div>
-        <p id="status"></p>
-
-        <hr>
-
-        <h2>📥 Browse PC</h2>
-        <a href="/list/" class="link-btn">📂 Open File Manager</a>
-
-        <button class="btn stop-btn" onclick="disconnectServer()">🛑 Disconnect Server</button>
     </div>
 
-    <script>
-        // --- 1. THEME LOGIC (Auto + Persistence) ---
-        function toggleTheme() {
-            // Get current theme, switch it, and save to LocalStorage
-            const current = document.documentElement.getAttribute('data-theme');
-            const target = current === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', target);
-            localStorage.setItem('theme', target);
-        }
+    <div class="app-container">
+        <nav class="navbar">
+            <div style="display:flex; gap:10px;">
+                <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+                <button class="icon-btn" onclick="toggleQR()" title="Show QR Code">📱</button>
+            </div>
 
-        // Initialize Theme on Load
-        (function () {
-            const saved = localStorage.getItem('theme');
-            const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            <div class="logo">
+                <span style="font-size:24px;">⚡</span> PyShare
+            </div>
 
-            // Use saved preference if exists, otherwise check system settings
-            if (saved) {
-                document.documentElement.setAttribute('data-theme', saved);
-            } else if (sysDark) {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
-        })();
+            <button class="icon-btn" onclick="disconnectServer()" style="color:var(--accent-red)"
+                title="Stop Server">🛑</button>
+        </nav>
 
-        // --- 2. DRAG & DROP EVENT LISTENERS ---
-        const dropZone = document.getElementById('dropZone');
+        <div class="status-bar" onclick="toggleQR()" style="cursor:pointer" title="Click to show QR">
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                <span>Connected: <span id="host-ip" style="font-weight:bold; color:var(--text-main)">...</span></span>
+            </div>
+        </div>
 
-        // Prevent default browser behavior (opening the file)
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-        });
-        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        <div class="upload-card" id="dropZone">
+            <div class="upload-icon">☁️</div>
+            <h3>Send to PC</h3>
+            <p>Drag & Drop files here or</p>
+            <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+            <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
 
-        // Add visual cues when dragging over
-        dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'));
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            <div id="progress-container" class="progress-wrapper">
+                <div class="progress-labels">
+                    <span id="status">Uploading...</span>
+                    <span id="percent-text">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div id="progress-bar" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
 
-        // Handle the actual file drop
-        dropZone.addEventListener('drop', (e) => {
-            dropZone.classList.remove('dragover');
-            handleFiles(e.dataTransfer.files);
-        });
+        <div class="files-section">
+            <div class="section-header">
+                <h2>Files on PC</h2>
+                <input type="text" id="searchBox" placeholder="🔍 Search files..." onkeyup="filterFiles()">
+            </div>
+            <ul id="file-list" class="file-list">
+                <li class="loading-state">Loading files...</li>
+            </ul>
+        </div>
+    </div>
 
-        // --- 3. FILE UPLOAD LOGIC ---
-        function handleFiles(files) {
-            if (files.length === 0) return;
-            // Convert FileList to Array and start queue
-            uploadQueue(Array.from(files));
-        }
-
-        // Recursive function to upload files one by one
-        function uploadQueue(files) {
-            if (files.length === 0) {
-                document.getElementById('status').innerText = "✅ All uploads finished!";
-                setTimeout(() => document.getElementById('status').innerText = "", 3000);
-                return;
-            }
-
-            const file = files.shift(); // Take first file
-            uploadSingleFile(file, () => uploadQueue(files)); // On complete, call queue again
-        }
-
-        function uploadSingleFile(file, onComplete) {
-            const formData = new FormData();
-            formData.append("file", file);
-
-            // Use XMLHttpRequest for progress tracking (Fetch API doesn't do upload progress well)
-            const xhr = new XMLHttpRequest();
-            const bar = document.getElementById('progress-bar');
-            const container = document.getElementById('progress-container');
-            const status = document.getElementById('status');
-
-            container.style.display = 'block';
-            status.innerText = `Uploading: ${file.name}...`;
-
-            // Update Progress Bar
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percent = (e.loaded / e.total) * 100;
-                    bar.style.width = percent + "%";
-                }
-            };
-
-            // Handle Completion
-            xhr.onload = () => {
-                if (xhr.status === 200) {
-                    onComplete();
-                } else {
-                    status.innerText = `❌ Error uploading ${file.name}`;
-                    status.style.color = "#e74c3c";
-                }
-            };
-
-            xhr.onerror = () => {
-                status.innerText = "❌ Network Error";
-            };
-
-            xhr.open("POST", "/");
-            xhr.send(formData);
-        }
-
-        // --- 4. SERVER DISCONNECT ---
-        function disconnectServer() {
-            if (confirm("Stop the server?")) {
-                // Send request to /shutdown endpoint
-                fetch('/shutdown').then(() => {
-                    document.body.innerHTML = "<h2 style='text-align:center;margin-top:50px;color:#e74c3c;'>Disconnected</h2>";
-                }).catch(() => window.close());
-            }
-        }
-    </script>
+    <script src="scripts.js"></script>
+    <script>document.getElementById('host-ip').innerText = window.location.host;</script>
 </body>
 
 </html>
