@@ -20,7 +20,7 @@ The latest version (**v2.0**) features a stunning **Glassmorphism UI**, real-tim
 
 | **Desktop View** | **Mobile View** |
 |:----------------:|:---------------:|
-| ![Desktop 1](Screenshots/desktop.png)<br><br>![Desktop 2](Screenshots/desktop2.png) | ![Mobile 1](Screenshots/mobile1.jpg)<br>![Mobile 2](Screenshots/mobile2.jpg)<br>![Mobile 3](Screenshots/mobile3.jpg)<br>![Mobile 4](Screenshots/mobile4.jpg) |
+| ![Desktop 1](Screenshots/desktop.png)<br><br>![Desktop 2](Screenshots/desktop2.png) | ![Mobile 1](Screenshots/mobile.jpg)<br>![Mobile 2](Screenshots/mobile2.jpg)<br>![Mobile 3](Screenshots/mobile3.jpg)<br>![Mobile 4](Screenshots/mobile4.jpg) |
 | *Clean 3-column dashboard* | *Responsive single-column layout* |
 
 
