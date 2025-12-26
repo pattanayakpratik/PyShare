@@ -42,9 +42,6 @@ function setupDragDrop() {
     }, false);
 }
 
-// --- 3. FILE LISTS & SEARCH ---
-// ex/scripts.js (Update the Search Logic)
-
 // --- FILE LISTS & SEARCH ---
 let pcFiles = [];
 let mobileFiles = [];
