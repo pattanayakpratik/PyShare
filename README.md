@@ -25,7 +25,8 @@
 - **🎨 Modern Glassmorphism UI:** A beautiful interface with frosted glass effects, gradients, and smooth animations.
 - **🌗 Dark & Light Themes:** Automatically detects your system preference, or toggle manually.
 - **⚡ Single Page Application (SPA):** Instant interactions without page reloads.
-- **📂 Smart File Management:** - **Dual Lists:** Clearly separates "Files on PC" from "Received from Phone".
+- **📂 Smart File Management:**
+  - **Dual Lists:** Clearly separates "Files on PC" from "Received from Phone".
   - **Real-Time Search:** Filter through hundreds of files instantly as you type.
 - **☁️ Drag & Drop Uploads:** Simply drag files into the box to upload from phone or PC.
 - **📊 Visual Progress Bar:** See upload percentages in real-time.
@@ -36,10 +37,8 @@
 
 | **Desktop View** | **Mobile View** |
 |:----------------:|:---------------:|
-| ![Desktop 1](Screenshots/desktop.png)<br><br>![Desktop 2](Screenshots/desktop2.png) | ![Mobile 1](Screenshots/mobile.jpg)<br>![Mobile 2](Screenshots/mobile2.jpg)<br>![Mobile 3](Screenshots/mobile3.jpg)<br>![Mobile 4](Screenshots/mobile4.jpg) |
+| <img src="Screenshots/desktop.png" width="400" alt="Desktop 1"><br><br><img src="Screenshots/desktop2.png" width="400" alt="Desktop 2"> | <img src="Screenshots/mobile.jpg" width="200" alt="Mobile 1"><br><img src="Screenshots/mobile2.jpg" width="200" alt="Mobile 2"><br><img src="Screenshots/mobile3.jpg" width="200" alt="Mobile 3"><br><img src="Screenshots/mobile4.jpg" width="200" alt="Mobile 4"> |
 | *Clean 3-column dashboard* | *Responsive single-column layout* |
-
-
 
 ## 📂 Directory Structure
 
