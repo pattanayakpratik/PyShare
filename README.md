@@ -1,22 +1,24 @@
-<h1 align="center">
-  ⚡ PyShare 📲
-</h1>
-![PyShare Banner](Screenshots/banner.svg)
-<p align="center">
-  <strong>A lightweight, high-speed Python tool to share files between PC and Mobile over Wi-Fi.</strong>
-</p>
+<div align="center">
 
-<p align="center">
-  <a href="#-features">Features</a> •
-  <a href="#-installation">Installation</a> •
-  <a href="#-usage">Usage</a>
-</p>
+  <h1>⚡ PyShare 📲</h1>
+
+  <img src="Screenshots/banner.svg" alt="PyShare Banner" width="100%">
+
+  <br><br>
+
+  <strong>A lightweight, high-speed Python tool to share files between PC and Mobile over Wi-Fi.</strong>
+
+  <p>
+    <a href="#-features">Features</a> •
+    <a href="#-installation">Installation</a> •
+    <a href="#-usage">Usage</a>
+  </p>
+
+</div>
 
 <br>
 
-**PyShare** is a lightweight, high-speed Python tool to share files between your PC and mobile devices over your local WiFi network. 
-
-The latest version (**v2.0**) features a stunning **Glassmorphism UI**, real-time file searching, drag-and-drop uploads, and automatic Dark/Light mode switching.
+**PyShare** is a modern, ultra-fast local file sharing tool. The latest version (**v2.0**) features a stunning **Glassmorphism UI**, real-time file searching, drag-and-drop uploads, and automatic Dark/Light mode switching.
 
 ## 🚀 Features
 
