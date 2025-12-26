@@ -60,7 +60,7 @@
             <div class="files-section">
                 <div class="section-header">
                     <h2>💻 Files on PC</h2>
-                    <input type="text" id="searchBox" placeholder="🔍 Search files..." onkeyup="filterFiles()">
+                    <input type="text" id="searchPC" placeholder="🔍 Search PC files..." onkeyup="filterPC()">
                 </div>
                 <ul id="file-list" class="file-list">
                     <li class="loading-state">Loading files...</li>
@@ -70,6 +70,7 @@
             <div class="files-section mt-20">
                 <div class="section-header">
                     <h2>📂 Received from Phone</h2>
+                    <input type="text" id="searchMobile" placeholder="🔍 Search uploads..." onkeyup="filterMobile()">
                 </div>
                 <ul id="mobile-list" class="file-list">
                     <li class="loading-state">No uploads yet</li>

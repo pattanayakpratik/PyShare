@@ -43,6 +43,9 @@ function setupDragDrop() {
 }
 
 // --- 3. FILE LISTS & SEARCH ---
+// ex/scripts.js (Update the Search Logic)
+
+// --- FILE LISTS & SEARCH ---
 let pcFiles = [];
 let mobileFiles = [];
 
@@ -84,17 +87,19 @@ function renderList(files, elementId, emptyMsg) {
     }).join('');
 }
 
-// Search Filter
-function filterFiles() {
-    const query = document.getElementById('searchBox').value.toLowerCase();
+// --- NEW: SEPARATE FILTER FUNCTIONS ---
 
-    const filteredPC = pcFiles.filter(f => f.name.toLowerCase().includes(query));
-    const filteredMobile = mobileFiles.filter(f => f.name.toLowerCase().includes(query));
-
-    renderList(filteredPC, 'file-list', 'No matches on PC');
-    renderList(filteredMobile, 'mobile-list', 'No matches in Mobile Uploads');
+function filterPC() {
+    const query = document.getElementById('searchPC').value.toLowerCase();
+    const filtered = pcFiles.filter(f => f.name.toLowerCase().includes(query));
+    renderList(filtered, 'file-list', 'No matches on PC');
 }
 
+function filterMobile() {
+    const query = document.getElementById('searchMobile').value.toLowerCase();
+    const filtered = mobileFiles.filter(f => f.name.toLowerCase().includes(query));
+    renderList(filtered, 'mobile-list', 'No matches in Mobile Uploads');
+}
 // Helper: Smart Icons
 function getSmartIcon(name) {
     const ext = name.split('.').pop().toLowerCase();
