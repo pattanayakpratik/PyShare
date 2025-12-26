@@ -10,8 +10,8 @@
 
   <p>
     <a href="#-features">Features</a> •
-    <a href="#-installation">Installation</a> •
-    <a href="#-usage">Usage</a>
+    <a href="#%EF%B8%8F-installation">Installation</a> •
+    <a href="#%EF%B8%8F-usage">Usage</a>
   </p>
 
 </div>
