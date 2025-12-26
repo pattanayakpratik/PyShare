@@ -1,10 +1,10 @@
-/* ex/styles.css */
-
+/* --- 1. THEME VARIABLES --- */
 :root {
-    /* --- LIGHT THEME (Default) --- */
+    /* LIGHT MODE (Default) - Soft Blue Gradient */
     --bg-gradient: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
     --bg-color: #f3f4f6;
     --card-bg: rgba(255, 255, 255, 0.75);
+    /* Frosted Glass */
     --card-blur: 12px;
     --text-main: #111827;
     --text-sub: #4b5563;
@@ -18,8 +18,10 @@
     --accent-red: #ef4444;
 }
 
+/* DARK MODE OVERRIDE */
 [data-theme="dark"] {
     --bg-gradient: #0f172a;
+    /* Deep Navy */
     --bg-color: #0f172a;
     --card-bg: #1e293b;
     --card-blur: 0px;
@@ -44,10 +46,9 @@ body {
     transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* --- RESPONSIVE CONTAINER --- */
+/* --- 2. LAYOUT CONTAINER --- */
 .app-container {
     width: 100%;
-    /* Mobile First: Narrow centered column */
     max-width: 480px;
     padding: 20px;
     box-sizing: border-box;
@@ -56,7 +57,7 @@ body {
     gap: 20px;
 }
 
-/* --- NAVBAR --- */
+/* --- 3. NAVBAR & STATUS --- */
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -70,9 +71,6 @@ body {
     background: linear-gradient(135deg, var(--accent-blue), #8b5cf6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    display: flex;
-    align-items: center;
-    gap: 8px;
 }
 
 .icon-btn {
@@ -87,16 +85,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
     transition: 0.2s;
 }
 
 .icon-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+    background: var(--input-bg);
 }
 
-/* --- STATUS PILL --- */
 .status-bar {
     display: flex;
     justify-content: center;
@@ -122,12 +118,12 @@ body {
 .status-dot {
     width: 8px;
     height: 8px;
-    background-color: var(--accent-green);
+    background: var(--accent-green);
     border-radius: 50%;
     box-shadow: 0 0 10px var(--accent-green);
 }
 
-/* --- CARDS --- */
+/* --- 4. GLASS CARDS --- */
 .upload-card,
 .files-section {
     background: var(--card-bg);
@@ -136,10 +132,8 @@ body {
     padding: 25px;
     box-shadow: var(--shadow);
     backdrop-filter: blur(var(--card-blur));
-    transition: transform 0.3s ease, border-color 0.3s;
 }
 
-/* Upload Card Specifics */
 .upload-card {
     text-align: center;
     border: 2px dashed var(--border-color);
@@ -155,13 +149,6 @@ body {
 .upload-icon {
     font-size: 48px;
     margin-bottom: 10px;
-    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.1));
-}
-
-.upload-card h3 {
-    margin: 5px 0 20px 0;
-    font-size: 18px;
-    font-weight: 700;
 }
 
 .btn-primary {
@@ -171,7 +158,6 @@ body {
     padding: 12px 35px;
     border-radius: 50px;
     font-weight: 700;
-    font-size: 14px;
     cursor: pointer;
     box-shadow: 0 4px 15px var(--glow);
     transition: 0.2s;
@@ -190,14 +176,6 @@ body {
     border-radius: 12px;
 }
 
-.progress-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    margin-bottom: 6px;
-    color: var(--text-sub);
-}
-
 .progress-track {
     height: 6px;
     background: rgba(0, 0, 0, 0.05);
@@ -212,42 +190,40 @@ body {
     transition: width 0.1s;
 }
 
-/* File List */
-.section-header {
+.progress-labels {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-bottom: 5px;
+    color: var(--text-sub);
+}
+
+/* --- 5. FILE LIST --- */
+.section-header {
     margin-bottom: 15px;
 }
 
 .section-header h2 {
-    margin: 0;
+    margin: 0 0 10px 0;
     font-size: 18px;
 }
 
 #searchBox {
     width: 100%;
-    padding: 12px 15px;
+    padding: 12px;
     border-radius: 12px;
     border: 1px solid var(--border-color);
     background: var(--input-bg);
     color: var(--text-main);
     outline: none;
-    font-size: 14px;
     box-sizing: border-box;
-    transition: 0.2s;
-}
-
-#searchBox:focus {
-    border-color: var(--accent-blue);
-    box-shadow: 0 0 0 3px var(--glow);
 }
 
 .file-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 400px;
+    max-height: 300px;
     overflow-y: auto;
 }
 
@@ -256,22 +232,17 @@ body {
     align-items: center;
     padding: 12px 0;
     border-bottom: 1px solid var(--border-color);
-}
-
-.file-item:last-child {
-    border-bottom: none;
+    gap: 12px;
 }
 
 .f-icon {
     font-size: 24px;
-    margin-right: 15px;
-    width: 30px;
-    text-align: center;
+    flex-shrink: 0;
 }
 
 .f-info {
     flex-grow: 1;
-    overflow: hidden;
+    min-width: 0;
 }
 
 .f-name-link {
@@ -283,12 +254,10 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 2px;
 }
 
 .f-name-link:hover {
     color: var(--accent-blue);
-    text-decoration: underline;
 }
 
 .f-size {
@@ -307,9 +276,8 @@ body {
     justify-content: center;
     text-decoration: none;
     color: var(--text-main);
+    flex-shrink: 0;
     transition: 0.2s;
-    font-size: 14px;
-    /* flex-shrink: 0; */
 }
 
 .dl-btn:hover {
@@ -318,7 +286,11 @@ body {
     border-color: var(--accent-blue);
 }
 
-/* --- QR MODAL --- */
+.mt-20 {
+    margin-top: 20px;
+}
+
+/* --- 6. QR MODAL --- */
 .overlay {
     display: none;
     position: fixed;
@@ -326,97 +298,65 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(8px);
-    z-index: 9999;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    z-index: 999;
     justify-content: center;
     align-items: center;
-    animation: fadeIn 0.2s ease-out;
 }
-
-/* ex/styles.css */
-
-/* ... (Existing Overlay styles) ... */
 
 .qr-card {
     background: white;
-    color: #111827;
-    /* <--- FIX: Force dark text on the white card */
+    color: #111;
     padding: 30px;
     border-radius: 24px;
     text-align: center;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-    max-width: 300px;
-    width: 90%;
-    transform: scale(0.9);
-    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-}
-
-/* Ensure the Close button stays high-contrast */
-.btn-close {
-    background: #111827;
-    /* Dark background */
-    color: white;
-    /* White text */
-    border: none;
-    padding: 10px 25px;
-    border-radius: 50px;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 10px;
-    transition: background 0.2s;
-}
-
-.btn-close:hover {
-    background: #374151;
-    /* Slightly lighter on hover */
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    animation: popIn 0.3s forwards;
 }
 
 .qr-img {
     width: 180px;
     height: 180px;
     margin: 15px 0;
-    border-radius: 12px;
 }
 
+.btn-close {
+    background: #111;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
 
-@keyframes fadeIn {
+@keyframes popIn {
     from {
+        transform: scale(0.8);
         opacity: 0;
     }
 
     to {
+        transform: scale(1);
         opacity: 1;
     }
 }
 
-@keyframes popIn {
-    to {
-        transform: scale(1);
-    }
-}
-
 /* ========================================= */
-/* ⚡ RESPONSIVE MEDIA QUERIES ⚡      */
+/* ⚡ RESPONSIVE GRID (DESKTOP) ⚡            */
 /* ========================================= */
-
-/* TABLET & DESKTOP (> 768px) */
 @media (min-width: 768px) {
     .app-container {
-        max-width: 1000px;
-        /* Wider container */
+        max-width: 1200px;
         display: grid;
-        /* Grid Layout: [Upload] [Files] */
-        grid-template-columns: 350px 1fr;
+        grid-template-columns: 320px 1fr;
+        /* Upload (Fixed) | Files (Flex) */
         grid-template-rows: auto auto 1fr;
-        grid-template-areas:
-            "head head"
-            "stat stat"
-            "up   files";
-        align-items: start;
+        grid-template-areas: "head head" "stat stat" "up files";
+        align-items: stretch;
         gap: 30px;
         height: 90vh;
-        /* Use most of the screen height */
     }
 
     .navbar {
@@ -427,26 +367,45 @@ body {
         grid-area: stat;
     }
 
+    /* Upload Card stretches to match Files height */
     .upload-card {
         grid-area: up;
         height: 100%;
+        max-height: none;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        max-height: 400px;
+        box-sizing: border-box;
+    }
+
+    /* Files Container: Side-by-Side Lists */
+    .files-wrapper {
+        grid-area: files;
+        display: flex;
+        flex-direction: row;
+        gap: 20px;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .files-section {
-        grid-area: files;
-        height: 100%;
-        max-height: calc(100vh - 150px);
+        margin-top: 0 !important;
+        flex: 1;
         display: flex;
         flex-direction: column;
+        height: 100%;
+        min-width: 0;
+        padding: 25px;
+        padding-bottom: 10px;
+        /* Fix rounded corners */
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     .file-list {
-        max-height: 100%;
-        /* Fill available space */
+        flex-grow: 1;
         overflow-y: auto;
+        padding-right: 5px;
     }
 }
