@@ -1,6 +1,18 @@
-# PyShare 📲
-
+<h1 align="center">
+  ⚡ PyShare 📲
+</h1>
 ![PyShare Banner](Screenshots/banner.svg)
+<p align="center">
+  <strong>A lightweight, high-speed Python tool to share files between PC and Mobile over Wi-Fi.</strong>
+</p>
+
+<p align="center">
+  <a href="#-features">Features</a> •
+  <a href="#-installation">Installation</a> •
+  <a href="#-usage">Usage</a>
+</p>
+
+<br>
 
 **PyShare** is a lightweight, high-speed Python tool to share files between your PC and mobile devices over your local WiFi network. 
 
