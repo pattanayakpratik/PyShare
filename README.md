@@ -39,10 +39,17 @@
 
 ## 📸 Screenshots
 
-| **Desktop View** | **Mobile View** |
-|:----------------:|:---------------:|
-| <img src="Screenshots/desktop.png" width="400" alt="Desktop 1"><br><br><img src="Screenshots/desktop2.png" width="400" alt="Desktop 2"> | <img src="Screenshots/mobile.jpg" width="200" alt="Mobile 1"><br><img src="Screenshots/mobile2.jpg" width="200" alt="Mobile 2"><br><img src="Screenshots/mobile3.jpg" width="200" alt="Mobile 3"><br><img src="Screenshots/mobile4.jpg" width="200" alt="Mobile 4"> |
-| *Clean 3-column dashboard* | *Responsive single-column layout* |
+### 🖥️ Desktop View
+*Clean 3-column dashboard*
+
+<img src="Screenshots/desktop.png" width="80%" alt="Desktop Dashboard">
+<br><br>
+<img src="Screenshots/desktop2.png" width="80%" alt="Desktop File List">
+
+### 📱 Mobile View
+*Responsive single-column layout*
+
+<img src="Screenshots/mobile.jpg" width="200" alt="Mobile Home"> <img src="Screenshots/mobile2.jpg" width="200" alt="Mobile Files"> <img src="Screenshots/mobile3.jpg" width="200" alt="Mobile Dark Mode"> <img src="Screenshots/mobile4.jpg" width="200" alt="Mobile Uploads">
 
 ## 📂 Directory Structure
 
