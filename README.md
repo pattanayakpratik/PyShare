@@ -63,7 +63,7 @@ PyShare/
 └── ...
 
 ```
-*(Note: All shared files are now stored in Desktop/PyShare_Files automatically.)*
+*(Note: All shared files are now stored in `Desktop/PyShare_Files` automatically.)*
 
 ## 🛠️ Installation
 
