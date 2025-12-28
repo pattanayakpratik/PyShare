@@ -18,11 +18,14 @@
 
 <br>
 
-**PyShare** is a modern, ultra-fast local file sharing tool. The latest version (**v2.0**) features a stunning **Glassmorphism UI**, real-time file searching, drag-and-drop uploads, and automatic Dark/Light mode switching.
+**PyShare** is a modern, ultra-fast local file sharing tool. The latest version (**v2.1**) features a stunning **Glassmorphism UI**, real-time file searching, drag-and-drop uploads, and automatic Dark/Light mode switching.
 
 ## 🚀 Features
 
 - **🎨 Modern Glassmorphism UI:** A beautiful interface with frosted glass effects, gradients, and smooth animations.
+- **📂 Desktop Integration:** Automatically creates a `PyShare_Files` folder on your **Desktop** and opens it for you.
+- **🚀 Smart Launch:** Automatically opens your web browser to the correct URL when started.
+- **🔌 Port Conflict Protection:** Automatically finds an open port (8010-8020) if the default is busy.
 - **🌗 Dark & Light Themes:** Automatically detects your system preference, or toggle manually.
 - **⚡ Single Page Application (SPA):** Instant interactions without page reloads.
 - **📂 Smart File Management:**
@@ -32,6 +35,7 @@
 - **📊 Visual Progress Bar:** See upload percentages in real-time.
 - **📱 Easy Connection:** Scan the generated QR code to connect instantly.
 - **🔐 Offline Privacy:** Works entirely over LAN (Local Area Network) – no internet required.
+- **🔇 Silent Mode:** Keeps your terminal clean by only showing active transfers (no spammy logs).
 
 ## 📸 Screenshots
 
