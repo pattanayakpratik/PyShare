@@ -60,12 +60,10 @@ PyShare/
 ├── styles.css          # Glassmorphism Styling (CSS3)
 ├── scripts.js          # App Logic (Search, Uploads, API)
 ├── requirements.txt    # Dependencies
-├── qrcode.png          # (Generated automatically on startup)
-└── SharedFiles/
-    ├── From_Phone/     # 📥 Files uploaded by devices appear here
-    └── From_PC/        # 📤 Put files here to share them
+└── ...
 
 ```
+*(Note: All shared files are now stored in Desktop/PyShare_Files automatically.)*
 
 ## 🛠️ Installation
 
