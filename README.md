@@ -12,7 +12,7 @@
     <a href="#-download-recommended">Download</a> •
     <a href="#-features">Features</a> •
     <a href="#%EF%B8%8F-usage">Usage</a> •
-    <a href="#EF%B8%8F-installation-for-developers">Installation</a>
+    <a href="#%EF%B8%8F-installation-for-developers">Installation</a>
   </p>
 
 </div>
