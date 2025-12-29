@@ -1,8 +1,9 @@
 <div align="center">
 <img src="Screenshots/banner.png" alt="PyShare Banner" width="100%">
   <h1 align="center">
+  
+  <img src="Screenshots\app_icon.png" alt="PyShare Logo" width="32" style="vertical-align: middle;">
   PyShare
-  <img src="app_icon.ico" alt="PyShare Logo" width="32" style="vertical-align: middle;">
 </h1>
   <strong>A lightweight, high-speed Python tool to share files between PC and Mobile over Wi-Fi.</strong>
 
@@ -28,6 +29,8 @@
 * **PyShare (Windows)** 👉 **[Click here to download PyShare.exe](./PyShare.exe)**
   
   No installation required. Just download and double-click to run 🚀
+  
+  *(Note: you can download from releases page as well as from the directory link)*
 *  >*⚠️ If Windows SmartScreen shows a warning, click* 
 *> **More info → Run anyway**
 
