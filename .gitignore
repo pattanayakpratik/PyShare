@@ -10,17 +10,22 @@ env/
 .env
 
 # --- Project Specific ---
-# Ignore the generated QR code image
 qrcode.png
 
 # --- Shared Data ---
-# Ignore the actual files inside these folders
 SharedFiles/From_Phone/*
 SharedFiles/From_PC/*
-
-# ...But keep the folders themselves (Create empty .gitkeep files inside them)
 !SharedFiles/From_Phone/.gitkeep
 !SharedFiles/From_PC/.gitkeep
+
+# --- PyInstaller / Executable Builds ---
+# Ignore the folders created during the build process
+build/
+dist/
+# Ignore the auto-generated configuration file
+*.spec
+# Prevent accidental upload of large binaries to source code
+*.exe
 
 # --- OS Specific ---
 .DS_Store
