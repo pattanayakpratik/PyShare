@@ -2,7 +2,7 @@
 <img src="Screenshots/banner.png" alt="PyShare Banner" width="100%">
   <h1 align="center">
   
-  <img src="Screenshots\app_icon.png" alt="PyShare Logo" width="32" style="vertical-align: middle;">
+  <img src="Screenshots\app_icon.png" alt="PyShare Logo" width="32">
   PyShare
 </h1>
   <strong>A lightweight, high-speed Python tool to share files between PC and Mobile over Wi-Fi.</strong>
