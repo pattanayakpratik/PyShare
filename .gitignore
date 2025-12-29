@@ -24,8 +24,7 @@ build/
 dist/
 # Ignore the auto-generated configuration file
 *.spec
-# Prevent accidental upload of large binaries to source code
-*.exe
+
 
 # --- OS Specific ---
 .DS_Store
