@@ -9,10 +9,10 @@
   <strong>A lightweight, high-speed Python tool to share files between PC and Mobile over Wi-Fi.</strong>
 
   <p>
-    <a href="#-download">Download</a> •
+    <a href="#-download-recommended">Download</a> •
     <a href="#-features">Features</a> •
-    <a href="#-usage">Usage</a> •
-    <a href="#-installation-for-developers">Installation</a>
+    <a href="#%EF%B8%8F-usage">Usage</a> •
+    <a href="#EF%B8%8F-installation-for-developers">Installation</a>
   </p>
 
 </div>
