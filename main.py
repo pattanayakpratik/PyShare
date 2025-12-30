@@ -148,7 +148,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/shutdown':
             self.send_response(200); self.send_header("Access-Control-Allow-Origin", "*"); self.end_headers()
             def kill():
-                if httpd: httpd.shutdown()
+                if httpd: 
+                    httpd.shutdown()
+                    httpd.server_close()
+                os._exit(0)
             threading.Thread(target=kill).start()
             return
 
