@@ -31,17 +31,17 @@
 
 ### 🚀 Standalone Executable
 
-* **PyShare (Windows EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.0/PyShare.exe)**
+* **PyShare (Windows EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.1/PyShare.exe)**
 
 ### 📦 Compressed Archives (Recommended if EXE is blocked)
 
-* **PyShare (Windows ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.0/PyShare.zip)**
-* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.0/PyShare.tar.gz)**
+* **PyShare (Windows ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.1/PyShare.zip)**
+* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.1/PyShare.tar.gz)**
 
 ### 💻 Source Code (For Developers)
 
-* **Source (ZIP)** 👉 **[v2.2.0.zip](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v2.2.0.zip)**
-* **Source (TAR)** 👉 **[v2.2.0.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v2.2.0.tar.gz)**
+* **Source (ZIP)** 👉 **[v2.2.1.zip](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v2.2.1.zip)**
+* **Source (TAR)** 👉 **[v2.2.1.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v2.2.1.tar.gz)**
 
 ---
 
@@ -49,10 +49,11 @@
 
 ---
 
-## 🆕 What's New (v2.2.0)
+## 🆕 What's New (v2.2.1)
 - **Fixed Execution Error:** Resolved the `ModuleNotFoundError: No module named 'pyqrcode'` that affected previous standalone versions.
 - **Improved Portability:** Now providing `.zip` and `.tar.gz` archives to ensure compatibility across Windows and Linux.
 - **Self-Contained:** All assets (HTML/CSS/JS) and Python dependencies are now correctly bundled within the executable.
+- **Fixing Shutdown Function:** 
 
 ## 🚀 Features
 
