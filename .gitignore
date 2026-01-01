@@ -24,7 +24,8 @@ build/
 dist/
 # Ignore the auto-generated configuration file
 *.spec
-
+# ignore the info file 
+version_info.txt
 
 # --- OS Specific ---
 .DS_Store
