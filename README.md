@@ -43,11 +43,9 @@
 * **Source (ZIP)** 👉 **[v2.2.2.zip](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v2.2.2.zip)**
 * **Source (TAR)** 👉 **[v2.2.2.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v2.2.2.tar.gz)**
 
----
 
 *⚠️ **Note:** If Windows SmartScreen shows a warning, click **More info → Run anyway**. The app is entirely local and safe to use.*
 
----
 
 ## 🆕 What's New (v2.2.2)
 - **Fixed Execution Error:** Resolved the `ModuleNotFoundError: No module named 'pyqrcode'` that affected previous standalone versions.
