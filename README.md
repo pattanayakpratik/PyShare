@@ -73,6 +73,7 @@
 
 ### 🖥️ Desktop View
 <img src="Screenshots/desktop.png" width="80%" alt="Desktop Dashboard">
+<img src="Screenshots/desktop2.png" width="80%" alt="Desktop Dashboard">
 
 ### 📱 Mobile View
 <img src="Screenshots/mobile.jpg" width="200" alt="Mobile Home"> <img src="Screenshots/mobile2.jpg" width="200" alt="Mobile Files"> <img src="Screenshots/mobile3.jpg" width="200" alt="Mobile Dark Mode"> <img src="Screenshots/mobile4.jpg" width="200" alt="Mobile Uploads">
