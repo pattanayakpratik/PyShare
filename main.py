@@ -213,8 +213,8 @@ def start_server():
         BASE_DIR = os.path.join(desktop, "PyShare_Files")
         
         SHARED_ROOT = os.path.join(BASE_DIR, "SharedFiles")
-        UPLOAD_DIR = os.path.join(SHARED_ROOT, "From_Phone")
-        DOWNLOAD_DIR = os.path.join(SHARED_ROOT, "From_PC")
+        UPLOAD_DIR = os.path.join(SHARED_ROOT, "Recieved_Files")
+        DOWNLOAD_DIR = os.path.join(SHARED_ROOT, "Sending_Files")
 
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
