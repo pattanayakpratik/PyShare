@@ -13,16 +13,49 @@ import tempfile
 import webbrowser
 import platform
 import subprocess
+import time
 
 # --- GLOBAL CONFIGURATION ---
 START_PORT = 8010
 httpd = None
-
-# These will be set automatically
 BASE_DIR = ""
 UPLOAD_DIR = ""
 DOWNLOAD_DIR = ""
 ACTUAL_PORT = START_PORT
+
+# Global State for Notifications
+state_lock = threading.Lock()
+event_queue = []
+upload_status = None
+
+def add_event(msg):
+    with state_lock:
+        t = time.strftime("%H:%M:%S", time.localtime())
+        event_queue.append({"time": t, "message": msg})
+        if len(event_queue) > 50:
+            event_queue.pop(0)
+
+def set_upload_status(filename, current, total):
+    global upload_status
+    with state_lock:
+        upload_status = {"filename": filename, "current": current, "total": total}
+
+def clear_upload_status():
+    global upload_status
+    with state_lock:
+        upload_status = None
+
+def pop_events():
+    with state_lock:
+        events = event_queue[:]
+        event_queue.clear()
+        return events
+    return events
+
+def get_upload_status_safe():
+    with state_lock:
+        return upload_status.copy() if upload_status else None
+    
 
 # --- 1. SYSTEM HELPERS ---
 def get_ip():
@@ -59,9 +92,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     def get_file_path(self, filename):
         """Helper: Searches for a file in shared folders."""
         fp = os.path.join(DOWNLOAD_DIR, filename)
-        if os.path.exists(fp) and os.path.isfile(fp): return fp
+        if os.path.exists(fp) and os.path.isfile(fp): 
+            return fp
         fp = os.path.join(UPLOAD_DIR, filename)
-        if os.path.exists(fp) and os.path.isfile(fp): return fp
+        if os.path.exists(fp) and os.path.isfile(fp):
+            return fp
         return None
 
     def do_GET(self):
@@ -73,20 +108,46 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         else:
             ASSET_DIR = os.path.dirname(os.path.abspath(__file__))
 
-        # A. Serve Main Page
+        # A. Serve Dashboard
         if self.path == '/' or self.path == '/index.html':
-            self.send_response(200); self.send_header("Content-type", "text/html; charset=utf-8"); self.end_headers()
-            with open(os.path.join(ASSET_DIR, "index.html"), "rb") as f: self.wfile.write(f.read())
+            client_ip = self.client_address[0]
+            host_ip = get_ip()
+            is_host = (client_ip == "127.0.0.1" or client_ip == host_ip)
+            if not is_host:
+                add_event(f"Device connected: {client_ip}")
+            
+            page_file = "host.html" if is_host else "client.html"
+            file_path = os.path.join(ASSET_DIR, page_file)
+
+            if not os.path.exists(file_path):
+                self.send_error(500, "Dashboard files missing.")
+                return
+            
+            if os.path.exists(file_path):
+                self.send_response(200)
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                self.end_headers()
+                with open(file_path, "rb") as f: self.wfile.write(f.read())
+            else:
+                self.send_error(404, "Dashboard not found.")
             return
 
         # B. Serve Assets
-        if self.path == '/styles.css':
-            self.send_response(200); self.send_header("Content-type", "text/css"); self.end_headers()
-            with open(os.path.join(ASSET_DIR, "styles.css"), "rb") as f: self.wfile.write(f.read())
-            return
-        if self.path == '/scripts.js':
-            self.send_response(200); self.send_header("Content-type", "text/javascript"); self.end_headers()
-            with open(os.path.join(ASSET_DIR, "scripts.js"), "rb") as f: self.wfile.write(f.read())
+        if self.path.endswith('.css') or self.path.endswith('.js') or self.path.endswith('.ico'):
+            fp = os.path.join(ASSET_DIR, self.path.lstrip('/'))
+            if os.path.exists(fp):
+                self.send_response(200)
+                if self.path.endswith('.css'):
+                    ctype = "text/css"
+                elif self.path.endswith('.js'):
+                    ctype = "application/javascript"
+                elif self.path.endswith('.ico'):
+                    ctype = "image/x-icon"
+                else:
+                    ctype = "application/octet-stream"
+                self.send_header("Content-type", ctype)
+                self.end_headers()
+                with open(fp, "rb") as f: self.wfile.write(f.read())
             return
 
         # C. Serve QR Code
@@ -96,13 +157,17 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 qr_path = os.path.join(tempfile.gettempdir(), "pyshare_qrcode.png")
             
             if os.path.exists(qr_path):
-                self.send_response(200); self.send_header("Content-type", "image/png"); self.end_headers()
+                self.send_response(200)
+                self.send_header("Content-type", "image/png")
+                self.end_headers()
                 with open(qr_path, "rb") as f: self.wfile.write(f.read())
             return
 
         # D. API: Return File Lists
         if self.path == '/api/files':
-            self.send_response(200); self.send_header("Content-type", "application/json"); self.end_headers()
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
             
             def list_dir(path):
                 data = []
@@ -123,7 +188,43 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
             return
 
-        # E. View & Download
+        # E. API:Updates
+        if self.path == '/api/updates':
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            data = {
+                "events": pop_events(),
+                "upload_status": get_upload_status_safe()
+            }
+            self.wfile.write(json.dumps(data).encode())
+            return
+        
+        # F. API : Open Folder
+        if self.path.startswith('/api/open'):
+            if self.client_address[0] not in ["127.0.0.1", get_ip()]:
+                self.send_error(403, "Forbidden")
+                return
+            
+            # check for folder query param
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            folder_type = params.get('folder', [''])[0]
+
+            target_path = BASE_DIR
+            if folder_type == 'received':
+                target_path = UPLOAD_DIR
+            elif folder_type == 'sent':
+                target_path = DOWNLOAD_DIR
+            
+            open_folder(target_path)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Folder opened")
+            return
+
+
+        # G. View & Download
         if self.path.startswith('/view/') or self.path.startswith('/download/'):
             is_view = self.path.startswith('/view/')
             prefix = 6 if is_view else 10
@@ -144,9 +245,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "File not found")
             return
 
-        # F. Shutdown
+        # H. Shutdown
         if self.path == '/shutdown':
-            self.send_response(200); self.send_header("Access-Control-Allow-Origin", "*"); self.end_headers()
+            self.send_response(200)
+            self.end_headers()
             def kill():
                 if httpd: 
                     httpd.shutdown()
@@ -160,8 +262,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         """Handle File Uploads"""
         try:
+            is_host_upload = "dest=host" in self.path
+            target_dir = DOWNLOAD_DIR if is_host_upload else UPLOAD_DIR
+
             ctype = self.headers.get('Content-Type')
-            if not ctype: return
+            if not ctype: 
+                return
             boundary = ctype.split("boundary=")[1].encode()
             length = int(self.headers.get('Content-Length'))
             
@@ -177,11 +283,15 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 line = self.rfile.readline()
                 read_bytes += len(line)
             
-            if not os.path.exists(UPLOAD_DIR):
-                os.makedirs(UPLOAD_DIR, exist_ok=True)
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir, exist_ok=True)
 
-            out_path = os.path.join(UPLOAD_DIR, fn)
+            out_path = os.path.join(target_dir, fn)
             remain = length - read_bytes
+            total_size = remain
+
+            if not is_host_upload:
+                add_event(f"Receiving file: {fn} ({total_size//1024} KB)")
             
             with open(out_path, 'wb') as f:
                 while remain > 0:
@@ -189,16 +299,34 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     if not chunk: break
                     f.write(chunk)
                     remain -= len(chunk)
+
+                    if not is_host_upload:
+                        current_uploaded = total_size - remain
+                        set_upload_status(fn, current_uploaded, total_size)
             
             with open(out_path, 'rb+') as f:
-                f.seek(0, 2); size = f.tell(); f.seek(max(0, size-300), 0); tail = f.read()
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size-300), 0)
+                tail = f.read()
                 loc = tail.find(b'--' + boundary)
-                if loc != -1: f.truncate(max(0, size-300) + loc - 2)
+                if loc != -1: 
+                    f.truncate(max(0, size-300) + loc - 2)
             
-            self.send_response(200); self.end_headers(); self.wfile.write(b"Upload Complete")
-            print(f"✅ [RECEIVED] {fn}")
+            clear_upload_status()
+
+            msg = f"Added to Shared: {fn}" if is_host_upload else f"File received: {fn}"
+            add_event(msg)
+            
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Upload Complete")
+            print(f"✅ [SUCCESS] {msg}")
         except Exception as e:
             print(f"❌ [ERROR] Upload failed: {e}")
+            clear_upload_status()
+            self.send_error(500, "Upload failed")
+
 
 # --- 3. SERVER CONTROLLER ---
 def start_server():
@@ -212,9 +340,9 @@ def start_server():
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         BASE_DIR = os.path.join(desktop, "PyShare_Files")
         
-        SHARED_ROOT = os.path.join(BASE_DIR, "SharedFiles")
+        # new flattened structure
         UPLOAD_DIR = os.path.join(SHARED_ROOT, "Recieved_Files")
-        DOWNLOAD_DIR = os.path.join(SHARED_ROOT, "Sending_Files")
+        DOWNLOAD_DIR = os.path.join(SHARED_ROOT, "Shared_Files")
 
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
