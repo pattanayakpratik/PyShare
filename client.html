@@ -1,12 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PyShare Client</title>
+    <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="client_styles.css">
 </head>
 <body>
+    <div class="app-container">
+        
+        <nav class="navbar">
+            <button class="icon-btn" onclick="toggleTheme()" title="Theme">🌓</button>
+            <div class="logo">
+                <span class="icon-emoji">
+                        <img src="app_icon.ico" alt="App icon">
+                    </span>
+                 PyShare
+            </div>
+            <div style="width:40px;"></div> </nav>
+
+        <div class="status-bar">
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                <span>Connected to PC</span>
+            </div>
+        </div>
+
+        <div class="upload-card" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">☁️</div>
+            <h3>Send to Host</h3>
+            <p>Tap here to upload files</p>
+            
+            <button class="btn-primary" style="pointer-events: none;">Browse Files</button>
+            <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
+
+            <div id="progress-container" class="progress-wrapper" style="width: 100%; margin-top: 20px; text-align: left;">
+                <div class="progress-labels"><span id="status">Uploading...</span><span id="percent-text">0%</span></div>
+                <div class="progress-track"><div id="progress-bar" class="progress-fill"></div></div>
+            </div>
+        </div>
+
+        <div class="files-section">
+            <div class="card-header">
+                <h2>💾 Shared Files</h2>
+            </div>
+            
+            <div class="search-bar-wrapper">
+                <input type="text" id="searchPC" placeholder="🔍 Search files..." onkeyup="filterPC()">
+            </div>
+
+            <ul id="file-list" class="file-list">
+                <li class="loading-state">Loading files...</li>
+            </ul>
+        </div>
+
+    </div>
     <script src="scripts.js"></script>
+</body>
 </html>
