@@ -1,14 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PyShare Host</title>
+    <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="host_styles.css">
 </head>
+
 <body>
+    <div class="app-container">
+
+        <nav class="navbar">
+            <div style="display:flex; gap:10px;">
+                <button class="icon-btn" onclick="toggleTheme()" title="Theme">🌓</button>
+            </div>
+
+
+            <div style="display:flex; gap:15px; align-items: center;">
+
+                <div class="logo">
+                    <span class="icon-emoji">
+                        <img src="app_icon.ico" alt="App icon">
+                    </span>
+                    PyShare
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="icon-btn" onclick="disconnectServer()"
+                    style="color:var(--accent-red); border-color:rgba(239, 68, 68, 0.3);" title="Shutdown">🛑</button>
+            </div>
+        </nav>
+
+        <div class="status-bar">
+            <div class="status-pill" style="padding: 8px 25px;">
+                <span class="status-dot"></span>
+                <span>Server IP: <span id="host-ip"
+                        style="font-weight:bold; color:white; font-family:monospace;">...</span></span>
+            </div>
+        </div>
+
+        <div class="upload-card send-area" id="dropZone">
+            <div class="upload-icon" style="font-size: 64px; margin-bottom: 20px;">📤</div>
+            <h2 style="margin: 0 0 10px 0;">Add to Shared</h2>
+            <p style="color: var(--text-sub); margin-bottom: 25px;">Drag & Drop files here or click below</p>
+
+            <button class="btn-primary" onclick="document.getElementById('fileInput').click()"
+                style="padding: 15px 40px; font-size: 16px;">Select Files</button>
+            <input type="file" id="fileInput" multiple hidden onchange="handleFilesHost(this.files)">
+
+            <div id="progress-container" class="progress-wrapper" style="width: 80%; margin-top: 25px;">
+                <div class="progress-labels"><span id="status">Adding...</span><span id="percent-text">0%</span></div>
+                <div class="progress-track">
+                    <div id="progress-bar" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="files-section qr-area" style="padding: 0;">
+            <div class="qr-card-inner">
+                <div class="qr-content">
+                    <h3 style="margin-bottom: 20px;">📱 Connect Device</h3>
+                    <img src="/qrcode.png" class="qr-img" alt="Scan QR">
+                    <p style="font-size: 13px; color: var(--text-sub); margin-top: 15px;">Scan with your phone to start
+                        sharing</p>
+
+                    <div id="rx-container" class="rx-progress" style="width: 100%; margin-top: 15px;">
+                        <div
+                            style="font-size:12px; margin-bottom:5px; font-weight:bold; display:flex; justify-content:space-between;">
+                            <span>⬇️ Receiving...</span>
+                            <span id="rx-filename" style="opacity:0.8">file.ext</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="rx-bar" class="progress-fill" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="notification-box" id="notif-log">
+                    <div class="log-entry"><span class="log-time">--:--</span> <span class="log-msg">Server started.
+                            Waiting for connections...</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="files-area">
+
+            <div class="files-section file-list-card">
+                <div class="card-header">
+                    <h3>📥 Received Files</h3>
+                    <button class="btn-folder" onclick="fetch('/api/open?folder=received')">📂 Open Folder</button>
+                </div>
+                <div class="search-bar-wrapper">
+                    <input type="text" id="searchMobile" placeholder="🔍 Search received..." onkeyup="filterMobile()">
+                </div>
+                <div class="file-scroll-area">
+                    <ul id="mobile-list" class="file-list">
+                        <li class="loading-state">No uploads yet</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="files-section file-list-card">
+                <div class="card-header">
+                    <h3>📤 Shared Files</h3>
+                    <button class="btn-folder" onclick="fetch('/api/open?folder=shared')">📂 Open Folder</button>
+                </div>
+                <div class="search-bar-wrapper">
+                    <input type="text" id="searchPC" placeholder="🔍 Search shared..." onkeyup="filterPC()">
+                </div>
+                <div class="file-scroll-area">
+                    <ul id="file-list" class="file-list">
+                        <li class="loading-state">Loading files...</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <script src="scripts.js"></script>
     <script src="host_scripts.js"></script>
 </body>
+
 </html>
