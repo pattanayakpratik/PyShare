@@ -28,36 +28,39 @@ state_lock = threading.Lock()
 event_queue = []
 upload_status = None
 
+# --- 0. STATE MANAGEMENT HELPERS ---
+# Event Queue Management
 def add_event(msg):
     with state_lock:
         t = time.strftime("%H:%M:%S", time.localtime())
-        event_queue.append({"time": t, "message": msg})
+        event_queue.append({"time": t, "msg": msg})
         if len(event_queue) > 50:
             event_queue.pop(0)
 
+# Upload Status Management
 def set_upload_status(filename, current, total):
     global upload_status
     with state_lock:
         upload_status = {"filename": filename, "current": current, "total": total}
 
+# Clear Upload Status
 def clear_upload_status():
     global upload_status
     with state_lock:
         upload_status = None
 
+# Pop Events Safely
 def pop_events():
     with state_lock:
-        events = event_queue[:]
-        event_queue.clear()
-        return events
-    return events
+        return list(event_queue)
 
+# Get Upload Status Safely
 def get_upload_status_safe():
     with state_lock:
         return upload_status.copy() if upload_status else None
     
-
 # --- 1. SYSTEM HELPERS ---
+# Get Local IP Address
 def get_ip():
     """Finds the local IP address of the machine."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -70,6 +73,7 @@ def get_ip():
         s.close()
     return IP
 
+# Open Folder in File Explorer
 def open_folder(path):
     """Opens the destination folder in the system file explorer."""
     try:
@@ -84,11 +88,11 @@ def open_folder(path):
 
 # --- 2. REQUEST HANDLER ---
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
-    
     # IMPROVEMENT: Silence the default spammy logs (GET /styles.css etc.)
+    # by overriding log_message to do nothing
     def log_message(self, format, *args):
         pass 
-
+    # END IMPROVEMENT
     def get_file_path(self, filename):
         """Helper: Searches for a file in shared folders."""
         fp = os.path.join(DOWNLOAD_DIR, filename)
@@ -99,9 +103,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return fp
         return None
 
+    # GET Request Handler
     def do_GET(self):
-        """Handle GET requests"""
-        
+        """Handle GET requests"""    
         # FIX FOR PYINSTALLER: Find where HTML/CSS/JS are hidden
         if getattr(sys, 'frozen', False):
             ASSET_DIR = sys._MEIPASS
@@ -127,7 +131,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html; charset=utf-8")
                 self.end_headers()
-                with open(file_path, "rb") as f: self.wfile.write(f.read())
+                with open(file_path, "rb") as f: 
+                    self.wfile.write(f.read())
             else:
                 self.send_error(404, "Dashboard not found.")
             return
@@ -147,7 +152,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     ctype = "application/octet-stream"
                 self.send_header("Content-type", ctype)
                 self.end_headers()
-                with open(fp, "rb") as f: self.wfile.write(f.read())
+                with open(fp, "rb") as f: 
+                    self.wfile.write(f.read())
             return
 
         # C. Serve QR Code
@@ -160,7 +166,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", "image/png")
                 self.end_headers()
-                with open(qr_path, "rb") as f: self.wfile.write(f.read())
+                with open(qr_path, "rb") as f: 
+                    self.wfile.write(f.read())
             return
 
         # D. API: Return File Lists
@@ -178,7 +185,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                             fp = os.path.join(path, f)
                             if os.path.isfile(fp):
                                 data.append({"name": f, "size": os.path.getsize(fp)})
-                except: pass
+                except:
+                    pass
                 return data
 
             response = {
@@ -195,7 +203,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             data = {
                 "events": pop_events(),
-                "upload_status": get_upload_status_safe()
+                "upload": get_upload_status_safe()
             }
             self.wfile.write(json.dumps(data).encode())
             return
@@ -214,7 +222,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             target_path = BASE_DIR
             if folder_type == 'received':
                 target_path = UPLOAD_DIR
-            elif folder_type == 'sent':
+            elif folder_type == 'shared':
                 target_path = DOWNLOAD_DIR
             
             open_folder(target_path)
@@ -222,7 +230,6 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"Folder opened")
             return
-
 
         # G. View & Download
         if self.path.startswith('/view/') or self.path.startswith('/download/'):
@@ -234,13 +241,15 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if fp:
                 self.send_response(200)
                 ctype, _ = mimetypes.guess_type(fp)
-                if ctype is None: ctype = 'application/octet-stream'
+                if ctype is None: 
+                    ctype = 'application/octet-stream'
                 self.send_header("Content-Type", ctype)
                 if not is_view:
                     self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
                 self.send_header("Content-Length", str(os.path.getsize(fp)))
                 self.end_headers()
-                with open(fp, 'rb') as f: shutil.copyfileobj(f, self.wfile)
+                with open(fp, 'rb') as f: 
+                    shutil.copyfileobj(f, self.wfile)
             else:
                 self.send_error(404, "File not found")
             return
@@ -259,6 +268,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
         return super().do_GET()
 
+    # POST Request Handler
     def do_POST(self):
         """Handle File Uploads"""
         try:
@@ -341,8 +351,8 @@ def start_server():
         BASE_DIR = os.path.join(desktop, "PyShare_Files")
         
         # new flattened structure
-        UPLOAD_DIR = os.path.join(SHARED_ROOT, "Recieved_Files")
-        DOWNLOAD_DIR = os.path.join(SHARED_ROOT, "Shared_Files")
+        UPLOAD_DIR = os.path.join(BASE_DIR, "Received_Files")
+        DOWNLOAD_DIR = os.path.join(BASE_DIR, "Shared_Files")
 
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
