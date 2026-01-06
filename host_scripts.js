@@ -50,10 +50,15 @@ setInterval(async () => {
         // Update Logs
         const log = document.getElementById('notif-log');
         if (data.events.length > 0) {
-            if (log.innerHTML.includes("Server started")) log.innerHTML = "";
+            const log = document.getElementById('notif-log');
+
+            // Clear the log completely to rebuild it with the full history
+            log.innerHTML = "";
+
             data.events.forEach(e => {
                 const entry = document.createElement('div');
                 entry.className = 'log-entry';
+                // Ensure you use e.msg (or e.message) consistently with your python code
                 entry.innerHTML = `<span class="log-time">${e.time}</span> <span class="log-msg">${e.msg}</span>`;
                 log.prepend(entry);
             });
