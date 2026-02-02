@@ -27,9 +27,9 @@
             margin: 10px auto; 
             width: 90%; 
             padding: 8px 12px; 
-            background: rgba(255,255,255,0.05); 
+            background: var(--input-bg);
             border-radius: 12px; 
-            border: 1px solid rgba(255,255,255,0.1); 
+            border: 1px solid var(--border-color); 
             position: relative; 
             overflow: hidden;
         }
@@ -70,7 +70,7 @@
             <div class="status-pill" style="padding: 8px 25px;">
                 <span class="status-dot"></span>
                 <span>Server IP: <span id="host-ip"
-                        style="font-weight:bold; color:white; font-family:monospace;">...</span></span>
+                        style="font-weight:bold; color:var(--text-main); font-family:monospace;">...</span></span>
             </div>
         </div>
 
@@ -104,7 +104,7 @@
                             <div style="font-size: 10px; color: var(--text-sub); font-weight: bold; text-transform: uppercase;">Pin Code</div>
                             <div id="pin-timer-text" style="font-size: 10px; color: var(--accent-blue);">30s</div>
                         </div>
-                        <div id="live-pin" style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: white; text-align: center; margin-top: 2px;">----</div>
+                        <div id="live-pin" style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: var(--text-main); text-align: center; margin-top: 2px;">----</div>
                     </div>
 
                     <div id="rx-container" class="rx-progress" style="width: 100%; margin-top: 10px;">
