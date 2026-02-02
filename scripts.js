@@ -22,16 +22,6 @@ function toggleQR() {
     overlay.style.display = (overlay.style.display === 'flex') ? 'none' : 'flex';
 }
 
-// Poll for PIN updates
-setInterval(async () => {
-    try {
-        const res = await fetch('/api/pin');
-        if(res.ok) {
-            const data = await res.json();
-            document.getElementById('live-pin').innerText = data.pin;
-        }
-    } catch(e) {}
-}, 2000);
 
 // --- 2. DRAG & DROP LOGIC ---
 function setupDragDrop() {
