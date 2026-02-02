@@ -76,14 +76,11 @@
 ## 📸 Screenshots
 
 ### 🖥️ Host View
-<img src="Screenshots/host_dark.png" width="80%" alt="host dark Dashboard">
-<img src="Screenshots/host_white.png" width="80%" alt="host white Dashboard">
+<img src="Screenshots/host_dark.png" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="80%" alt="host dark Dashboard">
+<img src="Screenshots/host_white.png" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="80%" alt="host white Dashboard">
 
 ### 📱 client View
-<img src="Screenshots/client_dark.jpg" width="200" alt="Client Dark Mode">
-<img src="Screenshots/client_white.jpg" width="200" alt="Client Light Mode">
-<img src="Screenshots/client_login.jpg" width="200" alt="Client Login">
-<img src="Screenshots/client_disconnect.jpg" width="200" alt="Client disconnection">
+<img src="Screenshots/client_dark.jpg" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="200" alt="Client Dark Mode"><img src="Screenshots/client_white.jpg" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="200" alt="Client Light Mode"><img src="Screenshots/client_login.jpg" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="200" alt="Client Login"><img src="Screenshots/client_disconnect.jpg" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="200" alt="Client disconnection">
 
 
 ## 🖥️ Usage
