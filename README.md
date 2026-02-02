@@ -31,28 +31,29 @@
 
 ### 🚀 Standalone Executable
 
-* **PyShare (Windows EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.2/PyShare.exe)**
+* **PyShare (Windows EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.0/PyShare.exe)**
 
 ### 📦 Compressed Archives (Recommended if EXE is blocked)
 
-* **PyShare (Windows ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.2/PyShare.zip)**
-* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/releases/download/v2.2.2/PyShare.tar.gz)**
+* **PyShare (Windows ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.0/PyShare.zip)**
+* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.0/PyShare.tar.gz)**
 
 ### 💻 Source Code (For Developers)
 
-* **Source (ZIP)** 👉 **[v2.2.2.zip](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v2.2.2.zip)**
-* **Source (TAR)** 👉 **[v2.2.2.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v2.2.2.tar.gz)**
+* **Source (ZIP)** 👉 **[v3.0.0.zip](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.0.zip)**
+* **Source (TAR)** 👉 **[v3.0.0.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.0.tar.gz)**
 
 
 *⚠️ **Note:** If Windows SmartScreen shows a warning, click **More info → Run anyway**. The app is entirely local and safe to use.*
 
 
-## 🆕 What's New (v2.2.2)
-- **Fixed Execution Error:** Resolved the `ModuleNotFoundError: No module named 'pyqrcode'` that affected previous standalone versions.
-- **Improved Portability:** Now providing `.zip` and `.tar.gz` archives to ensure compatibility across Windows and Linux.
-- **Self-Contained:** All assets (HTML/CSS/JS) and Python dependencies are now correctly bundled within the executable.
-- **Smart Shutdown:** Cleanly closes all background processes upon disconnection.
-- **Professional Metadata:** Verified publisher info and versioning in file properties.
+## 🆕 What's New (v3.0.0)
+- **🖥️ Separate Dashboards:** Dedicated interfaces for the Host (PC) and Client (Mobile) for a streamlined experience.
+- **🔒 Secure PIN Authentication:** A rotating 4-digit PIN (changing every 30s) prevents unauthorized access.
+- **⏱️ Live Timer:** Visual countdown timer for PIN rotation on the Host dashboard.
+- **🔌 Disconnect Detection:** Clients are visually notified immediately if the server is stopped.
+- **📂 Smart Organization:** Files are automatically sorted into `Received_Files` and `Shared_Files`.
+- **🛡️ Security Fixes:** Implemented path traversal protection and session validation.
 
 ## 🚀 Features
 
@@ -64,19 +65,26 @@
 - **📂 Smart File Management:**
   - **Dual Lists:** Clearly separates "Files on PC" from "Received from Phone".
   - **Real-Time Search:** Filter through hundreds of files instantly as you type.
-- **☁️ Drag & Drop Uploads:** Simply drag files into the box to upload from phone or PC.
+- **☁️ Drag & Drop:**
+  - **Host:** Drag files to "Add to Shared".
+  - **Client:** Drag files to "Send to PC".
+- **📊 Real-Time Updates:** Live progress bars for uploads and instant activity logs.
 - **📊 Visual Progress Bar:** See upload percentages in real-time.
 - **📱 Easy Connection:** Scan the generated QR code to connect instantly.
 - **🔐 Offline Privacy:** Works entirely over LAN (Local Area Network)—no internet required.
 
 ## 📸 Screenshots
 
-### 🖥️ Desktop View
-<img src="Screenshots/desktop.png" width="80%" alt="Desktop Dashboard">
-<img src="Screenshots/desktop2.png" width="80%" alt="Desktop Dashboard">
+### 🖥️ Host View
+<img src="Screenshots/host_dark.png" width="80%" alt="host dark Dashboard">
+<img src="Screenshots/host_white.png" width="80%" alt="host white Dashboard">
 
-### 📱 Mobile View
-<img src="Screenshots/mobile.jpg" width="200" alt="Mobile Home"> <img src="Screenshots/mobile2.jpg" width="200" alt="Mobile Files"> <img src="Screenshots/mobile3.jpg" width="200" alt="Mobile Dark Mode"> <img src="Screenshots/mobile4.jpg" width="200" alt="Mobile Uploads">
+### 📱 client View
+<img src="Screenshots/client_dark.jpg" width="200" alt="Client Dark Mode">
+<img src="Screenshots/client_white.jpg" width="200" alt="Client Light Mode">
+<img src="Screenshots/client_login.jpg" width="200" alt="Client Login">
+<img src="Screenshots/client_disconnect.jpg" width="200" alt="Client disconnection">
+
 
 ## 🖥️ Usage
 
@@ -85,16 +93,15 @@
 * **Source:** Open your terminal in the `PyShare` folder and run `python main.py`.
 
 ### 2. Connect via Phone
-* **QR Code:** The app displays a QR code automatically. Scan it with your phone to open the interface.
-* **Manual URL:** You can also enter the URL shown in the terminal (e.g., `http://192.168.1.10:8010`) into your mobile browser.
-* *Tip: You can also click the 📱 button in the web app to see the QR code.*
+1.  **Scan QR Code:** Scan the QR code displayed on the Host Dashboard.
+2.  **Enter PIN:** Look at the **Connection PIN** on your PC (it changes every 30s). Enter this PIN on your phone to log in.
 
 ### 3. Transfer Files
-* **To PC:** Drag and drop files into the **"Send to PC"** box on your phone. They will appear in `Desktop/PyShare_Files/From_Phone`.
-* **To Phone:** Place files in `Desktop/PyShare_Files/From_PC`. They will appear in the **"Files on PC"** list on your phone instantly.
+* **Phone → PC:** Tap "Browse Files" or drag files to send them to the PC. They appear in `Desktop/PyShare_Files/Received_Files`.
+* **PC → Phone:** Drag files into the "Add to Shared" box on the PC. They appear in the "Download" list on your phone.
 
 ### 4. Stop Server
-* **Web UI:** Click the **🛑 Disconnect Server** button on the web interface.
+* **Web UI:** Click the **🛑 Disconnect Server** button. Clients will see a "Disconnected" message.
 * **Terminal:** Press `Ctrl+C` in your terminal window.
 
 ## 🛠️ Installation (For Developers)
