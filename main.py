@@ -133,7 +133,26 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
         # 1. SERVE ASSETS (No Auth Required)
         if self.path.endswith('.css') or self.path.endswith('.js') or self.path.endswith('.ico') or self.path == '/login.html':
-            return super().do_GET() 
+            fp = os.path.join(ASSET_DIR, self.path.lstrip('/'))
+            if os.path.exists(fp):
+                self.send_response(200)
+                if self.path.endswith('.css'): 
+                    ctype = 'text/css'
+                elif self.path.endswith('.js'): 
+                    ctype = 'application/javascript'
+                elif self.path.endswith('.ico'): 
+                    ctype = 'image/x-icon'
+                elif self.path.endswith('.html'): 
+                    ctype = 'text/html'
+                else: 
+                    ctype = 'application/octet-stream'
+                self.send_header("Content-type", ctype)
+                self.end_headers()
+                with open(fp, "rb") as f: 
+                    self.wfile.write(f.read())
+            else:
+                self.send_error(404)
+            return
 
         # 2. CHECK AUTHENTICATION (For everything else)
         if not self.is_authenticated():
