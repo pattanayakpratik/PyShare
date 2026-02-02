@@ -7,6 +7,42 @@
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="client_styles.css">
+    <style>
+        /* --- DISCONNECT OVERLAY STYLES --- */
+        .disconnect-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95); /* Dark background matching theme */
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .disconnect-overlay.visible {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .disconnect-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 24px;
+            text-align: center;
+            max-width: 90%;
+            width: 320px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -14,10 +50,7 @@
         <nav class="navbar">
             <button class="icon-btn" onclick="toggleTheme()" title="Theme">🌓</button>
             <div class="logo">
-                <span class="icon-emoji">
-                        <img src="app_icon.ico" alt="App icon">
-                    </span>
-                 PyShare
+                <span class="icon-emoji"><img src="app_icon.ico" alt="Icon"></span> PyShare
             </div>
             <div style="width:40px;"></div> </nav>
 
@@ -30,7 +63,7 @@
 
         <div class="upload-card" id="dropZone" onclick="document.getElementById('fileInput').click()">
             <div class="upload-icon">☁️</div>
-            <h3>Send to Host</h3>
+            <h3>Send to PC</h3>
             <p>Tap here to upload files</p>
             
             <button class="btn-primary" style="pointer-events: none;">Browse Files</button>
@@ -44,11 +77,11 @@
 
         <div class="files-section">
             <div class="card-header">
-                <h2>💾 Shared Files</h2>
+                <h2>💾 Download from PC</h2>
             </div>
             
             <div class="search-bar-wrapper">
-                <input type="text" id="searchPC" placeholder="🔍 Search files..." onkeyup="filterPC()">
+                <input type="text" id="searchPC" placeholder="🔍 Search PC files..." onkeyup="filterPC()">
             </div>
 
             <ul id="file-list" class="file-list">
@@ -57,6 +90,42 @@
         </div>
 
     </div>
+
+    <div id="disconnectOverlay" class="disconnect-overlay">
+        <div class="disconnect-card">
+            <div style="font-size: 50px; margin-bottom: 20px;">🔌</div>
+            <h2 style="margin-bottom: 10px;">Disconnected</h2>
+            <p style="color: var(--text-sub); margin-bottom: 25px; font-size: 14px;">The host has stopped the server.</p>
+            <button class="btn-primary" onclick="window.location.reload()">Try Reconnect</button>
+        </div>
+    </div>
+
     <script src="scripts.js"></script>
+    <script>
+        // --- SERVER HEARTBEAT MONITOR ---
+        let failCount = 0;
+        const overlay = document.getElementById('disconnectOverlay');
+
+        function checkConnection() {
+            // We use a simple fetch to a known endpoint
+            fetch('/api/files')
+                .then(response => {
+                    if (!response.ok) throw new Error("Server Error");
+                    
+                    // If we reach here, server is alive
+                    if (failCount > 0) failCount = 0;
+                })
+                .catch(error => {
+                    failCount++;
+                    // If 3 consecutive failures (approx 6 seconds), assume disconnected
+                    if (failCount >= 3) {
+                        overlay.classList.add('visible');
+                    }
+                });
+        }
+
+        // Check connection every 1 seconds
+        setInterval(checkConnection, 1000);
+    </script>
 </body>
 </html>
