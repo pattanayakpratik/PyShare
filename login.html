@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PyShare Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; }
+        .login-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            width: 300px;
+        }
+        .pin-display {
+            font-size: 32px;
+            letter-spacing: 10px;
+            margin: 20px 0;
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            color: #fff;
+            min-height: 40px;
+        }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .key {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 15px;
+            font-size: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .key:active { background: rgba(255,255,255,0.2); }
+        .key-submit { background: var(--accent-blue); grid-column: span 3; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>🔒 Protected</h2>
+        <p style="color:var(--text-sub)">Enter the 4-digit PIN displayed on the PC.</p>
+        
+        <div id="display" class="pin-display"></div>
+        
+        <div class="keypad">
+            <button class="key" onclick="add(1)">1</button>
+            <button class="key" onclick="add(2)">2</button>
+            <button class="key" onclick="add(3)">3</button>
+            <button class="key" onclick="add(4)">4</button>
+            <button class="key" onclick="add(5)">5</button>
+            <button class="key" onclick="add(6)">6</button>
+            <button class="key" onclick="add(7)">7</button>
+            <button class="key" onclick="add(8)">8</button>
+            <button class="key" onclick="add(9)">9</button>
+            <button class="key" onclick="clearPin()">C</button>
+            <button class="key" onclick="add(0)">0</button>
+            <button class="key" onclick="back()">⌫</button>
+            <button class="key key-submit" onclick="submitPin()">Connect</button>
+        </div>
+    </div>
+
+    <script>
+        let pin = "";
+        const display = document.getElementById("display");
+
+        function add(num) {
+            if (pin.length < 4) {
+                pin += num;
+                updateDisplay();
+            }
+        }
+        function back() { pin = pin.slice(0, -1); updateDisplay(); }
+        function clearPin() { pin = ""; updateDisplay(); }
+        function updateDisplay() { display.innerText = pin.split('').map(() => '•').join(''); }
+
+        function submitPin() {
+            fetch('/login', {
+                method: 'POST',
+                body: 'pin=' + pin
+            }).then(res => {
+                if (res.ok) window.location.reload();
+                else {
+                    display.innerText = "INVALID";
+                    display.style.color = "#ef4444";
+                    setTimeout(() => { 
+                        clearPin(); 
+                        display.style.color = "#fff"; 
+                    }, 1000);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
