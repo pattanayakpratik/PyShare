@@ -1,6 +1,4 @@
 // --- 1. OVERRIDE DRAG & DROP BEHAVIOR ---
-// This ensures files dragged onto the Host Dashboard go to "Shared" (Sending_Files)
-// instead of "Received" (Recieved_Files).
 window.handleFiles = handleFilesHost;
 
 document.getElementById('host-ip').innerText = window.location.host;
@@ -34,7 +32,7 @@ function uploadFileCustom(file, url) {
     };
     xhr.onload = () => {
         status.innerText = "✅ Added!";
-        loadFiles(); // Refresh lists immediately
+        loadFiles(); 
         setTimeout(() => { container.style.display = 'none'; bar.style.width = '0%'; }, 2000);
     };
     xhr.open("POST", url);
@@ -50,19 +48,16 @@ setInterval(async () => {
         // Update Logs
         const log = document.getElementById('notif-log');
         if (data.events.length > 0) {
-            const log = document.getElementById('notif-log');
-
-            // Clear the log completely to rebuild it with the full history
-            log.innerHTML = "";
-
+            // REMOVED REDUNDANT DECLARATION HERE
+            log.innerHTML = ""; // Clear to rebuild
+            
             data.events.forEach(e => {
                 const entry = document.createElement('div');
                 entry.className = 'log-entry';
-                // Ensure you use e.msg (or e.message) consistently with your python code
                 entry.innerHTML = `<span class="log-time">${e.time}</span> <span class="log-msg">${e.msg}</span>`;
                 log.prepend(entry);
             });
-            // Auto-refresh file lists if needed
+            
             if (data.events.some(e => e.msg.includes("received") || e.msg.includes("Added"))) loadFiles();
         }
 
@@ -82,4 +77,3 @@ setInterval(async () => {
 
     } catch (e) { console.error(e); }
 }, 1000);
-
