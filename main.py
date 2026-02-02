@@ -44,9 +44,6 @@ def pin_rotator():
             # Set the next change timestamp (Current Time + 30 seconds)
             NEXT_CHANGE = time.time() + 30
             
-        # Log the new PIN event so Host sees it
-        add_event(f"🔐 PIN Changed: {new_pin}")
-        print(f"🔐 [SECURITY] New PIN: {new_pin}")
         time.sleep(30)
 
 def start_pin_rotator():
