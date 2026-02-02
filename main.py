@@ -235,7 +235,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if self.path.startswith('/view/') or self.path.startswith('/download/'):
             is_view = self.path.startswith('/view/')
             prefix = 6 if is_view else 10
-            fn = urllib.parse.unquote(self.path[prefix:])
+            raw_fn = urllib.parse.unquote(self.path[prefix:])
+            fn = os.path.basename(raw_fn)
             fp = self.get_file_path(fn)
             
             if fp:
