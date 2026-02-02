@@ -159,31 +159,5 @@
 
     <script src="scripts.js"></script>
     <script src="host_scripts.js"></script>
-    <script>
-        // Poll for PIN and animate Timer
-        setInterval(async () => {
-            try {
-                const res = await fetch('/api/pin');
-                if(res.ok) {
-                    const data = await res.json();
-                    
-                    // Update PIN
-                    document.getElementById('live-pin').innerText = data.pin;
-                    
-                    // Update Timer Text
-                    document.getElementById('pin-timer-text').innerText = data.ttl + "s";
-                    
-                    // Update Timer Bar
-                    const pct = (data.ttl / 30) * 100;
-                    document.getElementById('pin-timer-bar').style.width = pct + "%";
-                    
-                    // Color Logic
-                    const bar = document.getElementById('pin-timer-bar');
-                    if(data.ttl < 5) bar.style.background = "#ef4444";
-                    else bar.style.background = "var(--accent-blue)";
-                }
-            } catch(e) {}
-        }, 1000); 
-    </script>
 </body>
 </html>
