@@ -36,7 +36,7 @@
 ### 📦 Compressed Archives (Recommended if EXE is blocked)
 
 * **PyShare (Windows ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.0/PyShare.zip)**
-* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.0/PyShare.tar.gz)**
+* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.0.tar.gz)**
 
 ### 💻 Source Code (For Developers)
 
