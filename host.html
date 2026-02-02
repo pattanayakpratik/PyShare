@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,6 +7,41 @@
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="host_styles.css">
+    <style>
+        /* INLINE OVERRIDES to fix layout issues */
+        .qr-card-inner {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Prevent scrolling inside the card */
+            height: 100%;
+        }
+        .qr-content {
+            flex: 0 0 auto; /* Allow this to shrink/grow based on content only */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        /* Make PIN card smaller */
+        .pin-card {
+            margin: 10px auto; 
+            width: 90%; 
+            padding: 8px 12px; 
+            background: rgba(255,255,255,0.05); 
+            border-radius: 12px; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            position: relative; 
+            overflow: hidden;
+        }
+        /* Make notification box fill remaining space */
+        .notification-box {
+            flex: 1; /* Grow to fill space */
+            margin-top: 0 !important;
+            min-height: 0; /* Allow shrinking */
+            height: auto !important; /* Override fixed height */
+            background: rgba(0,0,0,0.2);
+        }
+    </style>
 </head>
 
 <body>
@@ -18,9 +52,7 @@
                 <button class="icon-btn" onclick="toggleTheme()" title="Theme">🌓</button>
             </div>
 
-
             <div style="display:flex; gap:15px; align-items: center;">
-
                 <div class="logo">
                     <span class="icon-emoji">
                         <img src="app_icon.ico" alt="App icon">
@@ -62,21 +94,21 @@
         <div class="files-section qr-area" style="padding: 0;">
             <div class="qr-card-inner">
                 <div class="qr-content">
-                    <h3 style="margin-bottom: 20px;">📱 Connect Device</h3>
-                    <img src="/qrcode.png" class="qr-img" alt="Scan QR">
-                    <p style="font-size: 13px; color: var(--text-sub); margin-top: 15px;">Scan with your phone to start
-                        sharing</p>
-                    <div
-                        style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
-                        <div style="font-size: 12px; color: var(--text-sub); margin-bottom: 5px;">CONNECTION PIN</div>
-                        <div id="live-pin"
-                            style="font-size: 28px; font-weight: bold; letter-spacing: 5px; color: var(--accent-blue);">
-                            ----</div>
-                        <div style="font-size: 10px; color: var(--text-sub); margin-top: 5px;">Updates every 30s</div>
+                    <h3 style="margin-bottom: 10px;">📱 Connect Device</h3>
+                    <img src="/qrcode.png" class="qr-img" alt="Scan QR" style="width: 140px; height: 140px;">
+                    <p style="font-size: 12px; color: var(--text-sub); margin: 8px 0;">Scan to connect</p>
+                    
+                    <div class="pin-card">
+                        <div id="pin-timer-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; background: var(--accent-blue); width: 100%; transition: width 1s linear;"></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 10px; color: var(--text-sub); font-weight: bold; text-transform: uppercase;">Pin Code</div>
+                            <div id="pin-timer-text" style="font-size: 10px; color: var(--accent-blue);">30s</div>
+                        </div>
+                        <div id="live-pin" style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: white; text-align: center; margin-top: 2px;">----</div>
                     </div>
-                    <div id="rx-container" class="rx-progress" style="width: 100%; margin-top: 15px;">
-                        <div
-                            style="font-size:12px; margin-bottom:5px; font-weight:bold; display:flex; justify-content:space-between;">
+
+                    <div id="rx-container" class="rx-progress" style="width: 100%; margin-top: 10px;">
+                        <div style="font-size:11px; margin-bottom:4px; font-weight:bold; display:flex; justify-content:space-between;">
                             <span>⬇️ Receiving...</span>
                             <span id="rx-filename" style="opacity:0.8">file.ext</span>
                         </div>
@@ -87,14 +119,12 @@
                 </div>
 
                 <div class="notification-box" id="notif-log">
-                    <div class="log-entry"><span class="log-time">--:--</span> <span class="log-msg">Server started.
-                            Waiting for connections...</span></div>
+                    <div class="log-entry"><span class="log-time">--:--</span> <span class="log-msg">Server started. Waiting...</span></div>
                 </div>
             </div>
         </div>
 
         <div class="files-area">
-
             <div class="files-section file-list-card">
                 <div class="card-header">
                     <h3>📥 Received Files</h3>
@@ -124,12 +154,36 @@
                     </ul>
                 </div>
             </div>
-
         </div>
     </div>
 
     <script src="scripts.js"></script>
     <script src="host_scripts.js"></script>
+    <script>
+        // Poll for PIN and animate Timer
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/pin');
+                if(res.ok) {
+                    const data = await res.json();
+                    
+                    // Update PIN
+                    document.getElementById('live-pin').innerText = data.pin;
+                    
+                    // Update Timer Text
+                    document.getElementById('pin-timer-text').innerText = data.ttl + "s";
+                    
+                    // Update Timer Bar
+                    const pct = (data.ttl / 30) * 100;
+                    document.getElementById('pin-timer-bar').style.width = pct + "%";
+                    
+                    // Color Logic
+                    const bar = document.getElementById('pin-timer-bar');
+                    if(data.ttl < 5) bar.style.background = "#ef4444";
+                    else bar.style.background = "var(--accent-blue)";
+                }
+            } catch(e) {}
+        }, 1000); 
+    </script>
 </body>
-
 </html>
