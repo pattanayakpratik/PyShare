@@ -32,7 +32,7 @@ function uploadFileCustom(file, url) {
     };
     xhr.onload = () => {
         status.innerText = "✅ Added!";
-        loadFiles(); 
+        loadFiles();
         setTimeout(() => { container.style.display = 'none'; bar.style.width = '0%'; }, 2000);
     };
     xhr.open("POST", url);
@@ -50,14 +50,14 @@ setInterval(async () => {
         if (data.events.length > 0) {
             // REMOVED REDUNDANT DECLARATION HERE
             log.innerHTML = ""; // Clear to rebuild
-            
+
             data.events.forEach(e => {
                 const entry = document.createElement('div');
                 entry.className = 'log-entry';
                 entry.innerHTML = `<span class="log-time">${e.time}</span> <span class="log-msg">${e.msg}</span>`;
                 log.prepend(entry);
             });
-            
+
             if (data.events.some(e => e.msg.includes("received") || e.msg.includes("Added"))) loadFiles();
         }
 
@@ -76,4 +76,28 @@ setInterval(async () => {
         }
 
     } catch (e) { console.error(e); }
+}, 1000);
+
+setInterval(async () => {
+    try {
+        const res = await fetch('/api/pin');
+        if (res.ok) {
+            const data = await res.json();
+
+            // Update PIN
+            document.getElementById('live-pin').innerText = data.pin;
+
+            // Update Timer Text
+            document.getElementById('pin-timer-text').innerText = data.ttl + "s";
+
+            // Update Timer Bar
+            const pct = (data.ttl / 30) * 100;
+            document.getElementById('pin-timer-bar').style.width = pct + "%";
+
+            // Color Logic
+            const bar = document.getElementById('pin-timer-bar');
+            if (data.ttl < 5) bar.style.background = "#ef4444";
+            else bar.style.background = "var(--accent-blue)";
+        }
+    } catch (e) { }
 }, 1000);
