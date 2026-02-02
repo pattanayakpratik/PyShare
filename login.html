@@ -72,28 +72,64 @@
             if (pin.length < 4) {
                 pin += num;
                 updateDisplay();
+                
+                // AUTO-SUBMIT when 4th digit is entered
+                if (pin.length === 4) {
+                    setTimeout(submitPin, 300); // Small delay for visual feedback
+                }
             }
         }
-        function back() { pin = pin.slice(0, -1); updateDisplay(); }
-        function clearPin() { pin = ""; updateDisplay(); }
-        function updateDisplay() { display.innerText = pin.split('').map(() => '•').join(''); }
+
+        function back() { 
+            pin = pin.slice(0, -1); 
+            updateDisplay(); 
+        }
+
+        function clearPin() { 
+            pin = ""; 
+            updateDisplay(); 
+        }
+
+        function updateDisplay() { 
+            // Show bullets for typed, empty for remaining
+            let visual = "";
+            for(let i=0; i<4; i++) {
+                if(i < pin.length) visual += "•";
+                else visual += '<span style="opacity:0.2">•</span>';
+            }
+            display.innerHTML = visual;
+        }
 
         function submitPin() {
+            // Visual feedback that we are checking
+            display.style.opacity = "0.5";
+            
             fetch('/login', {
                 method: 'POST',
                 body: 'pin=' + pin
             }).then(res => {
-                if (res.ok) window.location.reload();
-                else {
-                    display.innerText = "INVALID";
-                    display.style.color = "#ef4444";
+                display.style.opacity = "1";
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    // Shake animation or Red text
+                    const originalHTML = display.innerHTML;
+                    display.innerHTML = "<span style='font-size:20px; color:#ef4444'>WRONG PIN</span>";
+                    
                     setTimeout(() => { 
                         clearPin(); 
+                        display.innerHTML = originalHTML; // Reset formatting logic
+                        updateDisplay();
                         display.style.color = "#fff"; 
                     }, 1000);
                 }
+            }).catch(() => {
+                display.style.opacity = "1";
             });
         }
+        
+        // Initial draw
+        updateDisplay();
     </script>
 </body>
 </html>
