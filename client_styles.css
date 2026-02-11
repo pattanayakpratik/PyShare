@@ -144,3 +144,32 @@ input[type="text"] {
     height: 1.5em;
     vertical-align: middle;
 }
+
+
+/* responsive view for desktop */
+@media (min-width: 768px) {
+    .app-container {
+        max-width: 800px;
+        padding: 25px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto 1fr;
+        gap: 25px;
+        grid-template-areas:
+            "head head"
+            "stat stat"
+            "up files";
+        align-items: stretch;
+        height: 90vh;
+;
+    }
+
+    .upload-card {
+        padding: 40px 30px;
+
+    }
+
+    .file-list {
+        padding: 0 30px 30px 30px;
+    }
+}
