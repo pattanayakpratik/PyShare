@@ -31,23 +31,23 @@
 
 ### 🚀 Standalone Executable
 
-* **PyShare (Windows EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.1/PyShare.exe)**
+* **PyShare (Windows EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.2/PyShare.exe)**
 
 ### 📦 Compressed Archives (Recommended if EXE is blocked)
 
-* **PyShare (Windows ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.1/PyShare.zip)**
-* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.1.tar.gz)**
+* **PyShare (Windows ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.2/PyShare.zip)**
+* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.2.tar.gz)**
 
 ### 💻 Source Code (For Developers)
 
-* **Source (ZIP)** 👉 **[v3.0.1.zip](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.1.zip)**
-* **Source (TAR)** 👉 **[v3.0.1.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.1.tar.gz)**
+* **Source (ZIP)** 👉 **[v3.0.2.zip](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.2.zip)**
+* **Source (TAR)** 👉 **[v3.0.2.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.2.tar.gz)**
 
 
 *⚠️ **Note:** If Windows SmartScreen shows a warning, click **More info → Run anyway**. The app is entirely local and safe to use.*
 
 
-## 🆕 What's New (v3.0.1)
+## 🆕 What's New (v3.0.2)
 - **🖥️ Separate Dashboards:** Dedicated interfaces for the Host (PC) and Client (Mobile) for a streamlined experience.
 - **🔒 Secure PIN Authentication:** A rotating 4-digit PIN (changing every 30s) prevents unauthorized access.
 - **⏱️ Live Timer:** Visual countdown timer for PIN rotation on the Host dashboard.
