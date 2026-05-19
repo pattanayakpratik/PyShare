@@ -46,6 +46,7 @@ function uploadFileCustom(file, url) {
 }
 
 // Live Poll (Logs + Progress)
+let lastEventJson = "";
 setInterval(async () => {
     try {
         const res = await fetch('/api/updates');
@@ -53,20 +54,26 @@ setInterval(async () => {
 
         // Update Logs
         const log = document.getElementById('notif-log');
-        if (data.events.length > 0) {
-            // REMOVED REDUNDANT DECLARATION HERE
-            log.innerHTML = ""; // Clear to rebuild
+        if (data.events) {
+            const currentEventJson = JSON.stringify(data.events);
+            
+            // Only rebuild the DOM and fetch files if a NEW event happened
+            if (currentEventJson !== lastEventJson) {
+                log.innerHTML = ""; // Clear to rebuild
+                
+                data.events.forEach(e => {
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    entry.innerHTML = `<span class="log-time">${e.time}</span> <span class="log-msg">${e.msg}</span>`;
+                    log.prepend(entry);
+                });
 
-            data.events.forEach(e => {
-                const entry = document.createElement('div');
-                entry.className = 'log-entry';
-                entry.innerHTML = `<span class="log-time">${e.time}</span> <span class="log-msg">${e.msg}</span>`;
-                log.prepend(entry);
-            });
-
-            if (data.events.some(e => e.msg.includes("received") || e.msg.includes("Added"))) loadFiles();
+                // Since events changed, refresh the file list
+                loadFiles(); 
+                
+                lastEventJson = currentEventJson;
+            }
         }
-
         // Update Incoming Progress
         const rxBox = document.getElementById('rx-container');
         const rxBar = document.getElementById('rx-bar');
