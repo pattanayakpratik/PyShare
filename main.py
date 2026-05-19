@@ -31,7 +31,7 @@ NEXT_CHANGE = 0   # Track when the PIN will change next
 SESSIONS = set()  # Stores valid session tokens (IPs)
 state_lock = threading.Lock()
 events_queue = [] 
-upload_status = None 
+upload_status = {}
 
 # --- PIN MANAGER ---
 def pin_rotator():
@@ -58,27 +58,30 @@ def add_event(msg):
         if len(events_queue) > 50:
             events_queue.pop(0)
 
-def set_upload_status(filename, current, total):
+def set_upload_status(client_ip, filename, current, total):
     global upload_status
     with state_lock:
-        upload_status = {
+        upload_status[client_ip] = {
             "filename": filename, 
             "current": current, 
             "total": total
         }
 
-def clear_upload_status():
+def clear_upload_status(client_ip):
     global upload_status
     with state_lock:
-        upload_status = None
+        if client_ip in upload_status:
+            del upload_status[client_ip]
+
+def get_upload_status_safe(client_ip):
+    with state_lock:
+        status = upload_status.get(client_ip)
+        return status.copy() if status else None
 
 def pop_events():
     with state_lock:
         return list(events_queue)
 
-def get_upload_status_safe():
-    with state_lock:
-        return upload_status.copy() if upload_status else None
 
 # --- SYSTEM HELPERS ---
 def get_ip():
@@ -109,12 +112,15 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         pass 
 
     def get_file_path(self, filename):
-        fp = os.path.join(DOWNLOAD_DIR, filename)
-        if os.path.exists(fp) and os.path.isfile(fp): 
-            return fp
-        fp = os.path.join(UPLOAD_DIR, filename)
-        if os.path.exists(fp) and os.path.isfile(fp): 
-            return fp
+        safe_download_dir = os.path.abspath(DOWNLOAD_DIR)
+        safe_upload_dir = os.path.abspath(UPLOAD_DIR)
+        dl_fp = os.path.abspath(os.path.join(safe_download_dir, filename))
+        if dl_fp.startswith(safe_download_dir) and os.path.isfile(dl_fp): 
+            return dl_fp
+        up_fp = os.path.abspath(os.path.join(safe_upload_dir, filename))
+        if up_fp.startswith(safe_upload_dir) and os.path.isfile(up_fp): 
+            return up_fp
+            
         return None
 
     def is_authenticated(self):
@@ -242,7 +248,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            data = {"events": pop_events(), "upload": get_upload_status_safe()}
+            active_uploads = list(upload_status.values()) if upload_status else None
+            current_upload = active_uploads[0] if active_uploads else None
+            data = {"events": pop_events(), "upload": current_upload}
             self.wfile.write(json.dumps(data).encode())
             return
 
@@ -332,7 +340,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         try:
             is_host_upload = "dest=host" in self.path
             target_dir = DOWNLOAD_DIR if is_host_upload else UPLOAD_DIR
-            
+
             # Get filename from custom header
             encoded_fn = self.headers.get('X-File-Name')
             if not encoded_fn:
