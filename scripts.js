@@ -124,14 +124,18 @@ function handleFiles(files) {
 }
 
 function uploadFile(file) {
-    const formData = new FormData();
-    formData.append("file", file);
-
     const xhr = new XMLHttpRequest();
     const container = document.getElementById('progress-container');
     const bar = document.getElementById('progress-bar');
     const status = document.getElementById('status');
     const pct = document.getElementById('percent-text');
+
+    // 1. Open the connection first
+    xhr.open("POST", "/"); 
+    
+    // 2. Set headers AFTER opening
+    xhr.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
     container.style.display = 'block';
     status.innerText = `Uploading: ${file.name}...`;
@@ -149,8 +153,8 @@ function uploadFile(file) {
         loadFiles(); // Refresh lists
         setTimeout(() => { container.style.display = 'none'; bar.style.width = '0%'; }, 2000);
     };
-    xhr.open("POST", "/");
-    xhr.send(formData);
+    
+    xhr.send(file);
 }
 
 // --- 5. DISCONNECT ---

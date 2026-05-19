@@ -12,13 +12,18 @@ function handleFilesHost(files) {
 }
 
 function uploadFileCustom(file, url) {
-    const formData = new FormData();
-    formData.append("file", file);
     const xhr = new XMLHttpRequest();
     const container = document.getElementById('progress-container');
     const bar = document.getElementById('progress-bar');
     const status = document.getElementById('status');
     const pct = document.getElementById('percent-text');
+
+    // 1. Open connection using the provided url
+    xhr.open("POST", url); 
+    
+    // 2. Set headers
+    xhr.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
     container.style.display = 'block';
     status.innerText = `Adding: ${file.name}...`;
@@ -30,13 +35,14 @@ function uploadFileCustom(file, url) {
             pct.innerText = Math.round(percent) + "%";
         }
     };
+    
     xhr.onload = () => {
         status.innerText = "✅ Added!";
         loadFiles();
         setTimeout(() => { container.style.display = 'none'; bar.style.width = '0%'; }, 2000);
     };
-    xhr.open("POST", url);
-    xhr.send(formData);
+    
+    xhr.send(file);
 }
 
 // Live Poll (Logs + Progress)

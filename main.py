@@ -333,34 +333,27 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             is_host_upload = "dest=host" in self.path
             target_dir = DOWNLOAD_DIR if is_host_upload else UPLOAD_DIR
             
-            ctype = self.headers.get('Content-Type')
-            if not ctype: 
+            # Get filename from custom header
+            encoded_fn = self.headers.get('X-File-Name')
+            if not encoded_fn:
+                self.send_error(400, "Missing X-File-Name header")
                 return
-            boundary = ctype.split("boundary=")[1].encode()
-            length = int(self.headers.get('Content-Length'))
-            
-            line = self.rfile.readline()
-            read_bytes = len(line)
-            fn = "uploaded_file"
-            
-            while line.strip():
-                decoded = line.decode(errors='ignore')
-                if 'filename=' in decoded:
-                    fn = decoded.split('filename=')[1].strip('"\r\n ')
-                    fn = os.path.basename(urllib.parse.unquote(fn))
-                line = self.rfile.readline()
-                read_bytes += len(line)
+                
+            fn = os.path.basename(urllib.parse.unquote(encoded_fn))
+            length = int(self.headers.get('Content-Length', 0))
             
             if not os.path.exists(target_dir): 
                 os.makedirs(target_dir, exist_ok=True)
 
             out_path = os.path.join(target_dir, fn)
-            remain = length - read_bytes
-            total_size = remain
+            remain = length
+            total_size = length
             
             if not is_host_upload: 
                 add_event(f"Receiving file: {fn}")
             
+            # Read raw bytes directly to file
+            client_ip = self.client_address[0]
             with open(out_path, 'wb') as f:
                 while remain > 0:
                     chunk = self.rfile.read(min(remain, 65536))
@@ -369,22 +362,19 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     f.write(chunk)
                     remain -= len(chunk)
                     if not is_host_upload: 
-                        set_upload_status(fn, total_size - remain, total_size)
+                        set_upload_status(client_ip, fn, total_size - remain, total_size)
             
-            with open(out_path, 'rb+') as f:
-                f.seek(0, 2); size = f.tell()
-                f.seek(max(0, size-300), 0)
-                tail = f.read()
-                loc = tail.find(b'--' + boundary)
-                if loc != -1: 
-                    f.truncate(max(0, size-300) + loc - 2)
-            
-            clear_upload_status()
+            clear_upload_status(client_ip)
             msg = f"Added to Shared: {fn}" if is_host_upload else f"File received: {fn}"
             add_event(msg)
+            
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Upload Complete")
+            
+        except Exception as e:
+            clear_upload_status(self.client_address[0])
+            self.send_error(500, str(e))
         except Exception:
             clear_upload_status()
 
