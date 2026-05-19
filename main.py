@@ -1,3 +1,4 @@
+from zeroconf import ServiceInfo, Zeroconf
 import os
 import http.server
 import socketserver
@@ -24,6 +25,7 @@ BASE_DIR = ""
 UPLOAD_DIR = ""    # Received from Phone
 DOWNLOAD_DIR = ""  # Shared from PC
 ACTUAL_PORT = START_PORT
+zc = None
 
 # --- SECURITY & STATE ---
 CURRENT_PIN = "0000"
@@ -303,7 +305,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200); 
             self.end_headers()
             def kill():
-                if httpd: httpd.shutdown(); 
+                global zc
+                if zc:
+                    zc.unregister_all_services()
+                    zc.close()
+                if httpd: 
+                    httpd.shutdown(); 
                 httpd.server_close()
                 os._exit(0)
             threading.Thread(target=kill).start()
@@ -388,7 +395,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
 # --- SERVER CONTROLLER ---
 def start_server():
-    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, httpd, ACTUAL_PORT
+    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, httpd, ACTUAL_PORT, zc
     
     print("\n" + "="*40)
     print("🚀 Starting PyShare...")
@@ -423,10 +430,20 @@ def start_server():
     ip = get_ip()
     url = f'http://{ip}:{ACTUAL_PORT}'
     try:
-        qr_path = os.path.join(BASE_DIR, 'qrcode.png')
-        pyqrcode.create(url).png(qr_path, scale=6)
-    except: 
-        pass
+        zc = Zeroconf()
+        desc = {'app': 'PyShare', 'device':socket.gethostname()}
+        info = ServiceInfo(
+            "_pyshare._tcp.local.",
+            f"{socket.gethostname()}._pyshare._tcp.local.",
+            addresses=[socket.inet_aton(ip)],
+            port=ACTUAL_PORT,
+            properties=desc,
+            server=f"{socket.gethostname()}.local."
+        )
+        zc.register_service(info)
+        print(f"📡 mDNS Broadcast Active: Searching for devices...")
+    except Exception as e:
+        print(f"⚠️ mDNS Broadcast Failed:{e}.")
 
     print(f"⚡ SERVER LIVE: {url}")
     print("="*40 + "\n")
