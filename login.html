@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PyShare - Enter PIN</title>
+    <title>PyShare Login</title>
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -13,109 +13,115 @@
             justify-content: center;
             min-height: 100vh;
             padding: 20px;
+            background: #0b111e;
         }
 
         .login-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 28px;
+            background: #141d2e;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
             padding: 36px 28px;
             text-align: center;
             width: 100%;
-            max-width: 340px;
-            box-shadow: var(--shadow-lg);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 320px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            animation: scaleIn 0.25s ease-out;
         }
 
-        .login-icon {
-            font-size: 42px;
+        .lock-icon {
+            font-size: 40px;
             margin-bottom: 12px;
+            filter: drop-shadow(0 4px 10px rgba(234, 179, 8, 0.3));
         }
 
         .login-title {
             font-size: 22px;
-            font-weight: 800;
-            margin-bottom: 6px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
         }
 
-        .login-sub {
-            color: var(--text-sub);
+        .login-desc {
+            color: #8292ab;
             font-size: 13px;
             line-height: 1.4;
             margin-bottom: 24px;
         }
 
-        .pin-box {
-            font-size: 32px;
-            letter-spacing: 12px;
-            margin: 0 0 24px 0;
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
-            padding: 14px 10px;
-            border-radius: 16px;
-            color: var(--text-main);
-            min-height: 62px;
+        .pin-dot-display {
+            font-size: 30px;
+            letter-spacing: 14px;
+            margin-bottom: 24px;
+            background: #0d1525;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 12px;
+            border-radius: 14px;
+            color: #ffffff;
+            min-height: 56px;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
         }
 
-        .pin-box.error {
-            border-color: var(--accent-red);
-            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+        .pin-dot-display.error {
+            border-color: #ef4444;
             animation: shake 0.4s ease-in-out;
         }
 
-        .keypad {
+        .keypad-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
         }
 
-        .key {
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
+        .key-btn {
+            background: #182337;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            color: #ffffff;
             padding: 16px 0;
             font-size: 20px;
             font-weight: 600;
-            border-radius: 16px;
+            border-radius: 14px;
             cursor: pointer;
             transition: all 0.15s ease;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
 
-        .key:hover {
-            background: var(--card-bg);
-            border-color: var(--border-focus);
-            transform: translateY(-2px);
+        .key-btn:hover {
+            background: #202d44;
+            border-color: rgba(59, 130, 246, 0.4);
+            transform: translateY(-1px);
         }
 
-        .key:active {
+        .key-btn:active {
             transform: scale(0.95);
             background: rgba(59, 130, 246, 0.2);
         }
 
-        .key-action {
-            color: var(--text-sub);
-            font-size: 16px;
-        }
-
-        .key-submit {
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
-            color: white;
+        .key-btn-submit {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: #ffffff;
             border: none;
             grid-column: span 3;
-            margin-top: 6px;
-            padding: 16px 0;
+            margin-top: 4px;
+            padding: 15px 0;
             font-size: 16px;
             font-weight: 700;
-            border-radius: 999px;
-            box-shadow: 0 4px 15px var(--glow);
+            border-radius: 9999px;
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .key-btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+        }
+
+        .key-btn-submit:active {
+            transform: scale(0.97);
         }
 
         @keyframes shake {
@@ -127,26 +133,26 @@
 </head>
 <body>
     <div class="login-card">
-        <div class="login-icon">🔒</div>
-        <h2 class="login-title">PyShare Access</h2>
-        <p class="login-sub">Enter the 4-digit PIN displayed on the host screen to connect.</p>
+        <div class="lock-icon">🔒</div>
+        <h2 class="login-title">Protected</h2>
+        <p class="login-desc">Enter the 4-digit PIN displayed on the PC.</p>
 
-        <div id="pinBox" class="pin-box"></div>
+        <div id="pinBox" class="pin-dot-display"></div>
 
-        <div class="keypad">
-            <button class="key" onclick="add('1')">1</button>
-            <button class="key" onclick="add('2')">2</button>
-            <button class="key" onclick="add('3')">3</button>
-            <button class="key" onclick="add('4')">4</button>
-            <button class="key" onclick="add('5')">5</button>
-            <button class="key" onclick="add('6')">6</button>
-            <button class="key" onclick="add('7')">7</button>
-            <button class="key" onclick="add('8')">8</button>
-            <button class="key" onclick="add('9')">9</button>
-            <button class="key key-action" onclick="clearPin()">C</button>
-            <button class="key" onclick="add('0')">0</button>
-            <button class="key key-action" onclick="back()">⌫</button>
-            <button class="key key-submit" onclick="submitPin()">Connect to Host</button>
+        <div class="keypad-grid">
+            <button class="key-btn" onclick="add('1')">1</button>
+            <button class="key-btn" onclick="add('2')">2</button>
+            <button class="key-btn" onclick="add('3')">3</button>
+            <button class="key-btn" onclick="add('4')">4</button>
+            <button class="key-btn" onclick="add('5')">5</button>
+            <button class="key-btn" onclick="add('6')">6</button>
+            <button class="key-btn" onclick="add('7')">7</button>
+            <button class="key-btn" onclick="add('8')">8</button>
+            <button class="key-btn" onclick="add('9')">9</button>
+            <button class="key-btn" onclick="clearPin()" style="color:#8292ab;">C</button>
+            <button class="key-btn" onclick="add('0')">0</button>
+            <button class="key-btn" onclick="back()" style="color:#8292ab;">⌫</button>
+            <button class="key-btn-submit" onclick="submitPin()">Connect</button>
         </div>
     </div>
 
@@ -206,7 +212,7 @@
                     window.location.reload();
                 } else {
                     pinBox.classList.add('error');
-                    pinBox.innerHTML = "<span style='font-size:16px; letter-spacing:1px; color:var(--accent-red); font-weight:700;'>INVALID PIN</span>";
+                    pinBox.innerHTML = "<span style='font-size:15px; letter-spacing:1px; color:#ef4444; font-weight:700;'>WRONG PIN</span>";
                     setTimeout(() => {
                         clearPin();
                     }, 1200);
@@ -217,7 +223,7 @@
             }
         }
 
-        // Physical Keyboard Support
+        // Keyboard Support
         document.addEventListener('keydown', (e) => {
             if (e.key >= '0' && e.key <= '9') {
                 add(e.key);
@@ -230,7 +236,6 @@
             }
         });
 
-        // Initialize display
         updateDisplay();
     </script>
 </body>

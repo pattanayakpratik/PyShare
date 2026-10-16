@@ -11,119 +11,104 @@
 <body>
     <div class="app-container">
 
-        <!-- Header Navbar -->
+        <!-- Top Navbar -->
         <nav class="navbar">
             <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
             <div class="logo">
-                <img src="app_icon.ico" alt="PyShare Icon">
+                <img src="app_icon.ico" alt="PyShare" style="width:28px; height:28px; border-radius:6px;">
                 PyShare
             </div>
-            <div style="width: 40px;"></div>
+            <div style="width: 42px;"></div>
         </nav>
 
-        <!-- Connection Status -->
-        <div class="status-bar">
-            <div class="status-pill">
+        <!-- Connected Status Indicator -->
+        <div class="status-bar" style="margin-bottom: 0;">
+            <div class="client-status-pill">
                 <span class="status-dot"></span>
                 <span>Connected to PC</span>
             </div>
         </div>
 
-        <!-- Left / Mobile Top: Upload & Clipboard -->
-        <div class="col-left">
-            <!-- Send to PC Drop Zone -->
-            <div class="upload-card" id="dropZone" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-icon">☁️</div>
-                <h3 class="upload-title">Send to PC</h3>
-                <p class="upload-hint">Tap here to choose photos, videos, or files</p>
-                <button class="btn-primary" type="button" style="pointer-events:none;">
-                    <span>Browse Files</span>
-                </button>
-                <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
-            </div>
+        <!-- 1. Send to PC Dropzone -->
+        <div class="client-upload-card card-panel" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <div class="cloud-icon">☁️</div>
+            <h3 class="client-upload-title">Send to PC</h3>
+            <p class="client-upload-sub">Tap here to upload files</p>
+            <button class="btn-primary" type="button" style="pointer-events:none;">
+                Browse Files
+            </button>
+            <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
+        </div>
 
-            <!-- Upload Queue Drawer -->
-            <div id="uploadQueueCard" class="upload-queue-card" style="display:none;">
-                <div class="queue-header">
-                    <span>Uploading to PC</span>
-                    <span id="queueSpeed" class="queue-speed">0 KB/s</span>
-                </div>
-                <div id="queueList" class="queue-list"></div>
+        <!-- 2. Shared Clipboard Card -->
+        <div class="card-panel" style="padding: 14px 16px;">
+            <div style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">
+                <span>📋 Quick Clipboard</span>
             </div>
-
-            <!-- Shared Clipboard Card -->
-            <div class="clipboard-card">
-                <div class="clipboard-header">
-                    <span class="clipboard-title">📋 Instant Clipboard</span>
-                </div>
-                <div id="clipboardCurrent" class="clipboard-current">
-                    <span style="color:var(--text-sub); font-size:12px;">Loading clipboard...</span>
-                </div>
-                <div class="clipboard-body">
-                    <input type="text" id="clipboardInput" class="clipboard-input" placeholder="Share text or link with PC..." onkeydown="if(event.key==='Enter') sendClipboard()">
-                    <button class="btn-primary" onclick="sendClipboard()" style="padding:10px 18px; border-radius:10px;">Send</button>
-                </div>
+            <div id="clipboardCurrent" style="font-size: 12px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span style="color: var(--text-sub);">Loading clipboard...</span>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <input type="text" id="clipboardInput" placeholder="Share text or link with PC..." class="search-input-box" style="margin-bottom: 0; padding: 8px 12px; font-size: 12px; flex: 1; min-width: 0;" onkeydown="if(event.key==='Enter') sendClipboard()">
+                <button class="btn-primary" onclick="sendClipboard()" style="padding: 8px 16px; font-size: 12px; border-radius: 8px; flex-shrink: 0;">Send</button>
             </div>
         </div>
 
-        <!-- Right / Mobile Bottom: PC Files Download Section -->
-        <div class="col-right">
-            <div class="files-section glass-card" style="height:100%;">
-                <div class="section-head">
-                    <div class="section-title">💾 Download from PC</div>
-                    <a href="/api/zip?folder=shared" class="btn-secondary" title="Download all files as a ZIP">📦 ZIP All</a>
-                </div>
-
-                <!-- Category Filters -->
-                <div class="filter-tabs">
-                    <button class="filter-chip active" onclick="setFilterPC('all', this)">All</button>
-                    <button class="filter-chip" onclick="setFilterPC('image', this)">Images</button>
-                    <button class="filter-chip" onclick="setFilterPC('video', this)">Videos</button>
-                    <button class="filter-chip" onclick="setFilterPC('document', this)">Docs</button>
-                    <button class="filter-chip" onclick="setFilterPC('audio', this)">Audio</button>
-                </div>
-
-                <!-- Search Input -->
-                <input type="text" id="searchPC" class="search-input" placeholder="🔍 Search PC files..." onkeyup="renderPCFiles()">
-
-                <!-- File List -->
-                <ul id="file-list" class="file-list">
-                    <li class="empty-state">Loading files...</li>
-                </ul>
+        <!-- 3. Download from PC Section -->
+        <div class="card-panel" style="padding: 16px 16px; flex: 1;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 12px;">
+                <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <span>💾 Download from PC</span>
+                </h3>
+                <a href="/api/zip?folder=shared" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; flex-shrink: 0;" title="Download all files as ZIP">📦 ZIP All</a>
             </div>
+
+            <input type="text" id="searchPC" class="search-input-box" placeholder="🔍 Search PC files..." onkeyup="renderPCFiles()">
+
+            <ul id="file-list" class="file-list">
+                <li class="empty-state">Loading files...</li>
+            </ul>
         </div>
 
+    </div>
+
+    <!-- Floating Upload Queue Drawer -->
+    <div id="floatingQueue" class="floating-queue">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700;">
+            <span id="queueOverallStatus">Uploading to PC...</span>
+            <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
+        </div>
+        <div id="queueItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
     </div>
 
     <!-- In-App Lightbox Media Preview Modal -->
     <div id="previewModal" class="modal-backdrop" onclick="if(event.target===this) closePreview()">
-        <div class="modal-card">
-            <div class="modal-head">
-                <span id="previewModalTitle" class="modal-title">File Preview</span>
-                <button class="icon-btn" onclick="closePreview()" style="width:32px; height:32px;" title="Close">✕</button>
+        <div class="modal-box">
+            <div class="modal-header">
+                <span id="previewModalTitle" class="modal-title-text">File Preview</span>
+                <button class="icon-btn" onclick="closePreview()" style="width:34px; height:34px;" title="Close">✕</button>
             </div>
-            <div id="previewModalBody" class="modal-body"></div>
-            <div class="modal-foot">
+            <div id="previewModalBody" class="modal-content-area"></div>
+            <div class="modal-footer">
                 <button class="btn-secondary" onclick="closePreview()">Close</button>
-                <a id="previewDownloadBtn" href="#" class="btn-primary">⬇️ Download File</a>
+                <a id="previewDownloadBtn" href="#" class="btn-primary" style="padding:10px 24px; font-size:13px;">⬇️ Download File</a>
             </div>
         </div>
     </div>
 
-    <!-- Server Disconnect Notice -->
+    <!-- Disconnect Overlay -->
     <div id="disconnectOverlay" class="disconnect-overlay">
-        <div class="disconnect-card">
-            <div class="disconnect-icon">🔌</div>
-            <h2>Disconnected</h2>
-            <p>The host server has stopped or connection was lost.</p>
-            <button class="btn-primary" onclick="window.location.reload()">Reconnect</button>
+        <div class="disconnect-modal-card">
+            <div style="font-size: 48px; margin-bottom: 14px;">🔌</div>
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Disconnected</h2>
+            <p style="color: var(--text-sub); font-size: 13px; margin-bottom: 24px; line-height: 1.4;">The host has stopped the server or connection was lost.</p>
+            <button class="btn-primary" onclick="window.location.reload()">Try Reconnect</button>
         </div>
     </div>
 
     <!-- Scripts -->
     <script src="scripts.js"></script>
     <script>
-        // Server Heartbeat & Clipboard Remote Sync
         let failCount = 0;
         const overlay = document.getElementById('disconnectOverlay');
 
@@ -139,9 +124,8 @@
                     overlay.classList.add('visible');
                 }
             }
-        }, 2000);
+        }, 1500);
 
-        // Periodic clipboard sync
         setInterval(() => {
             loadClipboard();
         }, 3000);

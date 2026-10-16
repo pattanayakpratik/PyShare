@@ -1,53 +1,94 @@
 /* ==========================================================================
-   PyShare Host Styles - Professional Dashboard Layout
+   PyShare Host Styles - Exact 3-Column Studio Layout
    ========================================================================== */
 
 .app-container {
+    width: 100%;
     max-width: 1560px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 20px 24px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
     min-height: 100vh;
 }
 
-/* 3-Column Responsive Dashboard */
-@media (min-width: 1200px) {
+@media (min-width: 1100px) {
     .app-container {
         display: grid;
-        grid-template-columns: 360px 380px 1fr;
+        grid-template-columns: 340px 380px 1fr;
         grid-template-rows: auto auto 1fr;
         grid-template-areas:
             "nav nav nav"
             "stat stat stat"
-            "col-send col-center col-files";
-        height: 94vh;
-        gap: 24px;
+            "col-send col-connect col-files";
+        height: 95vh;
+        gap: 20px;
     }
+
+    .navbar { grid-area: nav; }
+    .status-bar { grid-area: stat; }
+    .col-send { grid-area: col-send; }
+    .col-connect { grid-area: col-connect; }
+    .col-files { grid-area: col-files; }
 }
 
-@media (min-width: 800px) and (max-width: 1199px) {
+@media (max-width: 1099px) {
     .app-container {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-areas:
-            "nav nav"
-            "stat stat"
-            "col-send col-center"
-            "col-files col-files";
+        display: flex;
+        flex-direction: column;
         gap: 20px;
     }
 }
 
-.navbar { grid-area: nav; }
-.status-bar { grid-area: stat; }
-.col-send { grid-area: col-send; display: flex; flex-direction: column; gap: 20px; }
-.col-center { grid-area: col-center; display: flex; flex-direction: column; gap: 20px; }
-.col-files { grid-area: col-files; display: flex; flex-direction: column; gap: 20px; min-height: 0; }
+/* --- COLUMN 1: ADD TO SHARED --- */
+.upload-dropzone-card {
+    height: 100%;
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    background: var(--card-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 32px 24px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
 
-/* QR & Connect Hub */
-.qr-hub-card {
+.upload-dropzone-card:hover {
+    border-color: var(--accent-blue);
+    background: var(--card-hover-bg);
+    box-shadow: var(--glow-blue);
+}
+
+.upload-dropzone-card.dragover {
+    border-color: var(--accent-blue) !important;
+    background: rgba(59, 130, 246, 0.12) !important;
+}
+
+.upload-main-icon {
+    font-size: 56px;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+}
+
+.upload-heading {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-main);
+}
+
+.upload-subheading {
+    font-size: 14px;
+    color: var(--text-sub);
+    margin-bottom: 28px;
+}
+
+/* --- COLUMN 2: CONNECT DEVICE HUB --- */
+.connect-hub-card {
+    height: 100%;
     display: flex;
     flex-direction: column;
     padding: 24px;
@@ -56,34 +97,47 @@
     text-align: center;
 }
 
-.qr-frame {
-    background: white;
+.hub-title {
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.qr-white-card {
+    background: #ffffff;
     padding: 12px;
-    border-radius: 18px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     transition: transform 0.2s ease;
 }
 
-.qr-frame:hover {
-    transform: scale(1.03);
+.qr-white-card:hover {
+    transform: scale(1.02);
 }
 
-.qr-img {
-    width: 160px;
-    height: 160px;
+.qr-code-img {
+    width: 150px;
+    height: 150px;
     display: block;
 }
 
-/* Rotating PIN Card with TTL Bar */
-.pin-hub {
+.qr-caption {
+    font-size: 12px;
+    color: var(--text-sub);
+}
+
+/* Inset PIN Card */
+.pin-display-box {
     width: 100%;
     background: var(--input-bg);
     border: 1px solid var(--border-color);
     border-radius: 14px;
-    padding: 12px 16px;
+    padding: 12px 18px;
     position: relative;
     overflow: hidden;
 }
@@ -95,75 +149,176 @@
     height: 3px;
     background: var(--accent-blue);
     width: 100%;
-    transition: width 1s linear, background 0.3s;
+    transition: width 1s linear, background-color 0.3s ease;
 }
 
-.pin-hub-meta {
+.pin-meta-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 11px;
     font-weight: 700;
-    color: var(--text-sub);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    color: var(--text-sub);
 }
 
-.live-pin-val {
+.pin-ttl-countdown {
+    color: var(--accent-cyan);
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.pin-number-text {
     font-size: 32px;
     font-weight: 800;
-    letter-spacing: 6px;
+    letter-spacing: 8px;
     color: var(--text-main);
     text-align: center;
-    margin: 6px 0;
+    margin: 4px 0 2px 0;
     font-family: 'Consolas', monospace;
 }
 
-/* Host Event Log */
-.event-log-card {
+/* Hub Tab Switcher (Live Log / Clipboard) */
+.hub-bottom-card {
+    width: 100%;
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 180px;
+    min-height: 160px;
     background: var(--input-bg);
     border: 1px solid var(--border-color);
     border-radius: 14px;
-    padding: 14px;
-    font-family: 'Consolas', 'Monaco', monospace;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.hub-tabs {
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.hub-tab {
+    flex: 1;
+    padding: 8px 10px;
     font-size: 12px;
-    overflow-y: auto;
+    font-weight: 600;
+    color: var(--text-sub);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 6px;
 }
 
-.log-entry {
+.hub-tab:hover {
+    color: var(--text-main);
+}
+
+.hub-tab.active {
+    color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.08);
+    border-bottom: 2px solid var(--accent-blue);
+}
+
+.hub-tab-pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hub-tab-pane.active {
+    display: flex;
+}
+
+.log-entry-row {
     display: flex;
     gap: 10px;
     line-height: 1.4;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    padding-bottom: 3px;
+    text-align: left;
 }
 
-.log-time {
-    color: var(--accent-blue);
+.log-timestamp {
+    color: var(--accent-cyan);
     font-weight: 700;
     flex-shrink: 0;
 }
 
-.log-msg {
+.log-message {
     color: var(--text-main);
     word-break: break-word;
 }
 
-/* Dual File Panels on Right */
-.file-panel {
-    flex: 1;
-    min-height: 0;
+/* --- COLUMN 3: DUAL FILE PANELS --- */
+.col-files {
     display: flex;
     flex-direction: column;
+    gap: 16px;
+    height: 100%;
 }
 
-.file-scroll-box {
+.file-panel-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.panel-title {
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-scroll-area {
     flex: 1;
     overflow-y: auto;
-    padding-right: 4px;
+    padding-right: 2px;
+}
+
+/* Upload Queue Floating Drawer */
+.floating-queue {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 520px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 14px 18px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    animation: toastSlide 0.25s ease-out;
 }

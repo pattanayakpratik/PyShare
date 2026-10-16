@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PyShare Host Dashboard</title>
+    <title>PyShare Host</title>
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="host_styles.css">
@@ -11,157 +11,134 @@
 <body>
     <div class="app-container">
 
-        <!-- Header Navbar -->
+        <!-- Top Navbar -->
         <nav class="navbar">
             <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
             <div class="logo">
-                <img src="app_icon.ico" alt="PyShare Icon">
-                PyShare Host
+                <img src="app_icon.ico" alt="PyShare" style="width:28px; height:28px; border-radius:6px;">
+                PyShare
             </div>
-            <button class="icon-btn" onclick="disconnectServer()" style="color:var(--accent-red); border-color:rgba(239, 68, 68, 0.4);" title="Shutdown Server">🛑</button>
+            <button class="icon-btn" onclick="disconnectServer()" style="color:var(--accent-red); border-color:rgba(239,68,68,0.4);" title="Shutdown Server">🛑</button>
         </nav>
 
-        <!-- Status Indicator -->
+        <!-- Centered Status Indicator -->
         <div class="status-bar">
             <div class="status-pill">
                 <span class="status-dot"></span>
-                <span>Server Live: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">...</strong></span>
+                <span>Server IP: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">...</strong></span>
             </div>
         </div>
 
-        <!-- Column 1: Upload & Clipboard -->
+        <!-- 3-Column Studio Layout -->
+
+        <!-- Column 1: Add to Shared -->
         <div class="col-send">
-            <!-- Upload Drop Zone -->
-            <div class="upload-card" id="dropZone" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-icon">📤</div>
-                <h2 class="upload-title">Add to Shared</h2>
-                <p class="upload-hint">Drag & drop files here or click to browse</p>
+            <div class="upload-dropzone-card card-panel" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-main-icon">📤</div>
+                <h2 class="upload-heading">Add to Shared</h2>
+                <p class="upload-subheading">Drag &amp; Drop files here or click below</p>
                 <button class="btn-primary" type="button" style="pointer-events:none;">
-                    <span>Select Files</span>
+                    Select Files
                 </button>
                 <input type="file" id="fileInput" multiple hidden onchange="handleFilesHost(this.files)">
             </div>
-
-            <!-- Upload Queue Drawer -->
-            <div id="uploadQueueCard" class="upload-queue-card" style="display:none;">
-                <div class="queue-header">
-                    <span>Transferring Files</span>
-                    <span id="queueSpeed" class="queue-speed">0 KB/s</span>
-                </div>
-                <div id="queueList" class="queue-list"></div>
-            </div>
-
-            <!-- Shared Clipboard Card -->
-            <div class="clipboard-card">
-                <div class="clipboard-header">
-                    <span class="clipboard-title">📋 Instant Clipboard</span>
-                </div>
-                <div id="clipboardCurrent" class="clipboard-current">
-                    <span style="color:var(--text-sub); font-size:12px;">Loading clipboard...</span>
-                </div>
-                <div class="clipboard-body">
-                    <input type="text" id="clipboardInput" class="clipboard-input" placeholder="Type text or paste link to share..." onkeydown="if(event.key==='Enter') sendClipboard()">
-                    <button class="btn-primary" onclick="sendClipboard()" style="padding:10px 18px; border-radius:10px;">Send</button>
-                </div>
-            </div>
         </div>
 
-        <!-- Column 2: Connect & Live Hub -->
-        <div class="col-center">
-            <div class="qr-hub-card glass-card">
-                <div style="font-size:15px; font-weight:700;">📱 Connect Phone / Device</div>
+        <!-- Column 2: Connect Device & Live Hub -->
+        <div class="col-connect">
+            <div class="connect-hub-card card-panel">
+                <div class="hub-title">📱 Connect Device</div>
                 
-                <div class="qr-frame">
-                    <img src="/qrcode.png" class="qr-img" alt="Scan to Connect">
+                <div class="qr-white-card">
+                    <img src="/qrcode.png" class="qr-code-img" alt="Scan QR Code to Connect">
                 </div>
-                <p style="font-size:12px; color:var(--text-sub);">Scan QR code with your phone camera</p>
+                <div class="qr-caption">Scan to connect</div>
 
-                <!-- 4-digit PIN with 30s Countdown -->
-                <div class="pin-hub">
+                <!-- Live Rotating PIN Code -->
+                <div class="pin-display-box">
+                    <div class="pin-meta-row">
+                        <span>PIN CODE</span>
+                        <span id="pin-timer-text" class="pin-ttl-countdown">30s</span>
+                    </div>
+                    <div id="live-pin" class="pin-number-text">----</div>
                     <div id="pin-timer-bar" class="pin-timer-line"></div>
-                    <div class="pin-hub-meta">
-                        <span>Connection PIN</span>
-                        <span id="pin-timer-text">30s</span>
-                    </div>
-                    <div id="live-pin" class="live-pin-val">----</div>
                 </div>
 
-                <!-- Receiving Monitor from Phone -->
-                <div id="rx-container" class="rx-progress" style="width:100%; display:none; background:rgba(16,185,129,0.1); border:1px solid var(--accent-green); border-radius:10px; padding:10px; text-align:left;">
-                    <div style="font-size:11px; margin-bottom:6px; font-weight:bold; display:flex; justify-content:space-between;">
+                <!-- Receiving Progress (Active only when mobile uploads) -->
+                <div id="rx-container" style="display:none; width:100%; background:rgba(16,185,129,0.1); border:1px solid var(--accent-green); border-radius:10px; padding:10px; text-align:left;">
+                    <div style="font-size:11px; margin-bottom:5px; font-weight:700; display:flex; justify-content:space-between;">
                         <span>⬇️ Receiving from Phone...</span>
-                        <span id="rx-filename" style="opacity:0.8">file.ext</span>
+                        <span id="rx-filename" style="opacity:0.8;">file.ext</span>
                     </div>
-                    <div class="queue-item-track" style="height:6px;">
-                        <div id="rx-bar" class="queue-item-fill" style="width:0%; background:var(--accent-green);"></div>
+                    <div style="height:5px; background:rgba(255,255,255,0.1); border-radius:99px; overflow:hidden;">
+                        <div id="rx-bar" style="height:100%; width:0%; background:var(--accent-green); transition:width 0.15s ease;"></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Server Activity Logs -->
-            <div class="glass-card" style="padding:16px; flex:1; display:flex; flex-direction:column; min-height:160px; overflow:hidden;">
-                <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                    <span>⚡ Live Server Log</span>
-                </div>
-                <div class="event-log-card" id="notif-log">
-                    <div class="log-entry">
-                        <span class="log-time">--:--</span>
-                        <span class="log-msg">Server initialized. Ready for connections.</span>
+                <!-- Tabbed Live Hub (Activity Log / Clipboard) -->
+                <div class="hub-bottom-card">
+                    <div class="hub-tabs">
+                        <button id="tabBtnLog" class="hub-tab active" onclick="switchHubTab('log')">⚡ Live Log</button>
+                        <button id="tabBtnClip" class="hub-tab" onclick="switchHubTab('clip')">📋 Quick Clipboard</button>
+                    </div>
+
+                    <!-- Pane 1: Activity Log -->
+                    <div id="hubLogPane" class="hub-tab-pane active">
+                        <div class="log-entry-row">
+                            <span class="log-timestamp">--:--</span>
+                            <span class="log-message">Server started. Ready for connections.</span>
+                        </div>
+                    </div>
+
+                    <!-- Pane 2: Clipboard -->
+                    <div id="hubClipPane" class="hub-tab-pane" style="font-family:inherit;">
+                        <div id="clipboardCurrent" style="font-size:12px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                            <span style="color:var(--text-sub);">Clipboard is empty.</span>
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:6px;">
+                            <input type="text" id="clipboardInput" placeholder="Type text or paste URL..." style="flex:1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; color:var(--text-main); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') sendClipboard()">
+                            <button class="btn-primary" onclick="sendClipboard()" style="padding:6px 14px; font-size:12px; border-radius:8px;">Send</button>
+                        </div>
                     </div>
                 </div>
+
             </div>
         </div>
 
-        <!-- Column 3: Dual File Manager (Received & Shared) -->
+        <!-- Column 3: Dual File Managers -->
         <div class="col-files">
-            <!-- Received from Phone -->
-            <div class="files-section file-panel glass-card">
-                <div class="section-head">
-                    <div class="section-title">📥 Received Files</div>
-                    <div class="section-actions">
+            <!-- Received Files (From Phone) -->
+            <div class="file-panel-card card-panel">
+                <div class="panel-header">
+                    <div class="panel-title">📥 Received Files</div>
+                    <div class="panel-actions">
                         <a href="/api/zip?folder=received" class="btn-secondary" title="Download all as ZIP">📦 ZIP All</a>
-                        <button class="btn-secondary" onclick="fetch('/api/open?folder=received')">📂 Open</button>
+                        <button class="btn-secondary" onclick="fetch('/api/open?folder=received')">📂 Open Folder</button>
                     </div>
                 </div>
 
-                <div class="filter-tabs">
-                    <button class="filter-chip active" onclick="setFilterMobile('all', this)">All</button>
-                    <button class="filter-chip" onclick="setFilterMobile('image', this)">Images</button>
-                    <button class="filter-chip" onclick="setFilterMobile('video', this)">Videos</button>
-                    <button class="filter-chip" onclick="setFilterMobile('document', this)">Docs</button>
-                    <button class="filter-chip" onclick="setFilterMobile('audio', this)">Audio</button>
-                </div>
+                <input type="text" id="searchMobile" class="search-input-box" placeholder="🔍 Search received..." onkeyup="renderMobileFiles()">
 
-                <input type="text" id="searchMobile" class="search-input" placeholder="🔍 Search received files..." onkeyup="renderMobileFiles()">
-
-                <div class="file-scroll-box">
+                <div class="file-scroll-area">
                     <ul id="mobile-list" class="file-list">
-                        <li class="empty-state">No files received from phone yet.</li>
+                        <li class="empty-state">No uploads from phone yet</li>
                     </ul>
                 </div>
             </div>
 
-            <!-- Shared from PC -->
-            <div class="files-section file-panel glass-card">
-                <div class="section-head">
-                    <div class="section-title">📤 Shared Files (PC)</div>
-                    <div class="section-actions">
+            <!-- Shared Files (From PC) -->
+            <div class="file-panel-card card-panel">
+                <div class="panel-header">
+                    <div class="panel-title">📤 Shared Files</div>
+                    <div class="panel-actions">
                         <a href="/api/zip?folder=shared" class="btn-secondary" title="Download all as ZIP">📦 ZIP All</a>
-                        <button class="btn-secondary" onclick="fetch('/api/open?folder=shared')">📂 Open</button>
+                        <button class="btn-secondary" onclick="fetch('/api/open?folder=shared')">📂 Open Folder</button>
                     </div>
                 </div>
 
-                <div class="filter-tabs">
-                    <button class="filter-chip active" onclick="setFilterPC('all', this)">All</button>
-                    <button class="filter-chip" onclick="setFilterPC('image', this)">Images</button>
-                    <button class="filter-chip" onclick="setFilterPC('video', this)">Videos</button>
-                    <button class="filter-chip" onclick="setFilterPC('document', this)">Docs</button>
-                    <button class="filter-chip" onclick="setFilterPC('audio', this)">Audio</button>
-                </div>
+                <input type="text" id="searchPC" class="search-input-box" placeholder="🔍 Search shared..." onkeyup="renderPCFiles()">
 
-                <input type="text" id="searchPC" class="search-input" placeholder="🔍 Search shared files..." onkeyup="renderPCFiles()">
-
-                <div class="file-scroll-box">
+                <div class="file-scroll-area">
                     <ul id="file-list" class="file-list">
                         <li class="empty-state">Loading shared files...</li>
                     </ul>
@@ -171,17 +148,26 @@
 
     </div>
 
+    <!-- Floating Upload Queue Drawer -->
+    <div id="floatingQueue" class="floating-queue">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700;">
+            <span id="queueOverallStatus">Uploading Files...</span>
+            <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
+        </div>
+        <div id="queueItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
+    </div>
+
     <!-- In-App Lightbox Media Preview Modal -->
     <div id="previewModal" class="modal-backdrop" onclick="if(event.target===this) closePreview()">
-        <div class="modal-card">
-            <div class="modal-head">
-                <span id="previewModalTitle" class="modal-title">File Preview</span>
-                <button class="icon-btn" onclick="closePreview()" style="width:32px; height:32px;" title="Close">✕</button>
+        <div class="modal-box">
+            <div class="modal-header">
+                <span id="previewModalTitle" class="modal-title-text">File Preview</span>
+                <button class="icon-btn" onclick="closePreview()" style="width:34px; height:34px;" title="Close">✕</button>
             </div>
-            <div id="previewModalBody" class="modal-body"></div>
-            <div class="modal-foot">
+            <div id="previewModalBody" class="modal-content-area"></div>
+            <div class="modal-footer">
                 <button class="btn-secondary" onclick="closePreview()">Close</button>
-                <a id="previewDownloadBtn" href="#" class="btn-primary">⬇️ Download File</a>
+                <a id="previewDownloadBtn" href="#" class="btn-primary" style="padding:10px 24px; font-size:13px;">⬇️ Download File</a>
             </div>
         </div>
     </div>
@@ -189,5 +175,26 @@
     <!-- Scripts -->
     <script src="scripts.js"></script>
     <script src="host_scripts.js"></script>
+    <script>
+        function switchHubTab(tab) {
+            const btnLog = document.getElementById('tabBtnLog');
+            const btnClip = document.getElementById('tabBtnClip');
+            const paneLog = document.getElementById('hubLogPane');
+            const paneClip = document.getElementById('hubClipPane');
+
+            if (tab === 'log') {
+                btnLog.classList.add('active');
+                btnClip.classList.remove('active');
+                paneLog.classList.add('active');
+                paneClip.classList.remove('active');
+            } else {
+                btnClip.classList.add('active');
+                btnLog.classList.remove('active');
+                paneClip.classList.add('active');
+                paneLog.classList.remove('active');
+                loadClipboard();
+            }
+        }
+    </script>
 </body>
 </html>

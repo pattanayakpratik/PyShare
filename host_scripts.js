@@ -4,13 +4,13 @@
 
 window.isHostSession = true;
 
-// Set Host Address
+// Set Host Address in Status Pill
 const hostIpEl = document.getElementById('host-ip');
 if (hostIpEl) {
     hostIpEl.innerText = window.location.host;
 }
 
-// Override file handler so Host uploads land directly into Shared_Files
+// Host uploads land directly into Shared_Files
 window.handleFilesCustom = function(files) {
     uploadManager.addFiles(files, '/?dest=host');
 };
@@ -28,19 +28,19 @@ setInterval(async () => {
         const data = await res.json();
 
         // 1. Update Real-time Activity Log
-        const logBox = document.getElementById('notif-log');
+        const logBox = document.getElementById('hubLogPane');
         if (data.events && logBox) {
             const currentEventJson = JSON.stringify(data.events);
             if (currentEventJson !== lastEventJson) {
                 logBox.innerHTML = "";
                 data.events.forEach(e => {
                     const entry = document.createElement('div');
-                    entry.className = 'log-entry';
-                    entry.innerHTML = `<span class="log-time">${escapeHtml(e.time)}</span><span class="log-msg">${escapeHtml(e.msg)}</span>`;
+                    entry.className = 'log-entry-row';
+                    entry.innerHTML = `<span class="log-timestamp">${escapeHtml(e.time)}</span><span class="log-message">${escapeHtml(e.msg)}</span>`;
                     logBox.prepend(entry);
                 });
                 lastEventJson = currentEventJson;
-                loadFiles(); // Refresh file listing when new events occur
+                loadFiles();
             }
         }
 
@@ -64,9 +64,7 @@ setInterval(async () => {
             loadClipboard();
         }
 
-    } catch (e) {
-        // Silently catch network dropouts during shutdown
-    }
+    } catch (e) {}
 }, 1000);
 
 // Live Polling Loop for PIN & Grace Period Countdown

@@ -1,44 +1,71 @@
 /* ==========================================================================
-   PyShare Client Styles - Touch-Friendly Mobile & Desktop View
+   PyShare Client Styles - Exact Mobile-First App Aesthetics
    ========================================================================== */
 
 .app-container {
-    max-width: 640px;
+    width: 100%;
+    max-width: 480px;
     margin: 0 auto;
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 16px;
     min-height: 100vh;
 }
 
-@media (min-width: 860px) {
-    .app-container {
-        max-width: 1040px;
-        display: grid;
-        grid-template-columns: 380px 1fr;
-        grid-template-rows: auto auto 1fr;
-        grid-template-areas:
-            "nav nav"
-            "stat stat"
-            "col-left col-right";
-        gap: 24px;
-        height: 92vh;
-    }
-
-    .navbar { grid-area: nav; }
-    .status-bar { grid-area: stat; }
-    .col-left { grid-area: col-left; display: flex; flex-direction: column; gap: 20px; }
-    .col-right { grid-area: col-right; display: flex; flex-direction: column; gap: 20px; min-height: 0; }
+/* Green Status Pill for Client */
+.client-status-pill {
+    width: 100%;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid var(--accent-green);
+    padding: 10px 20px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--text-main);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
 }
 
-/* Touch Friendly Elements */
-.upload-card {
-    padding: 36px 20px;
+/* Upload Card (Touch-Friendly Cloud Dropzone) */
+.client-upload-card {
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    background: var(--card-bg);
+    padding: 34px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.upload-icon {
+.client-upload-card:active {
+    transform: scale(0.98);
+    background: var(--card-hover-bg);
+}
+
+.cloud-icon {
     font-size: 54px;
+    margin-bottom: 14px;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+.client-upload-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.client-upload-sub {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 22px;
 }
 
 /* Disconnect Overlay */
@@ -48,7 +75,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(15, 23, 42, 0.96);
+    background: rgba(11, 17, 30, 0.95);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     z-index: 20000;
@@ -61,33 +88,16 @@
 
 .disconnect-overlay.visible {
     display: flex;
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.25s ease-out;
 }
 
-.disconnect-card {
+.disconnect-modal-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     padding: 36px 28px;
     border-radius: 24px;
     text-align: center;
-    max-width: 360px;
+    max-width: 320px;
     width: 100%;
-    box-shadow: var(--shadow-lg);
-}
-
-.disconnect-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.disconnect-card h2 {
-    font-size: 20px;
-    margin-bottom: 8px;
-}
-
-.disconnect-card p {
-    color: var(--text-sub);
-    font-size: 14px;
-    margin-bottom: 24px;
-    line-height: 1.5;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
