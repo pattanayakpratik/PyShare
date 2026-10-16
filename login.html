@@ -1,134 +1,223 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PyShare Login</title>
+    <title>PyShare - Enter PIN</title>
+    <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <style>
-        body { display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
         .login-card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            padding: 30px;
-            border-radius: 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            padding: 36px 28px;
             text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-            width: 300px;
+            width: 100%;
+            max-width: 340px;
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .pin-display {
+
+        .login-icon {
+            font-size: 42px;
+            margin-bottom: 12px;
+        }
+
+        .login-title {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .login-sub {
+            color: var(--text-sub);
+            font-size: 13px;
+            line-height: 1.4;
+            margin-bottom: 24px;
+        }
+
+        .pin-box {
             font-size: 32px;
-            letter-spacing: 10px;
-            margin: 20px 0;
-            background: rgba(0,0,0,0.3);
-            padding: 15px;
-            border-radius: 10px;
-            color: #fff;
-            min-height: 40px;
+            letter-spacing: 12px;
+            margin: 0 0 24px 0;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            padding: 14px 10px;
+            border-radius: 16px;
+            color: var(--text-main);
+            min-height: 62px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
         }
-        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+        .pin-box.error {
+            border-color: var(--accent-red);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+            animation: shake 0.4s ease-in-out;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
         .key {
-            background: rgba(255,255,255,0.1);
-            border: none;
-            color: white;
-            padding: 15px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 16px 0;
             font-size: 20px;
-            border-radius: 10px;
+            font-weight: 600;
+            border-radius: 16px;
             cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
-        .key:active { background: rgba(255,255,255,0.2); }
-        .key-submit { background: var(--accent-blue); grid-column: span 3; margin-top: 10px; }
+
+        .key:hover {
+            background: var(--card-bg);
+            border-color: var(--border-focus);
+            transform: translateY(-2px);
+        }
+
+        .key:active {
+            transform: scale(0.95);
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .key-action {
+            color: var(--text-sub);
+            font-size: 16px;
+        }
+
+        .key-submit {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
+            color: white;
+            border: none;
+            grid-column: span 3;
+            margin-top: 6px;
+            padding: 16px 0;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 999px;
+            box-shadow: 0 4px 15px var(--glow);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
     </style>
 </head>
 <body>
     <div class="login-card">
-        <h2>🔒 Protected</h2>
-        <p style="color:var(--text-sub)">Enter the 4-digit PIN displayed on the PC.</p>
-        
-        <div id="display" class="pin-display"></div>
-        
+        <div class="login-icon">🔒</div>
+        <h2 class="login-title">PyShare Access</h2>
+        <p class="login-sub">Enter the 4-digit PIN displayed on the host screen to connect.</p>
+
+        <div id="pinBox" class="pin-box"></div>
+
         <div class="keypad">
-            <button class="key" onclick="add(1)">1</button>
-            <button class="key" onclick="add(2)">2</button>
-            <button class="key" onclick="add(3)">3</button>
-            <button class="key" onclick="add(4)">4</button>
-            <button class="key" onclick="add(5)">5</button>
-            <button class="key" onclick="add(6)">6</button>
-            <button class="key" onclick="add(7)">7</button>
-            <button class="key" onclick="add(8)">8</button>
-            <button class="key" onclick="add(9)">9</button>
-            <button class="key" onclick="clearPin()">C</button>
-            <button class="key" onclick="add(0)">0</button>
-            <button class="key" onclick="back()">⌫</button>
-            <button class="key key-submit" onclick="submitPin()">Connect</button>
+            <button class="key" onclick="add('1')">1</button>
+            <button class="key" onclick="add('2')">2</button>
+            <button class="key" onclick="add('3')">3</button>
+            <button class="key" onclick="add('4')">4</button>
+            <button class="key" onclick="add('5')">5</button>
+            <button class="key" onclick="add('6')">6</button>
+            <button class="key" onclick="add('7')">7</button>
+            <button class="key" onclick="add('8')">8</button>
+            <button class="key" onclick="add('9')">9</button>
+            <button class="key key-action" onclick="clearPin()">C</button>
+            <button class="key" onclick="add('0')">0</button>
+            <button class="key key-action" onclick="back()">⌫</button>
+            <button class="key key-submit" onclick="submitPin()">Connect to Host</button>
         </div>
     </div>
 
     <script>
         let pin = "";
-        const display = document.getElementById("display");
+        const pinBox = document.getElementById("pinBox");
 
-        function add(num) {
+        function updateDisplay() {
+            let visual = "";
+            for (let i = 0; i < 4; i++) {
+                if (i < pin.length) {
+                    visual += "•";
+                } else {
+                    visual += '<span style="opacity:0.25;">•</span>';
+                }
+            }
+            pinBox.innerHTML = visual;
+        }
+
+        function add(digit) {
             if (pin.length < 4) {
-                pin += num;
+                pin += digit;
                 updateDisplay();
-                
-                // AUTO-SUBMIT when 4th digit is entered
                 if (pin.length === 4) {
-                    setTimeout(submitPin, 300); // Small delay for visual feedback
+                    setTimeout(submitPin, 250);
                 }
             }
         }
 
-        function back() { 
-            pin = pin.slice(0, -1); 
-            updateDisplay(); 
+        function back() {
+            pin = pin.slice(0, -1);
+            pinBox.classList.remove('error');
+            updateDisplay();
         }
 
-        function clearPin() { 
-            pin = ""; 
-            updateDisplay(); 
+        function clearPin() {
+            pin = "";
+            pinBox.classList.remove('error');
+            updateDisplay();
         }
 
-        function updateDisplay() { 
-            // Show bullets for typed, empty for remaining
-            let visual = "";
-            for(let i=0; i<4; i++) {
-                if(i < pin.length) visual += "•";
-                else visual += '<span style="opacity:0.2">•</span>';
-            }
-            display.innerHTML = visual;
-        }
+        async function submitPin() {
+            if (!pin || pin.length < 4) return;
 
-        function submitPin() {
-            // Visual feedback that we are checking
-            display.style.opacity = "0.5";
-            
-            fetch('/login', {
-                method: 'POST',
-                body: 'pin=' + pin
-            }).then(res => {
-                display.style.opacity = "1";
+            pinBox.style.opacity = "0.5";
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'pin=' + encodeURIComponent(pin)
+                });
+
+                pinBox.style.opacity = "1";
+
                 if (res.ok) {
                     window.location.reload();
                 } else {
-                    // Shake animation or Red text
-                    const originalHTML = display.innerHTML;
-                    display.innerHTML = "<span style='font-size:20px; color:#ef4444'>WRONG PIN</span>";
-                    
-                    setTimeout(() => { 
-                        clearPin(); 
-                        display.innerHTML = originalHTML; // Reset formatting logic
-                        updateDisplay();
-                        display.style.color = "#fff"; 
-                    }, 1000);
+                    pinBox.classList.add('error');
+                    pinBox.innerHTML = "<span style='font-size:16px; letter-spacing:1px; color:var(--accent-red); font-weight:700;'>INVALID PIN</span>";
+                    setTimeout(() => {
+                        clearPin();
+                    }, 1200);
                 }
-            }).catch(() => {
-                display.style.opacity = "1";
-            });
+            } catch (e) {
+                pinBox.style.opacity = "1";
+                pinBox.classList.add('error');
+            }
         }
-        
-        // --- KEYBOARD SUPPORT ---
+
+        // Physical Keyboard Support
         document.addEventListener('keydown', (e) => {
             if (e.key >= '0' && e.key <= '9') {
                 add(e.key);
@@ -141,7 +230,7 @@
             }
         });
 
-        // Initial draw
+        // Initialize display
         updateDisplay();
     </script>
 </body>

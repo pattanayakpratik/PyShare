@@ -1,175 +1,93 @@
-/* --- CLIENT OVERRIDES & REFINEMENTS --- */
+/* ==========================================================================
+   PyShare Client Styles - Touch-Friendly Mobile & Desktop View
+   ========================================================================== */
 
-/* 1. LAYOUT CONTAINER (Mobile Focused) */
 .app-container {
-    width: 100%;
-    max-width: 600px; /* Narrower for mobile/client focus */
+    max-width: 640px;
     margin: 0 auto;
-    padding: 15px;
-    box-sizing: border-box;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
     min-height: 100vh;
 }
 
-/* 2. CARD STYLING (Glassmorphism) */
-.upload-card, .files-section {
-    background: var(--card-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 24px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transition: transform 0.2s ease;
+@media (min-width: 860px) {
+    .app-container {
+        max-width: 1040px;
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        grid-template-rows: auto auto 1fr;
+        grid-template-areas:
+            "nav nav"
+            "stat stat"
+            "col-left col-right";
+        gap: 24px;
+        height: 92vh;
+    }
+
+    .navbar { grid-area: nav; }
+    .status-bar { grid-area: stat; }
+    .col-left { grid-area: col-left; display: flex; flex-direction: column; gap: 20px; }
+    .col-right { grid-area: col-right; display: flex; flex-direction: column; gap: 20px; min-height: 0; }
 }
 
-/* 3. UPLOAD CARD (Touch Friendly) */
+/* Touch Friendly Elements */
 .upload-card {
-    padding: 30px 20px;
-    text-align: center;
-    border: 2px dashed rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.03);
-    align-items: center;
-    justify-content: center;
-}
-
-.upload-card:active {
-    background: rgba(255, 255, 255, 0.08);
-    transform: scale(0.98);
+    padding: 36px 20px;
 }
 
 .upload-icon {
-    font-size: 56px;
-    margin-bottom: 15px;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+    font-size: 54px;
 }
 
-.upload-card h3 {
-    margin: 0 0 8px 0;
-    font-size: 20px;
-}
-
-.upload-card p {
-    color: var(--text-sub);
-    margin-bottom: 20px;
-    font-size: 14px;
-}
-
-/* 4. FILES SECTION */
-.files-section {
-    flex: 1; /* Take remaining height */
-    /* min-height: 400px; */
-    padding: 0;
-}
-
-.card-header {
-    padding: 15px 20px;
-    background: rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.card-header h2 {
-    margin: 0;
-    font-size: 18px;
-    display: flex;
+/* Disconnect Overlay */
+.disconnect-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 20000;
+    display: none;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
-}
-
-.search-bar-wrapper {
-    padding: 15px 20px;
-}
-
-/* Make search bar larger for touch */
-input[type="text"] {
-    padding: 12px 15px;
-    font-size: 16px; 
-}
-
-/* 5. FILE LIST (Mobile Optimized) */
-.file-list {
-    padding: 0 20px 20px 20px;
-    overflow-y: auto;
-}
-
-.file-item {
-    padding: 15px 0; /* Larger touch targets */
-}
-
-.f-icon {
-    font-size: 28px;
-}
-
-.f-name-link {
-    font-size: 15px;
-    padding: 5px 0;
-}
-
-.dl-btn {
-    width: 42px;
-    height: 42px;
-    font-size: 18px;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-/* 6. NAVBAR & STATUS */
-.navbar {
-    padding: 10px 5px;
-}
-
-.status-bar {
-    margin-bottom: 5px;
-}
-
-.status-pill {
-    padding: 8px 20px;
-    width: 100%;
-    box-sizing: border-box;
     justify-content: center;
-    background: rgba(16, 185, 129, 0.1);
-    border-color: var(--accent-green);
-    color: var(--text-main);
+    padding: 24px;
 }
 
-.status-dot {
-    background: var(--accent-green);
-    box-shadow: 0 0 10px var(--accent-green);
-}
-.icon-emoji img {
-    width: 1.5em;
-    height: 1.5em;
-    vertical-align: middle;
+.disconnect-overlay.visible {
+    display: flex;
+    animation: fadeIn 0.3s ease-out;
 }
 
+.disconnect-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 36px 28px;
+    border-radius: 24px;
+    text-align: center;
+    max-width: 360px;
+    width: 100%;
+    box-shadow: var(--shadow-lg);
+}
 
-/* responsive view for desktop */
-@media (min-width: 768px) {
-    .app-container {
-        max-width: 800px;
-        padding: 25px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto 1fr;
-        gap: 25px;
-        grid-template-areas:
-            "head head"
-            "stat stat"
-            "up files";
-        align-items: stretch;
-        height: 90vh;
-;
-    }
+.disconnect-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
 
-    .upload-card {
-        padding: 40px 30px;
+.disconnect-card h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
+}
 
-    }
-
-    .file-list {
-        padding: 0 30px 30px 30px;
-    }
+.disconnect-card p {
+    color: var(--text-sub);
+    font-size: 14px;
+    margin-bottom: 24px;
+    line-height: 1.5;
 }

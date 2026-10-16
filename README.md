@@ -2,123 +2,143 @@
 <img src="Screenshots/banner.png" alt="PyShare Banner" width="100%">
   <h1 align="center">
   
-  <img src="Screenshots\app_icon.png" alt="PyShare Logo" width="32">
-  PyShare
+  <img src="Screenshots/app_icon.png" alt="PyShare Logo" width="32">
+  PyShare v4.0.0
 </h1>
-  <strong>A lightweight, high-speed Python tool to share files between PC and Mobile over Wi-Fi.</strong>
+  <strong>A modern, high-speed, local Wi-Fi file & clipboard sharing hub between PC and Mobile devices.</strong>
 
   <p>
-    <a href="#-download-recommended">Download</a> •
+    <a href="#-download-standalone-windows-app">Download</a> •
+    <a href="#-whats-new-in-v400">What's New</a> •
     <a href="#-features">Features</a> •
-    <a href="#%EF%B8%8F-usage">Usage</a> •
-    <a href="#%EF%B8%8F-installation-for-developers">Installation</a>
+    <a href="#%EF%B8%8F-usage-guide">Usage</a> •
+    <a href="#%EF%B8%8F-development--installation">Development</a>
   </p>
 
 </div>
 
 <br>
 
-**PyShare** is a modern, ultra-fast local file sharing tool. The latest version features a stunning **Glassmorphism UI**, real-time file searching, drag-and-drop uploads, and automatic Dark/Light mode switching.
+**PyShare** is an ultra-fast, privacy-first local network transfer tool. Connect your phone and PC over local Wi-Fi in seconds with zero configuration, no cables, and no external internet required.
 
+---
 
-## 📥 Download (Recommended)
+## 📥 Download Standalone Windows App
 
-**Windows Users:** For the best experience, download the standalone **PyShare.exe** from the [Latest Releases](https://github.com/pattanayakpratik/pyshare/releases) page.
+**Windows Users:** Run PyShare directly as a single portable application—no Python installation or complex setup required!
 
-* **No Setup Required:** Run the app directly without installing Python.
-* **Professional Branding:** Includes a custom application icon.
-* **Self-Contained:** All assets (HTML/CSS/JS) and dependencies (pyqrcode, pypng) are bundled inside.
+* **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.exe)**
+* **PyShare (Compressed ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.zip)**
 
-### 🚀 Standalone Executable
+*⚠️ **Note:** If Windows SmartScreen displays a warning on first launch, click **More info → Run anyway**. PyShare is 100% open-source and operates strictly on your local Wi-Fi.*
 
-* **PyShare (Windows EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.2/PyShare.exe)**
+---
 
-### 📦 Compressed Archives (Recommended if EXE is blocked)
+## 🆕 What's New in v4.0.0
 
-* **PyShare (Windows ZIP)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v3.0.2/PyShare.zip)**
-* **PyShare (Linux/macOS TAR)** 👉 **[Download PyShare.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.2.tar.gz)**
+- 🖼️ **In-App Media Preview Lightbox:**
+  - View full-resolution photos directly in the browser.
+  - Stream HTML5 videos with seeking and scrubbing controls.
+  - Listen to audio tracks with an integrated playback card.
+  - Read code and text files with syntax formatting and a 1-click **Copy Text** button.
+- ⚡ **HTTP 206 Partial Content (Range Requests):**
+  - Smooth, buffer-free video/audio scrubbing and seeking on iOS Safari, Android Chrome, and desktop browsers.
+- 📋 **Universal Shared Clipboard:**
+  - Instantly sync text snippets, links, notes, and addresses between phone and PC in real time.
+- 📦 **Download All as ZIP:**
+  - Archive and download entire directories (`Shared_Files` or `Received_Files`) in a single click.
+- 🚀 **Multi-File Upload Queue & Live Speed Meter:**
+  - Track individual file progress bars, overall status, and real-time transfer speed (`MB/s` / `KB/s`).
+- 🛡️ **Collision-Safe File Saving:**
+  - Prevents accidental overwrites by automatically indexing duplicates (`file (1).ext`).
+- 🔑 **Dual-Grace PIN Rotation:**
+  - Seamless 30-second PIN rotation with a grace window so typing right at the boundary never causes accidental lockouts.
+- 📱 **Dynamic QR Generation & mDNS Discovery:**
+  - Automatically regenerates QR codes dynamically on IP/port changes and broadcasts via `_pyshare._tcp.local.`.
+- 🗑️ **In-App Host File Deletion:**
+  - Manage and clean up files directly from the web dashboard.
+- 🗂️ **Category Filtering:**
+  - Quick-filter files by category chips: **All**, **Images**, **Videos**, **Docs**, **Audio**.
 
-### 💻 Source Code (For Developers)
+---
 
-* **Source (ZIP)** 👉 **[v3.0.2.zip](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.2.zip)**
-* **Source (TAR)** 👉 **[v3.0.2.tar.gz](https://github.com/pattanayakpratik/PyShare/archive/refs/tags/v3.0.2.tar.gz)**
+## 🚀 Key Features
 
+- **🎨 Glassmorphic Design:** Modern frosted glass design with responsive layouts for mobile and desktop screens.
+- **📂 Desktop Integration:** Automatically creates and organizes `PyShare_Files/Shared_Files` and `Received_Files` on your Desktop.
+- **⚡ Zero Configuration:** Auto-detects local IP, finds available ports (8010–8020), and launches your browser on startup.
+- **🌗 Dark & Light Themes:** Crisp high-contrast dark theme by default with easy toggle to light theme.
+- **☁️ Touch & Drag-and-Drop:** Intuitive file dropping on desktop and touch-friendly file picker on mobile.
+- **🔒 Local Network Security:** Requires rotating 4-digit PIN authentication. Client heartbeat detector alerts you immediately if the host disconnects.
+- **🛡️ 100% Offline & Private:** All data travels straight across your Wi-Fi network without leaving your local environment.
 
-*⚠️ **Note:** If Windows SmartScreen shows a warning, click **More info → Run anyway**. The app is entirely local and safe to use.*
-
-
-## 🆕 What's New (v3.0.2)
-- **🖥️ Separate Dashboards:** Dedicated interfaces for the Host (PC) and Client (Mobile) for a streamlined experience.
-- **🔒 Secure PIN Authentication:** A rotating 4-digit PIN (changing every 30s) prevents unauthorized access.
-- **⏱️ Live Timer:** Visual countdown timer for PIN rotation on the Host dashboard.
-- **🔌 Disconnect Detection:** Clients are visually notified immediately if the server is stopped.
-- **📂 Smart Organization:** Files are automatically sorted into `Received_Files` and `Shared_Files`.
-- **🛡️ Security Fixes:** Implemented path traversal protection and session validation.
-
-## 🚀 Features
-
-- **🎨 Modern Glassmorphism UI:** A beautiful interface with frosted glass effects and smooth animations.
-- **📂 Desktop Integration:** Automatically creates a `PyShare_Files` folder on your **Desktop** and opens it for you.
-- **🚀 Smart Launch:** Automatically opens your web browser to the correct URL when started.
-- **🔌 Port Protection:** Automatically finds an open port (8010-8020) if the default is busy.
-- **🌗 Dark & Light Themes:** Automatically detects system preference or toggle manually.
-- **📂 Smart File Management:**
-  - **Dual Lists:** Clearly separates "Files on PC" from "Received from Phone".
-  - **Real-Time Search:** Filter through hundreds of files instantly as you type.
-- **☁️ Drag & Drop:**
-  - **Host:** Drag files to "Add to Shared".
-  - **Client:** Drag files to "Send to PC".
-- **📊 Real-Time Updates:** Live progress bars for uploads and instant activity logs.
-- **📊 Visual Progress Bar:** See upload percentages in real-time.
-- **📱 Easy Connection:** Scan the generated QR code to connect instantly.
-- **🔐 Offline Privacy:** Works entirely over LAN (Local Area Network)—no internet required.
+---
 
 ## 📸 Screenshots
 
 ### 🖥️ Host View
-<img src="Screenshots/host_dark.png" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="80%" alt="host dark Dashboard">
-<img src="Screenshots/host_white.png" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="80%" alt="host white Dashboard">
+<img src="Screenshots/host_dark.png" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="80%" alt="Host Dashboard Dark Mode">
 
-### 📱 client View
-<img src="Screenshots/client_dark.jpg" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="200" alt="Client Dark Mode"> <img src="Screenshots/client_white.jpg" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="200" alt="Client Light Mode"> <img src="Screenshots/client_login.jpg" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="200" alt="Client Login"> <img src="Screenshots/client_disconnect.jpg" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); padding: 10px;" width="200" alt="Client disconnection">
+### 📱 Client View
+<div align="center">
+  <img src="Screenshots/client_dark.jpg" style="border-radius: 10px; margin: 4px;" width="180" alt="Client Dark Mode">
+  <img src="Screenshots/client_white.jpg" style="border-radius: 10px; margin: 4px;" width="180" alt="Client Light Mode">
+  <img src="Screenshots/client_login.jpg" style="border-radius: 10px; margin: 4px;" width="180" alt="Client Login">
+  <img src="Screenshots/client_disconnect.jpg" style="border-radius: 10px; margin: 4px;" width="180" alt="Client Disconnection">
+</div>
 
+---
 
-## 🖥️ Usage
+## 🖥️ Usage Guide
 
 ### 1. Start PyShare
-* **App:** Double-click `PyShare.exe`.
-* **Source:** Open your terminal in the `PyShare` folder and run `python main.py`.
+* **Standalone App:** Double-click `PyShare.exe`.
+* **Python Script:** In terminal, run `python main.py`.
 
-### 2. Connect via Phone
-1.  **Scan QR Code:** Scan the QR code displayed on the Host Dashboard.
-2.  **Enter PIN:** Look at the **Connection PIN** on your PC (it changes every 30s). Enter this PIN on your phone to log in.
+### 2. Connect Your Phone
+1. Connect your phone to the **same Wi-Fi network** as your PC.
+2. Scan the **QR Code** on the host screen using your phone's camera.
+3. Enter the **4-digit PIN** displayed on the host screen.
 
-### 3. Transfer Files
-* **Phone → PC:** Tap "Browse Files" or drag files to send them to the PC. They appear in `Desktop/PyShare_Files/Received_Files`.
-* **PC → Phone:** Drag files into the "Add to Shared" box on the PC. They appear in the "Download" list on your phone.
+### 3. Share Files & Clipboard
+* **Send from Phone:** Tap **Send to PC** or drag files to upload. Files appear in `Desktop/PyShare_Files/Received_Files`.
+* **Download to Phone:** Tap any file to preview, download individually, or tap **📦 ZIP All** to download the whole folder.
+* **Shared Clipboard:** Paste or type text/links into the clipboard box and hit **Send** to instantly push across devices.
 
 ### 4. Stop Server
-* **Web UI:** Click the **🛑 Disconnect Server** button. Clients will see a "Disconnected" message.
-* **Terminal:** Press `Ctrl+C` in your terminal window.
+* Click the red **🛑 Shutdown** button in the top navigation bar or press `Ctrl + C` in the console.
 
-## 🛠️ Installation (For Developers)
+---
 
-1. **Install Python 3.x** if you haven't already.
-2. Clone this repository and navigate to the folder.
-3. Install the dependencies:
+## 🛠️ Development & Installation
+
+For developers running or contributing from source:
+
 ```bash
+# Clone the repository
+git clone https://github.com/pattanayakpratik/PyShare.git
+cd PyShare
+
+# Create and activate virtual environment
+python -m venv .venv
+.venv\Scripts\activate   # Windows (or source .venv/bin/activate on Unix)
+
+# Install dependencies
 pip install -r requirements.txt
 
+# Run the server
+python main.py
+
+# Build standalone Windows executable
+pyinstaller --noconfirm --clean --onefile --windowed `
+  --add-data "host.html;." --add-data "client.html;." --add-data "login.html;." `
+  --add-data "styles.css;." --add-data "host_styles.css;." --add-data "client_styles.css;." `
+  --add-data "scripts.js;." --add-data "host_scripts.js;." --add-data "app_icon.ico;." `
+  --icon app_icon.ico --name "PyShare" main.py
 ```
 
-*(Note: Requires `pyqrcode` and `pypng`.)*
-
-## ⚠️ Important Notes
-
-* **Same Network:** Your PC and Phone must be connected to the **same Wi-Fi network**.
-* **Firewall:** If you cannot connect, ensure your PC's firewall allows Python/PyShare to accept incoming connections on port `8010`.
+---
 
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

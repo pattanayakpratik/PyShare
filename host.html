@@ -1,162 +1,192 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PyShare Host</title>
+    <title>PyShare Host Dashboard</title>
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="host_styles.css">
-    <style>
-        /* INLINE OVERRIDES to fix layout issues */
-        .qr-card-inner {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden; /* Prevent scrolling inside the card */
-            height: 100%;
-        }
-        .qr-content {
-            flex: 0 0 auto; /* Allow this to shrink/grow based on content only */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        /* Make PIN card smaller */
-        .pin-card {
-            margin: 10px auto; 
-            width: 90%; 
-            padding: 8px 12px; 
-            background: var(--input-bg);
-            border-radius: 12px; 
-            border: 1px solid var(--border-color); 
-            position: relative; 
-            overflow: hidden;
-        }
-        /* Make notification box fill remaining space */
-        .notification-box {
-            flex: 1; /* Grow to fill space */
-            margin-top: 0 !important;
-            min-height: 0; /* Allow shrinking */
-            height: auto !important; /* Override fixed height */
-            background: rgba(0,0,0,0.2);
-        }
-    </style>
 </head>
-
 <body>
     <div class="app-container">
 
+        <!-- Header Navbar -->
         <nav class="navbar">
-            <div style="display:flex; gap:10px;">
-                <button class="icon-btn" onclick="toggleTheme()" title="Theme">🌓</button>
+            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+            <div class="logo">
+                <img src="app_icon.ico" alt="PyShare Icon">
+                PyShare Host
             </div>
-
-            <div style="display:flex; gap:15px; align-items: center;">
-                <div class="logo">
-                    <span class="icon-emoji">
-                        <img src="app_icon.ico" alt="App icon">
-                    </span>
-                    PyShare
-                </div>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button class="icon-btn" onclick="disconnectServer()"
-                    style="color:var(--accent-red); border-color:rgba(239, 68, 68, 0.3);" title="Shutdown">🛑</button>
-            </div>
+            <button class="icon-btn" onclick="disconnectServer()" style="color:var(--accent-red); border-color:rgba(239, 68, 68, 0.4);" title="Shutdown Server">🛑</button>
         </nav>
 
+        <!-- Status Indicator -->
         <div class="status-bar">
-            <div class="status-pill" style="padding: 8px 25px;">
+            <div class="status-pill">
                 <span class="status-dot"></span>
-                <span>Server IP: <span id="host-ip"
-                        style="font-weight:bold; color:var(--text-main); font-family:monospace;">...</span></span>
+                <span>Server Live: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">...</strong></span>
             </div>
         </div>
 
-        <div class="upload-card send-area" id="dropZone">
-            <div class="upload-icon" style="font-size: 64px; margin-bottom: 20px;">📤</div>
-            <h2 style="margin: 0 0 10px 0;">Add to Shared</h2>
-            <p style="color: var(--text-sub); margin-bottom: 25px;">Drag & Drop files here or click below</p>
+        <!-- Column 1: Upload & Clipboard -->
+        <div class="col-send">
+            <!-- Upload Drop Zone -->
+            <div class="upload-card" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📤</div>
+                <h2 class="upload-title">Add to Shared</h2>
+                <p class="upload-hint">Drag & drop files here or click to browse</p>
+                <button class="btn-primary" type="button" style="pointer-events:none;">
+                    <span>Select Files</span>
+                </button>
+                <input type="file" id="fileInput" multiple hidden onchange="handleFilesHost(this.files)">
+            </div>
 
-            <button class="btn-primary" onclick="document.getElementById('fileInput').click()"
-                style="padding: 15px 40px; font-size: 16px;">Select Files</button>
-            <input type="file" id="fileInput" multiple hidden onchange="handleFilesHost(this.files)">
+            <!-- Upload Queue Drawer -->
+            <div id="uploadQueueCard" class="upload-queue-card" style="display:none;">
+                <div class="queue-header">
+                    <span>Transferring Files</span>
+                    <span id="queueSpeed" class="queue-speed">0 KB/s</span>
+                </div>
+                <div id="queueList" class="queue-list"></div>
+            </div>
 
-            <div id="progress-container" class="progress-wrapper" style="width: 80%; margin-top: 25px;">
-                <div class="progress-labels"><span id="status">Adding...</span><span id="percent-text">0%</span></div>
-                <div class="progress-track">
-                    <div id="progress-bar" class="progress-fill"></div>
+            <!-- Shared Clipboard Card -->
+            <div class="clipboard-card">
+                <div class="clipboard-header">
+                    <span class="clipboard-title">📋 Instant Clipboard</span>
+                </div>
+                <div id="clipboardCurrent" class="clipboard-current">
+                    <span style="color:var(--text-sub); font-size:12px;">Loading clipboard...</span>
+                </div>
+                <div class="clipboard-body">
+                    <input type="text" id="clipboardInput" class="clipboard-input" placeholder="Type text or paste link to share..." onkeydown="if(event.key==='Enter') sendClipboard()">
+                    <button class="btn-primary" onclick="sendClipboard()" style="padding:10px 18px; border-radius:10px;">Send</button>
                 </div>
             </div>
         </div>
 
-        <div class="files-section qr-area" style="padding: 0;">
-            <div class="qr-card-inner">
-                <div class="qr-content">
-                    <h3 style="margin-bottom: 10px;">📱 Connect Device</h3>
-                    <img src="/qrcode.png" class="qr-img" alt="Scan QR" style="width: 140px; height: 140px;">
-                    <p style="font-size: 12px; color: var(--text-sub); margin: 8px 0;">Scan to connect</p>
-                    
-                    <div class="pin-card">
-                        <div id="pin-timer-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; background: var(--accent-blue); width: 100%; transition: width 1s linear;"></div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="font-size: 10px; color: var(--text-sub); font-weight: bold; text-transform: uppercase;">Pin Code</div>
-                            <div id="pin-timer-text" style="font-size: 10px; color: var(--accent-blue);">30s</div>
-                        </div>
-                        <div id="live-pin" style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: var(--text-main); text-align: center; margin-top: 2px;">----</div>
+        <!-- Column 2: Connect & Live Hub -->
+        <div class="col-center">
+            <div class="qr-hub-card glass-card">
+                <div style="font-size:15px; font-weight:700;">📱 Connect Phone / Device</div>
+                
+                <div class="qr-frame">
+                    <img src="/qrcode.png" class="qr-img" alt="Scan to Connect">
+                </div>
+                <p style="font-size:12px; color:var(--text-sub);">Scan QR code with your phone camera</p>
+
+                <!-- 4-digit PIN with 30s Countdown -->
+                <div class="pin-hub">
+                    <div id="pin-timer-bar" class="pin-timer-line"></div>
+                    <div class="pin-hub-meta">
+                        <span>Connection PIN</span>
+                        <span id="pin-timer-text">30s</span>
                     </div>
-
-                    <div id="rx-container" class="rx-progress" style="width: 100%; margin-top: 10px;">
-                        <div style="font-size:11px; margin-bottom:4px; font-weight:bold; display:flex; justify-content:space-between;">
-                            <span>⬇️ Receiving...</span>
-                            <span id="rx-filename" style="opacity:0.8">file.ext</span>
-                        </div>
-                        <div class="progress-track">
-                            <div id="rx-bar" class="progress-fill" style="width:0%"></div>
-                        </div>
-                    </div>
+                    <div id="live-pin" class="live-pin-val">----</div>
                 </div>
 
-                <div class="notification-box" id="notif-log">
-                    <div class="log-entry"><span class="log-time">--:--</span> <span class="log-msg">Server started. Waiting...</span></div>
+                <!-- Receiving Monitor from Phone -->
+                <div id="rx-container" class="rx-progress" style="width:100%; display:none; background:rgba(16,185,129,0.1); border:1px solid var(--accent-green); border-radius:10px; padding:10px; text-align:left;">
+                    <div style="font-size:11px; margin-bottom:6px; font-weight:bold; display:flex; justify-content:space-between;">
+                        <span>⬇️ Receiving from Phone...</span>
+                        <span id="rx-filename" style="opacity:0.8">file.ext</span>
+                    </div>
+                    <div class="queue-item-track" style="height:6px;">
+                        <div id="rx-bar" class="queue-item-fill" style="width:0%; background:var(--accent-green);"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Server Activity Logs -->
+            <div class="glass-card" style="padding:16px; flex:1; display:flex; flex-direction:column; min-height:160px; overflow:hidden;">
+                <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    <span>⚡ Live Server Log</span>
+                </div>
+                <div class="event-log-card" id="notif-log">
+                    <div class="log-entry">
+                        <span class="log-time">--:--</span>
+                        <span class="log-msg">Server initialized. Ready for connections.</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="files-area">
-            <div class="files-section file-list-card">
-                <div class="card-header">
-                    <h3>📥 Received Files</h3>
-                    <button class="btn-folder" onclick="fetch('/api/open?folder=received')">📂 Open Folder</button>
+        <!-- Column 3: Dual File Manager (Received & Shared) -->
+        <div class="col-files">
+            <!-- Received from Phone -->
+            <div class="files-section file-panel glass-card">
+                <div class="section-head">
+                    <div class="section-title">📥 Received Files</div>
+                    <div class="section-actions">
+                        <a href="/api/zip?folder=received" class="btn-secondary" title="Download all as ZIP">📦 ZIP All</a>
+                        <button class="btn-secondary" onclick="fetch('/api/open?folder=received')">📂 Open</button>
+                    </div>
                 </div>
-                <div class="search-bar-wrapper">
-                    <input type="text" id="searchMobile" placeholder="🔍 Search received..." onkeyup="filterMobile()">
+
+                <div class="filter-tabs">
+                    <button class="filter-chip active" onclick="setFilterMobile('all', this)">All</button>
+                    <button class="filter-chip" onclick="setFilterMobile('image', this)">Images</button>
+                    <button class="filter-chip" onclick="setFilterMobile('video', this)">Videos</button>
+                    <button class="filter-chip" onclick="setFilterMobile('document', this)">Docs</button>
+                    <button class="filter-chip" onclick="setFilterMobile('audio', this)">Audio</button>
                 </div>
-                <div class="file-scroll-area">
+
+                <input type="text" id="searchMobile" class="search-input" placeholder="🔍 Search received files..." onkeyup="renderMobileFiles()">
+
+                <div class="file-scroll-box">
                     <ul id="mobile-list" class="file-list">
-                        <li class="loading-state">No uploads yet</li>
+                        <li class="empty-state">No files received from phone yet.</li>
                     </ul>
                 </div>
             </div>
 
-            <div class="files-section file-list-card">
-                <div class="card-header">
-                    <h3>📤 Shared Files</h3>
-                    <button class="btn-folder" onclick="fetch('/api/open?folder=shared')">📂 Open Folder</button>
+            <!-- Shared from PC -->
+            <div class="files-section file-panel glass-card">
+                <div class="section-head">
+                    <div class="section-title">📤 Shared Files (PC)</div>
+                    <div class="section-actions">
+                        <a href="/api/zip?folder=shared" class="btn-secondary" title="Download all as ZIP">📦 ZIP All</a>
+                        <button class="btn-secondary" onclick="fetch('/api/open?folder=shared')">📂 Open</button>
+                    </div>
                 </div>
-                <div class="search-bar-wrapper">
-                    <input type="text" id="searchPC" placeholder="🔍 Search shared..." onkeyup="filterPC()">
+
+                <div class="filter-tabs">
+                    <button class="filter-chip active" onclick="setFilterPC('all', this)">All</button>
+                    <button class="filter-chip" onclick="setFilterPC('image', this)">Images</button>
+                    <button class="filter-chip" onclick="setFilterPC('video', this)">Videos</button>
+                    <button class="filter-chip" onclick="setFilterPC('document', this)">Docs</button>
+                    <button class="filter-chip" onclick="setFilterPC('audio', this)">Audio</button>
                 </div>
-                <div class="file-scroll-area">
+
+                <input type="text" id="searchPC" class="search-input" placeholder="🔍 Search shared files..." onkeyup="renderPCFiles()">
+
+                <div class="file-scroll-box">
                     <ul id="file-list" class="file-list">
-                        <li class="loading-state">Loading files...</li>
+                        <li class="empty-state">Loading shared files...</li>
                     </ul>
                 </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- In-App Lightbox Media Preview Modal -->
+    <div id="previewModal" class="modal-backdrop" onclick="if(event.target===this) closePreview()">
+        <div class="modal-card">
+            <div class="modal-head">
+                <span id="previewModalTitle" class="modal-title">File Preview</span>
+                <button class="icon-btn" onclick="closePreview()" style="width:32px; height:32px;" title="Close">✕</button>
+            </div>
+            <div id="previewModalBody" class="modal-body"></div>
+            <div class="modal-foot">
+                <button class="btn-secondary" onclick="closePreview()">Close</button>
+                <a id="previewDownloadBtn" href="#" class="btn-primary">⬇️ Download File</a>
             </div>
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="scripts.js"></script>
     <script src="host_scripts.js"></script>
 </body>

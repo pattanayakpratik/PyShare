@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,125 +7,144 @@
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="client_styles.css">
-    <style>
-        /* --- DISCONNECT OVERLAY STYLES --- */
-        .disconnect-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.95); /* Dark background matching theme */
-            backdrop-filter: blur(8px);
-            z-index: 10000;
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .disconnect-overlay.visible {
-            display: flex;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .disconnect-card {
-            background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 40px;
-            border-radius: 24px;
-            text-align: center;
-            max-width: 90%;
-            width: 320px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
-    </style>
 </head>
 <body>
     <div class="app-container">
-        
-        <nav class="navbar">
-            <button class="icon-btn" onclick="toggleTheme()" title="Theme">🌓</button>
-            <div class="logo">
-                <span class="icon-emoji"><img src="app_icon.ico" alt="Icon"></span> PyShare
-            </div>
-            <div style="width:40px;"></div> </nav>
 
+        <!-- Header Navbar -->
+        <nav class="navbar">
+            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+            <div class="logo">
+                <img src="app_icon.ico" alt="PyShare Icon">
+                PyShare
+            </div>
+            <div style="width: 40px;"></div>
+        </nav>
+
+        <!-- Connection Status -->
         <div class="status-bar">
             <div class="status-pill">
                 <span class="status-dot"></span>
-                <span>Connected to HOST</span>
+                <span>Connected to PC</span>
             </div>
         </div>
 
-        <div class="upload-card" id="dropZone" onclick="document.getElementById('fileInput').click()">
-            <div class="upload-icon">☁️</div>
-            <h3>Send to HOST</h3>
-            <p>Tap here to upload files</p>
-            
-            <button class="btn-primary" style="pointer-events: none;">Browse Files</button>
-            <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
+        <!-- Left / Mobile Top: Upload & Clipboard -->
+        <div class="col-left">
+            <!-- Send to PC Drop Zone -->
+            <div class="upload-card" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">☁️</div>
+                <h3 class="upload-title">Send to PC</h3>
+                <p class="upload-hint">Tap here to choose photos, videos, or files</p>
+                <button class="btn-primary" type="button" style="pointer-events:none;">
+                    <span>Browse Files</span>
+                </button>
+                <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
+            </div>
 
-            <div id="progress-container" class="progress-wrapper" style="width: 100%; margin-top: 20px; text-align: left;">
-                <div class="progress-labels"><span id="status">Uploading...</span><span id="percent-text">0%</span></div>
-                <div class="progress-track"><div id="progress-bar" class="progress-fill"></div></div>
+            <!-- Upload Queue Drawer -->
+            <div id="uploadQueueCard" class="upload-queue-card" style="display:none;">
+                <div class="queue-header">
+                    <span>Uploading to PC</span>
+                    <span id="queueSpeed" class="queue-speed">0 KB/s</span>
+                </div>
+                <div id="queueList" class="queue-list"></div>
+            </div>
+
+            <!-- Shared Clipboard Card -->
+            <div class="clipboard-card">
+                <div class="clipboard-header">
+                    <span class="clipboard-title">📋 Instant Clipboard</span>
+                </div>
+                <div id="clipboardCurrent" class="clipboard-current">
+                    <span style="color:var(--text-sub); font-size:12px;">Loading clipboard...</span>
+                </div>
+                <div class="clipboard-body">
+                    <input type="text" id="clipboardInput" class="clipboard-input" placeholder="Share text or link with PC..." onkeydown="if(event.key==='Enter') sendClipboard()">
+                    <button class="btn-primary" onclick="sendClipboard()" style="padding:10px 18px; border-radius:10px;">Send</button>
+                </div>
             </div>
         </div>
 
-        <div class="files-section">
-            <div class="card-header">
-                <h2>💾 Download from HOST</h2>
-            </div>
-            
-            <div class="search-bar-wrapper">
-                <input type="text" id="searchPC" placeholder="🔍 Search HOST files..." onkeyup="filterPC()">
-            </div>
+        <!-- Right / Mobile Bottom: PC Files Download Section -->
+        <div class="col-right">
+            <div class="files-section glass-card" style="height:100%;">
+                <div class="section-head">
+                    <div class="section-title">💾 Download from PC</div>
+                    <a href="/api/zip?folder=shared" class="btn-secondary" title="Download all files as a ZIP">📦 ZIP All</a>
+                </div>
 
-            <ul id="file-list" class="file-list">
-                <li class="loading-state">Loading files...</li>
-            </ul>
+                <!-- Category Filters -->
+                <div class="filter-tabs">
+                    <button class="filter-chip active" onclick="setFilterPC('all', this)">All</button>
+                    <button class="filter-chip" onclick="setFilterPC('image', this)">Images</button>
+                    <button class="filter-chip" onclick="setFilterPC('video', this)">Videos</button>
+                    <button class="filter-chip" onclick="setFilterPC('document', this)">Docs</button>
+                    <button class="filter-chip" onclick="setFilterPC('audio', this)">Audio</button>
+                </div>
+
+                <!-- Search Input -->
+                <input type="text" id="searchPC" class="search-input" placeholder="🔍 Search PC files..." onkeyup="renderPCFiles()">
+
+                <!-- File List -->
+                <ul id="file-list" class="file-list">
+                    <li class="empty-state">Loading files...</li>
+                </ul>
+            </div>
         </div>
 
     </div>
 
+    <!-- In-App Lightbox Media Preview Modal -->
+    <div id="previewModal" class="modal-backdrop" onclick="if(event.target===this) closePreview()">
+        <div class="modal-card">
+            <div class="modal-head">
+                <span id="previewModalTitle" class="modal-title">File Preview</span>
+                <button class="icon-btn" onclick="closePreview()" style="width:32px; height:32px;" title="Close">✕</button>
+            </div>
+            <div id="previewModalBody" class="modal-body"></div>
+            <div class="modal-foot">
+                <button class="btn-secondary" onclick="closePreview()">Close</button>
+                <a id="previewDownloadBtn" href="#" class="btn-primary">⬇️ Download File</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Server Disconnect Notice -->
     <div id="disconnectOverlay" class="disconnect-overlay">
         <div class="disconnect-card">
-            <div style="font-size: 50px; margin-bottom: 20px;">🔌</div>
-            <h2 style="margin-bottom: 10px;">Disconnected</h2>
-            <p style="color: var(--text-sub); margin-bottom: 25px; font-size: 14px;">The host has stopped the server.</p>
-            <button class="btn-primary" onclick="window.location.reload()">Try Reconnect</button>
+            <div class="disconnect-icon">🔌</div>
+            <h2>Disconnected</h2>
+            <p>The host server has stopped or connection was lost.</p>
+            <button class="btn-primary" onclick="window.location.reload()">Reconnect</button>
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="scripts.js"></script>
     <script>
-        // --- SERVER HEARTBEAT MONITOR ---
+        // Server Heartbeat & Clipboard Remote Sync
         let failCount = 0;
         const overlay = document.getElementById('disconnectOverlay');
 
-        function checkConnection() {
-            // We use a simple fetch to a known endpoint
-            fetch('/api/files')
-                .then(response => {
-                    if (!response.ok) throw new Error("Server Error");
-                    
-                    // If we reach here, server is alive
-                    if (failCount > 0) failCount = 0;
-                })
-                .catch(error => {
-                    failCount++;
-                    // If 3 consecutive failures (approx 6 seconds), assume disconnected
-                    if (failCount >= 3) {
-                        overlay.classList.add('visible');
-                    }
-                });
-        }
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/files');
+                if (!res.ok) throw new Error("Server error");
+                failCount = 0;
+                overlay.classList.remove('visible');
+            } catch (e) {
+                failCount++;
+                if (failCount >= 3) {
+                    overlay.classList.add('visible');
+                }
+            }
+        }, 2000);
 
-        // Check connection every 1 seconds
-        setInterval(checkConnection, 1000);
+        // Periodic clipboard sync
+        setInterval(() => {
+            loadClipboard();
+        }, 3000);
     </script>
 </body>
 </html>

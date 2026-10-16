@@ -1,116 +1,96 @@
-// --- 1. OVERRIDE DRAG & DROP BEHAVIOR ---
-window.handleFiles = handleFilesHost;
+/* ==========================================================================
+   PyShare Host Scripts - Real-time Hub, PIN Sync & Activity Monitor
+   ========================================================================== */
 
-document.getElementById('host-ip').innerText = window.location.host;
+window.isHostSession = true;
 
-// --- Host Specific Logic ---
+// Set Host Address
+const hostIpEl = document.getElementById('host-ip');
+if (hostIpEl) {
+    hostIpEl.innerText = window.location.host;
+}
+
+// Override file handler so Host uploads land directly into Shared_Files
+window.handleFilesCustom = function(files) {
+    uploadManager.addFiles(files, '/?dest=host');
+};
+
 function handleFilesHost(files) {
-    if (!files.length) return;
-    Array.from(files).forEach(file => {
-        uploadFileCustom(file, "/?dest=host");
-    });
+    uploadManager.addFiles(files, '/?dest=host');
 }
 
-function uploadFileCustom(file, url) {
-    const xhr = new XMLHttpRequest();
-    const container = document.getElementById('progress-container');
-    const bar = document.getElementById('progress-bar');
-    const status = document.getElementById('status');
-    const pct = document.getElementById('percent-text');
-
-    // 1. Open connection using the provided url
-    xhr.open("POST", url); 
-    
-    // 2. Set headers
-    xhr.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
-    xhr.setRequestHeader("Content-Type", "application/octet-stream");
-
-    container.style.display = 'block';
-    status.innerText = `Adding: ${file.name}...`;
-
-    xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-            const percent = (e.loaded / e.total) * 100;
-            bar.style.width = percent + "%";
-            pct.innerText = Math.round(percent) + "%";
-        }
-    };
-    
-    xhr.onload = () => {
-        status.innerText = "✅ Added!";
-        loadFiles();
-        setTimeout(() => { container.style.display = 'none'; bar.style.width = '0%'; }, 2000);
-    };
-    
-    xhr.send(file);
-}
-
-// Live Poll (Logs + Progress)
+// Live Polling Loop for Events, RX Progress & Clipboard
 let lastEventJson = "";
 setInterval(async () => {
     try {
         const res = await fetch('/api/updates');
+        if (!res.ok) return;
         const data = await res.json();
 
-        // Update Logs
-        const log = document.getElementById('notif-log');
-        if (data.events) {
+        // 1. Update Real-time Activity Log
+        const logBox = document.getElementById('notif-log');
+        if (data.events && logBox) {
             const currentEventJson = JSON.stringify(data.events);
-            
-            // Only rebuild the DOM and fetch files if a NEW event happened
             if (currentEventJson !== lastEventJson) {
-                log.innerHTML = ""; // Clear to rebuild
-                
+                logBox.innerHTML = "";
                 data.events.forEach(e => {
                     const entry = document.createElement('div');
                     entry.className = 'log-entry';
-                    entry.innerHTML = `<span class="log-time">${e.time}</span> <span class="log-msg">${e.msg}</span>`;
-                    log.prepend(entry);
+                    entry.innerHTML = `<span class="log-time">${escapeHtml(e.time)}</span><span class="log-msg">${escapeHtml(e.msg)}</span>`;
+                    logBox.prepend(entry);
                 });
-
-                // Since events changed, refresh the file list
-                loadFiles(); 
-                
                 lastEventJson = currentEventJson;
+                loadFiles(); // Refresh file listing when new events occur
             }
         }
-        // Update Incoming Progress
+
+        // 2. Update Incoming Mobile Upload Monitor
         const rxBox = document.getElementById('rx-container');
         const rxBar = document.getElementById('rx-bar');
         const rxName = document.getElementById('rx-filename');
-
-        if (data.upload) {
-            rxBox.style.display = 'block';
-            rxName.innerText = data.upload.filename;
-            const pct = (data.upload.current / data.upload.total) * 100;
-            rxBar.style.width = pct + "%";
-        } else {
-            rxBox.style.display = 'none';
+        if (rxBox && rxBar && rxName) {
+            if (data.upload) {
+                rxBox.style.display = 'block';
+                rxName.innerText = data.upload.filename;
+                const pct = Math.round((data.upload.current / data.upload.total) * 100);
+                rxBar.style.width = pct + "%";
+            } else {
+                rxBox.style.display = 'none';
+            }
         }
 
-    } catch (e) { console.error(e); }
+        // 3. Sync Clipboard if updated remotely
+        if (data.clipboard_ts && data.clipboard_ts > lastClipboardTs) {
+            loadClipboard();
+        }
+
+    } catch (e) {
+        // Silently catch network dropouts during shutdown
+    }
 }, 1000);
 
+// Live Polling Loop for PIN & Grace Period Countdown
 setInterval(async () => {
     try {
         const res = await fetch('/api/pin');
-        if (res.ok) {
-            const data = await res.json();
+        if (!res.ok) return;
+        const data = await res.json();
 
-            // Update PIN
-            document.getElementById('live-pin').innerText = data.pin;
+        const pinEl = document.getElementById('live-pin');
+        const timerTextEl = document.getElementById('pin-timer-text');
+        const timerBarEl = document.getElementById('pin-timer-bar');
 
-            // Update Timer Text
-            document.getElementById('pin-timer-text').innerText = data.ttl + "s";
-
-            // Update Timer Bar
+        if (pinEl) pinEl.innerText = data.pin;
+        if (timerTextEl) timerTextEl.innerText = data.ttl + 's';
+        
+        if (timerBarEl) {
             const pct = (data.ttl / 30) * 100;
-            document.getElementById('pin-timer-bar').style.width = pct + "%";
-
-            // Color Logic
-            const bar = document.getElementById('pin-timer-bar');
-            if (data.ttl < 5) bar.style.background = "#ef4444";
-            else bar.style.background = "var(--accent-blue)";
+            timerBarEl.style.width = pct + '%';
+            if (data.ttl < 5) {
+                timerBarEl.style.background = 'var(--accent-red)';
+            } else {
+                timerBarEl.style.background = 'var(--accent-blue)';
+            }
         }
-    } catch (e) { }
+    } catch (e) {}
 }, 1000);

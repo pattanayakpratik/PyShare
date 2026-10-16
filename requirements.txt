@@ -1,3 +1,4 @@
 pyqrcode
 pypng
 zeroconf
+pyinstaller
