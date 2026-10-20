@@ -5,6 +5,7 @@
 let pcFiles = [];
 let mobileFiles = [];
 let lastClipboardTs = 0;
+window.globalSSE = null;
 
 (function init() {
     const savedTheme = localStorage.getItem('pyshare_theme') || 'dark';
@@ -13,11 +14,60 @@ let lastClipboardTs = 0;
     loadFiles();
     loadClipboard();
     setupDragDrop();
+    initSSE();
+    registerServiceWorker();
     
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closePreview();
     });
 })();
+
+// Progressive Web App - Service Worker Registration
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+    }
+}
+
+// Server-Sent Events (SSE) Real-Time Push Engine
+function initSSE() {
+    if (!window.EventSource) return;
+    if (window.globalSSE) return;
+
+    try {
+        const es = new EventSource('/api/events');
+        window.globalSSE = es;
+
+        es.addEventListener('files', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                pcFiles = data.pc || [];
+                mobileFiles = data.mobile || [];
+                renderPCFiles();
+                renderMobileFiles();
+            } catch (err) {}
+        });
+
+        es.addEventListener('clipboard', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.timestamp > lastClipboardTs) {
+                    renderClipboard(data.text);
+                    lastClipboardTs = data.timestamp;
+                }
+            } catch (err) {}
+        });
+
+        es.onerror = () => {
+            // EventSource handles automatic reconnection with exponential backoff
+        };
+
+        // Notify other scripts (like host_scripts.js) that SSE is ready
+        window.dispatchEvent(new CustomEvent('pyshare:sse_ready', { detail: es }));
+    } catch (e) {}
+}
 
 // Theme Switcher
 function toggleTheme() {

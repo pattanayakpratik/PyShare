@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PyShare Host</title>
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
+    <link rel="apple-touch-icon" href="app_icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#141d2e">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="host_styles.css">
 </head>
@@ -15,7 +18,7 @@
         <nav class="navbar">
             <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
             <div class="logo">
-                <img src="app_icon.ico" alt="PyShare" style="width:28px; height:28px; border-radius:6px;">
+                <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
                 PyShare
             </div>
             <button class="icon-btn" onclick="disconnectServer()" style="color:var(--accent-red); border-color:rgba(239,68,68,0.4);" title="Shutdown Server">🛑</button>
@@ -99,6 +102,7 @@
                             <input type="text" id="clipboardInput" placeholder="Type text or paste URL..." style="flex:1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; color:var(--text-main); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') sendClipboard()">
                             <button class="btn-primary" onclick="sendClipboard()" style="padding:6px 14px; font-size:12px; border-radius:8px;">Send</button>
                         </div>
+                        <button class="btn-secondary" onclick="syncPCClipboard()" style="margin-top:6px; width:100%; font-size:11px; padding:6px 10px; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px;" title="Sync current Windows clipboard to all devices">💻 Push PC Clipboard to Devices</button>
                     </div>
                 </div>
 

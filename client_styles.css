@@ -35,7 +35,7 @@
     border: 2px dashed rgba(255, 255, 255, 0.15);
     border-radius: 20px;
     background: var(--card-bg);
-    padding: 34px 20px;
+    padding: 24px 16px;
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -51,8 +51,8 @@
 }
 
 .cloud-icon {
-    font-size: 54px;
-    margin-bottom: 14px;
+    font-size: 46px;
+    margin-bottom: 8px;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 
