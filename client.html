@@ -2,9 +2,15 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>PyShare Client</title>
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
+    <link rel="apple-touch-icon" href="app_icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#141d2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PyShare">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="client_styles.css">
 </head>
@@ -15,10 +21,10 @@
         <nav class="navbar">
             <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
             <div class="logo">
-                <img src="app_icon.ico" alt="PyShare" style="width:28px; height:28px; border-radius:6px;">
+                <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
                 PyShare
             </div>
-            <div style="width: 42px;"></div>
+            <button class="icon-btn" onclick="toggleClipboardModal()" title="Shared Clipboard">📋</button>
         </nav>
 
         <!-- Connected Status Indicator -->
@@ -40,36 +46,42 @@
             <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
         </div>
 
-        <!-- 2. Shared Clipboard Card -->
-        <div class="card-panel" style="padding: 14px 16px;">
-            <div style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">
-                <span>📋 Quick Clipboard</span>
-            </div>
-            <div id="clipboardCurrent" style="font-size: 12px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                <span style="color: var(--text-sub);">Loading clipboard...</span>
-            </div>
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-                <input type="text" id="clipboardInput" placeholder="Share text or link with PC..." class="search-input-box" style="margin-bottom: 0; padding: 8px 12px; font-size: 12px; flex: 1; min-width: 0;" onkeydown="if(event.key==='Enter') sendClipboard()">
-                <button class="btn-primary" onclick="sendClipboard()" style="padding: 8px 16px; font-size: 12px; border-radius: 8px; flex-shrink: 0;">Send</button>
-            </div>
-        </div>
-
-        <!-- 3. Download from PC Section -->
-        <div class="card-panel" style="padding: 16px 16px; flex: 1;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 12px;">
-                <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    <span>💾 Download from PC</span>
+        <!-- 2. Download from PC Section -->
+        <div class="card-panel" style="padding: 16px; display: flex; flex-direction: column; flex: 1; min-height: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px;">
+                <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0;">
+                    <span>💾 Download</span>
                 </h3>
                 <a href="/api/zip?folder=shared" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; flex-shrink: 0;" title="Download all files as ZIP">📦 ZIP All</a>
             </div>
 
             <input type="text" id="searchPC" class="search-input-box" placeholder="🔍 Search PC files..." onkeyup="renderPCFiles()">
 
-            <ul id="file-list" class="file-list">
+            <ul id="file-list" class="file-list" style="max-height: 45vh; overflow-y: auto;">
                 <li class="empty-state">Loading files...</li>
             </ul>
         </div>
 
+    </div>
+
+    <!-- Mobile Quick Clipboard Modal / Bottom Sheet -->
+    <div id="clipboardModal" class="modal-backdrop" onclick="if(event.target===this) toggleClipboardModal()">
+        <div class="modal-box" style="max-width: 420px;">
+            <div class="modal-header">
+                <span class="modal-title-text">📋 Shared Clipboard</span>
+                <button class="icon-btn" onclick="toggleClipboardModal()" style="width:34px; height:34px;" title="Close">✕</button>
+            </div>
+            <div style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-size: 12px; color: var(--text-sub);">Current shared text on local Wi-Fi:</div>
+                <div id="clipboardCurrent" style="font-size: 13px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; word-break: break-all;">
+                    <span style="color: var(--text-sub);">Loading clipboard...</span>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                    <input type="text" id="clipboardInput" placeholder="Type text or paste link to share..." class="search-input-box" style="margin-bottom: 0; flex: 1; min-width: 0;" onkeydown="if(event.key==='Enter') sendClipboard()">
+                    <button class="btn-primary" onclick="sendClipboard()" style="padding: 10px 18px; font-size: 13px; border-radius: 10px; flex-shrink: 0;">Send</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Floating Upload Queue Drawer -->
@@ -83,15 +95,15 @@
 
     <!-- In-App Lightbox Media Preview Modal -->
     <div id="previewModal" class="modal-backdrop" onclick="if(event.target===this) closePreview()">
-        <div class="modal-box">
+        <div class="modal-box" style="max-height: 85vh;">
             <div class="modal-header">
                 <span id="previewModalTitle" class="modal-title-text">File Preview</span>
                 <button class="icon-btn" onclick="closePreview()" style="width:34px; height:34px;" title="Close">✕</button>
             </div>
-            <div id="previewModalBody" class="modal-content-area"></div>
+            <div id="previewModalBody" class="modal-content-area" style="max-height: calc(85vh - 120px);"></div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closePreview()">Close</button>
-                <a id="previewDownloadBtn" href="#" class="btn-primary" style="padding:10px 24px; font-size:13px;">⬇️ Download File</a>
+                <a id="previewDownloadBtn" href="#" class="btn-primary" style="padding:10px 20px; font-size:13px;">⬇️ Download</a>
             </div>
         </div>
     </div>
@@ -109,6 +121,14 @@
     <!-- Scripts -->
     <script src="scripts.js"></script>
     <script>
+        function toggleClipboardModal() {
+            const m = document.getElementById('clipboardModal');
+            if (m) {
+                m.classList.toggle('open');
+                if (m.classList.contains('open')) loadClipboard();
+            }
+        }
+
         let failCount = 0;
         const overlay = document.getElementById('disconnectOverlay');
 
