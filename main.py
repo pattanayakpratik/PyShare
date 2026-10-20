@@ -333,6 +333,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return self.client_address[0] in ("127.0.0.1", "localhost", get_ip())
 
     def do_GET(self):
+        global SHARED_TEXT, TEXT_TIMESTAMP
         if getattr(sys, 'frozen', False):
             ASSET_DIR = sys._MEIPASS
         else:

@@ -1,0 +1,19 @@
+{
+  "name": "PyShare",
+  "short_name": "PyShare",
+  "description": "High-Speed Local Wi-Fi File Transfer & Clipboard Hub",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b111e",
+  "theme_color": "#141d2e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/app_icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
