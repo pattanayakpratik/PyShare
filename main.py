@@ -20,6 +20,8 @@ import string
 import zipfile
 import io
 import datetime
+import queue
+import pyperclip
 
 # Protect against Windows cp1252 console UnicodeEncodeError
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
@@ -53,6 +55,30 @@ state_lock = threading.Lock()
 events_queue = [] 
 upload_status = {}
 
+# --- SERVER-SENT EVENTS (SSE) REAL-TIME PUSH ENGINE ---
+sse_subscribers = set()
+sse_lock = threading.Lock()
+
+def add_sse_subscriber(q):
+    with sse_lock:
+        sse_subscribers.add(q)
+
+def remove_sse_subscriber(q):
+    with sse_lock:
+        sse_subscribers.discard(q)
+
+def broadcast_sse(event_type, data):
+    """Pushes a typed event packet down to all active SSE subscribers."""
+    with sse_lock:
+        dead = []
+        for q in sse_subscribers:
+            try:
+                q.put_nowait((event_type, data))
+            except queue.Full:
+                dead.append(q)
+        for q in dead:
+            sse_subscribers.discard(q)
+
 # Ensure MIME types are registered for streaming & previews
 mimetypes.init()
 mimetypes.add_type("video/mp4", ".mp4")
@@ -63,18 +89,23 @@ mimetypes.add_type("audio/ogg", ".ogg")
 mimetypes.add_type("audio/wav", ".wav")
 mimetypes.add_type("image/webp", ".webp")
 mimetypes.add_type("image/svg+xml", ".svg")
+mimetypes.add_type("application/manifest+json", ".json")
 
-# --- PIN MANAGER ---
+# --- PIN MANAGER WITH REAL-TIME TICKER ---
 def pin_rotator():
-    """Rotates the 4-digit PIN every 30 seconds while retaining the previous PIN for a grace period."""
+    """Rotates the 4-digit PIN every 30 seconds and broadcasts countdown every second to SSE clients."""
     global CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE
     while True:
-        new_pin = f"{random.randint(1000, 9999)}"
+        now = time.time()
         with state_lock:
-            PREVIOUS_PIN = CURRENT_PIN
-            CURRENT_PIN = new_pin
-            NEXT_CHANGE = time.time() + 30
-        time.sleep(30)
+            if now >= NEXT_CHANGE:
+                PREVIOUS_PIN = CURRENT_PIN
+                CURRENT_PIN = f"{random.randint(1000, 9999)}"
+                NEXT_CHANGE = now + 30
+            ttl = max(0, int(NEXT_CHANGE - now))
+            pin_data = {"pin": CURRENT_PIN, "ttl": ttl}
+        broadcast_sse("pin", pin_data)
+        time.sleep(1)
 
 def start_pin_rotator():
     t = threading.Thread(target=pin_rotator, daemon=True)
@@ -84,9 +115,11 @@ def start_pin_rotator():
 def add_event(msg):
     with state_lock:
         t = time.strftime("%H:%M:%S")
-        events_queue.append({"time": t, "msg": msg})
+        ev = {"time": t, "msg": msg}
+        events_queue.append(ev)
         if len(events_queue) > 60:
             events_queue.pop(0)
+    broadcast_sse("log", ev)
 
 def set_upload_status(client_ip, filename, current, total):
     with state_lock:
@@ -109,6 +142,38 @@ def pop_events():
 
 # --- SYSTEM HELPERS ---
 def get_ip():
+    """Detect the physical Wi-Fi / LAN IP, ignoring virtual / bridge adapters (WSL, Docker, VirtualBox)."""
+    try:
+        import ifaddr
+        adapters = ifaddr.get_adapters()
+        virtual_keywords = ['virtual', 'vethernet', 'wsl', 'docker', 'vmware', 'vbox', 'pseudo', 'loopback', 'teredo']
+        
+        candidates = []
+        for adapter in adapters:
+            name_lower = adapter.name.lower()
+            nice_lower = getattr(adapter, 'nice_name', '').lower()
+            if any(vk in name_lower or vk in nice_lower for vk in virtual_keywords):
+                continue
+            for ip_info in adapter.ips:
+                if isinstance(ip_info.ip, str):
+                    ip = ip_info.ip
+                    if ip.startswith('127.') or ip.startswith('169.254.'):
+                        continue
+                    if ip.startswith('192.168.'):
+                        candidates.append((1, ip))
+                    elif ip.startswith('10.'):
+                        candidates.append((2, ip))
+                    elif ip.startswith('172.'):
+                        parts = ip.split('.')
+                        if len(parts) >= 2 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
+                            candidates.append((3, ip))
+        
+        if candidates:
+            candidates.sort(key=lambda x: x[0])
+            return candidates[0][1]
+    except Exception:
+        pass
+
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(('10.255.255.255', 1))
@@ -200,6 +265,30 @@ def parse_range_header(range_header, file_size):
     except ValueError:
         return None
 
+def list_dir(path):
+    data = []
+    try:
+        if os.path.exists(path):
+            files = sorted(os.listdir(path), key=str.lower)
+            for f in files:
+                fp = os.path.join(path, f)
+                if os.path.isfile(fp):
+                    stat = os.stat(fp)
+                    ext = os.path.splitext(f)[1]
+                    data.append({
+                        "name": f,
+                        "size": stat.st_size,
+                        "mtime": int(stat.st_mtime),
+                        "category": get_category(ext),
+                        "ext": ext.lstrip('.').lower()
+                    })
+    except Exception: 
+        pass
+    return data
+
+def get_files_data():
+    return {"pc": list_dir(DOWNLOAD_DIR), "mobile": list_dir(UPLOAD_DIR)}
+
 # --- REQUEST HANDLER ---
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     
@@ -240,23 +329,37 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return True
         return ip in SESSIONS
 
+    def is_host_client(self):
+        return self.client_address[0] in ("127.0.0.1", "localhost", get_ip())
+
     def do_GET(self):
         if getattr(sys, 'frozen', False):
             ASSET_DIR = sys._MEIPASS
         else:
             ASSET_DIR = os.path.dirname(os.path.abspath(__file__))
 
-        # 1. SERVE STATIC ASSETS (No Auth Required)
-        if self.path.endswith('.css') or self.path.endswith('.js') or self.path.endswith('.ico') or self.path == '/login.html':
-            clean_path = self.path.split('?')[0].lstrip('/')
+        # 1. SERVE STATIC ASSETS (No Auth Required for assets & PWA shell)
+        asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
+        clean_path = self.path.split('?')[0].lstrip('/')
+        if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js'):
             fp = os.path.join(ASSET_DIR, clean_path)
             if os.path.exists(fp):
                 if clean_path.endswith('.css'): 
                     ctype = 'text/css; charset=utf-8'
-                elif clean_path.endswith('.js'): 
+                elif clean_path.endswith('.js') or clean_path == 'sw.js': 
                     ctype = 'application/javascript; charset=utf-8'
+                elif clean_path.endswith('.json') or clean_path == 'manifest.json':
+                    ctype = 'application/manifest+json; charset=utf-8'
                 elif clean_path.endswith('.ico'): 
                     ctype = 'image/x-icon'
+                elif clean_path.endswith('.png'): 
+                    ctype = 'image/png'
+                elif clean_path.endswith(('.jpg', '.jpeg')): 
+                    ctype = 'image/jpeg'
+                elif clean_path.endswith('.svg'): 
+                    ctype = 'image/svg+xml'
+                elif clean_path.endswith('.webp'): 
+                    ctype = 'image/webp'
                 elif clean_path.endswith('.html'): 
                     ctype = 'text/html; charset=utf-8'
                 else: 
@@ -270,9 +373,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 self.wfile.write(content)
+                return
             else:
                 self.send_error(404, "Asset not found")
-            return
+                return
 
         # 2. SERVE QR CODE
         if self.path == '/qrcode.png' or self.path.startswith('/qrcode.png?'):
@@ -336,41 +440,92 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "Dashboard template not found.")
             return
 
-        # B. API: PIN (Host Only)
+        # B. API: Server-Sent Events (SSE) Stream
+        if self.path == '/api/events':
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache, no-transform")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+
+            q = queue.Queue(maxsize=50)
+            add_sse_subscriber(q)
+
+            # Send initial state snapshot immediately
+            try:
+                # 1. File list snapshot
+                files_json = json.dumps(get_files_data())
+                self.wfile.write(f"event: files\ndata: {files_json}\n\n".encode('utf-8'))
+                
+                # 2. Clipboard snapshot
+                with state_lock:
+                    clip_json = json.dumps({"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
+                self.wfile.write(f"event: clipboard\ndata: {clip_json}\n\n".encode('utf-8'))
+                
+                # 3. PIN snapshot (Host only)
+                if self.is_host_client():
+                    with state_lock:
+                        ttl = max(0, int(NEXT_CHANGE - time.time()))
+                        pin_json = json.dumps({"pin": CURRENT_PIN, "ttl": ttl})
+                    self.wfile.write(f"event: pin\ndata: {pin_json}\n\n".encode('utf-8'))
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, Exception):
+                remove_sse_subscriber(q)
+                return
+
+            try:
+                while True:
+                    try:
+                        event_type, event_data = q.get(timeout=10)
+                        msg = f"event: {event_type}\ndata: {json.dumps(event_data)}\n\n".encode('utf-8')
+                        self.wfile.write(msg)
+                        self.wfile.flush()
+                    except queue.Empty:
+                        self.wfile.write(b": keep-alive\n\n")
+                        self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, Exception):
+                pass
+            finally:
+                remove_sse_subscriber(q)
+            return
+
+        # C. API: Direct Windows Clipboard Sync (Host Only)
+        if self.path == '/api/sync_clipboard':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            try:
+                clip_val = pyperclip.paste().strip()
+                if clip_val:
+                    with state_lock:
+                        SHARED_TEXT = clip_val
+                        TEXT_TIMESTAMP = int(time.time())
+                    snippet = (clip_val[:35] + "...") if len(clip_val) > 35 else clip_val
+                    add_event(f"Synced PC Clipboard: {snippet}")
+                    broadcast_sse("clipboard", {"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
+                    self.send_json({"status": "ok", "text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
+                else:
+                    self.send_json({"status": "empty", "message": "PC clipboard is empty"})
+            except Exception as e:
+                self.send_error(500, str(e))
+            return
+
+        # D. API: PIN (Host Only)
         if self.path == '/api/pin':
-            if self.client_address[0] in ("127.0.0.1", "localhost", get_ip()):
+            if self.is_host_client():
                 ttl = max(0, int(NEXT_CHANGE - time.time()))
                 self.send_json({"pin": CURRENT_PIN, "ttl": ttl})
             else:
                 self.send_error(403, "Forbidden")
             return
 
-        # C. API: Files List
+        # E. API: Files List
         if self.path == '/api/files':
-            def list_dir(path):
-                data = []
-                try:
-                    if os.path.exists(path):
-                        files = sorted(os.listdir(path), key=str.lower)
-                        for f in files:
-                            fp = os.path.join(path, f)
-                            if os.path.isfile(fp):
-                                stat = os.stat(fp)
-                                ext = os.path.splitext(f)[1]
-                                data.append({
-                                    "name": f,
-                                    "size": stat.st_size,
-                                    "mtime": int(stat.st_mtime),
-                                    "category": get_category(ext),
-                                    "ext": ext.lstrip('.').lower()
-                                })
-                except Exception: 
-                    pass
-                return data
-            self.send_json({"pc": list_dir(DOWNLOAD_DIR), "mobile": list_dir(UPLOAD_DIR)})
+            self.send_json(get_files_data())
             return
 
-        # D. API: Updates / Poll
+        # F. API: Updates / Poll (Fallback)
         if self.path == '/api/updates':
             with state_lock:
                 active_uploads = list(upload_status.values()) if upload_status else None
@@ -383,7 +538,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(data)
             return
 
-        # E. API: Shared Clipboard (GET)
+        # G. API: Shared Clipboard (GET)
         if self.path == '/api/text':
             with state_lock:
                 data = {
@@ -393,9 +548,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(data)
             return
 
-        # F. API: Open Folder (Host Only)
+        # H. API: Open Folder (Host Only)
         if self.path.startswith('/api/open'):
-            if self.client_address[0] not in ("127.0.0.1", "localhost", get_ip()):
+            if not self.is_host_client():
                 self.send_error(403, "Forbidden")
                 return
             
@@ -411,7 +566,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_text("Opened")
             return
 
-        # G. API: Download All as ZIP
+        # I. API: Download All as ZIP (Zero-RAM Disk-Backed Stream)
         if self.path.startswith('/api/zip'):
             query = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(query)
@@ -422,26 +577,46 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "No files found to archive")
                 return
 
-            zip_buf = io.BytesIO()
-            with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for root, _, files in os.walk(target_dir):
-                    for file in files:
-                        abs_p = os.path.join(root, file)
-                        rel_p = os.path.relpath(abs_p, target_dir)
-                        zf.write(abs_p, rel_p)
-            
-            zip_bytes = zip_buf.getvalue()
-            zip_fn = f"PyShare_{folder_type.capitalize()}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-            
-            self.send_response(200)
-            self.send_header("Content-Type", "application/zip")
-            self.send_header("Content-Disposition", f'attachment; filename="{zip_fn}"')
-            self.send_header("Content-Length", str(len(zip_bytes)))
-            self.end_headers()
-            self.wfile.write(zip_bytes)
+            temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+            temp_zip_path = temp_zip.name
+            temp_zip.close()
+
+            try:
+                with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for root, _, files in os.walk(target_dir):
+                        for file in files:
+                            abs_p = os.path.join(root, file)
+                            rel_p = os.path.relpath(abs_p, target_dir)
+                            zf.write(abs_p, rel_p)
+
+                zip_size = os.path.getsize(temp_zip_path)
+                zip_fn = f"PyShare_{folder_type.capitalize()}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header("Content-Disposition", f'attachment; filename="{zip_fn}"')
+                self.send_header("Content-Length", str(zip_size))
+                self.end_headers()
+
+                with open(temp_zip_path, 'rb') as f:
+                    while True:
+                        chunk = f.read(262144)  # 256KB chunks
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            except Exception as e:
+                self.send_error(500, f"Error creating ZIP: {e}")
+            finally:
+                if os.path.exists(temp_zip_path):
+                    try:
+                        os.unlink(temp_zip_path)
+                    except Exception:
+                        pass
             return
 
-        # H. File View & Download (With HTTP 206 Partial Content / Range Requests)
+        # J. File View & Download (With HTTP 206 Partial Content / Range Requests)
         if self.path.startswith('/view/') or self.path.startswith('/download/'):
             is_view = self.path.startswith('/view/')
             prefix = 6 if is_view else 10
@@ -469,42 +644,49 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 return
 
-            if byte_range is not None:
-                start, end = byte_range
-                content_len = (end - start) + 1
-                self.send_response(206, "Partial Content")
-                self.send_header("Content-Type", ctype)
-                self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
-                self.send_header("Content-Length", str(content_len))
-                self.send_header("Accept-Ranges", "bytes")
-                if not is_view:
-                    self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
-                self.end_headers()
-                
-                with open(fp, 'rb') as f:
-                    f.seek(start)
-                    remain = content_len
-                    while remain > 0:
-                        chunk = f.read(min(remain, 65536))
-                        if not chunk:
-                            break
-                        self.wfile.write(chunk)
-                        remain -= len(chunk)
-            else:
-                self.send_response(200)
-                self.send_header("Content-Type", ctype)
-                self.send_header("Accept-Ranges", "bytes")
-                self.send_header("Content-Length", str(file_size))
-                if not is_view:
-                    self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
-                self.end_headers()
-                with open(fp, 'rb') as f:
-                    shutil.copyfileobj(f, self.wfile)
+            try:
+                if byte_range is not None:
+                    start, end = byte_range
+                    content_len = (end - start) + 1
+                    self.send_response(206, "Partial Content")
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
+                    self.send_header("Content-Length", str(content_len))
+                    self.send_header("Accept-Ranges", "bytes")
+                    if not is_view:
+                        self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
+                    self.end_headers()
+                    
+                    with open(fp, 'rb') as f:
+                        f.seek(start)
+                        remain = content_len
+                        while remain > 0:
+                            chunk = f.read(min(remain, 262144))
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                            remain -= len(chunk)
+                else:
+                    self.send_response(200)
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Accept-Ranges", "bytes")
+                    self.send_header("Content-Length", str(file_size))
+                    if not is_view:
+                        self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
+                    self.end_headers()
+                    with open(fp, 'rb') as f:
+                        while True:
+                            chunk = f.read(262144)
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             return
 
-        # I. Server Shutdown
+        # K. Server Shutdown
         if self.path == '/shutdown':
-            if self.client_address[0] not in ("127.0.0.1", "localhost", get_ip()):
+            if not self.is_host_client():
                 self.send_error(403, "Forbidden")
                 return
             self.send_text("Shutting down")
@@ -568,14 +750,21 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 SHARED_TEXT = new_text
                 TEXT_TIMESTAMP = int(time.time())
 
+            # Direct sync to Windows OS clipboard
+            try:
+                pyperclip.copy(new_text)
+            except Exception:
+                pass
+
             snippet = (new_text[:35] + "...") if len(new_text) > 35 else new_text
             add_event(f"Clipboard updated: {snippet}")
+            broadcast_sse("clipboard", {"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
             self.send_json({"status": "ok", "timestamp": TEXT_TIMESTAMP})
             return
 
         # 4. HANDLE FILE DELETION (/api/delete - Host Only)
         if self.path == '/api/delete':
-            if self.client_address[0] not in ("127.0.0.1", "localhost", get_ip()):
+            if not self.is_host_client():
                 self.send_error(403, "Host Only")
                 return
             length = int(self.headers.get('Content-Length', 0))
@@ -589,6 +778,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 if target_fp.startswith(os.path.abspath(target_dir)) and os.path.isfile(target_fp):
                     os.remove(target_fp)
                     add_event(f"Deleted: {fn}")
+                    broadcast_sse("files", get_files_data())
                     self.send_json({"status": "ok", "deleted": fn})
                     return
                 else:
@@ -598,7 +788,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, str(e))
                 return
 
-        # 5. HANDLE FILE UPLOAD (Collision-safe + progress tracking)
+        # 5. HANDLE FILE UPLOAD (High-speed 256KB buffer + throttled progress lock)
         client_ip = self.client_address[0]
         try:
             is_host_upload = "dest=host" in self.path
@@ -614,7 +804,6 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             
             os.makedirs(target_dir, exist_ok=True)
 
-            # Prevent silent overwrite with automatic numbering: "file (1).ext"
             out_path = get_unique_filepath(target_dir, raw_fn)
             actual_fn = os.path.basename(out_path)
             
@@ -624,24 +813,41 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if not is_host_upload: 
                 add_event(f"Receiving: {actual_fn}")
             
+            last_status_time = 0
             with open(out_path, 'wb') as f:
                 while remain > 0:
-                    chunk = self.rfile.read(min(remain, 65536))
+                    chunk = self.rfile.read(min(remain, 262144))  # 256KB chunk
                     if not chunk: 
                         break
                     f.write(chunk)
                     remain -= len(chunk)
-                    if not is_host_upload: 
-                        set_upload_status(client_ip, actual_fn, total_size - remain, total_size)
+                    
+                    if not is_host_upload:
+                        now = time.time()
+                        # Throttle lock & SSE broadcast to max 10 times per second
+                        if now - last_status_time >= 0.1 or remain == 0:
+                            last_status_time = now
+                            set_upload_status(client_ip, actual_fn, total_size - remain, total_size)
+                            broadcast_sse("upload", {
+                                "filename": actual_fn,
+                                "current": total_size - remain,
+                                "total": total_size
+                            })
             
             clear_upload_status(client_ip)
+            broadcast_sse("upload", None)
+            
             msg = f"Added to Shared: {actual_fn}" if is_host_upload else f"File received: {actual_fn}"
             add_event(msg)
+            
+            # Broadcast updated file lists immediately across all connected devices
+            broadcast_sse("files", get_files_data())
             
             self.send_json({"status": "ok", "filename": actual_fn})
             
         except Exception as e:
             clear_upload_status(client_ip)
+            broadcast_sse("upload", None)
             self.send_error(500, str(e))
 
 # --- SERVER CONTROLLER ---
@@ -676,7 +882,7 @@ def start_server():
         print("[!] Could not bind to any available port.")
         return
 
-    # Start PIN Rotation
+    # Start PIN Rotation & 1-second countdown ticker
     start_pin_rotator()
 
     ip = get_ip()

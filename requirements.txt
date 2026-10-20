@@ -2,3 +2,4 @@ pyqrcode
 pypng
 zeroconf
 pyinstaller
+pyperclip
