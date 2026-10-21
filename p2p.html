@@ -12,11 +12,26 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="client_styles.css">
-    <link rel="stylesheet" href="host_styles.css">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+            padding: 14px 16px;
+            box-sizing: border-box;
+        }
         @media (min-width: 600px) {
             .app-container {
                 max-width: 680px !important;
+                padding: 16px 20px !important;
             }
         }
         .client-upload-card.dragover {
@@ -103,7 +118,7 @@
     </style>
 </head>
 <body>
-    <div class="app-container" style="max-width: 520px; margin: 0 auto; padding: 12px 16px; min-height: 100vh; display: flex; flex-direction: column;">
+    <div class="app-container">
 
         <!-- Top Navbar -->
         <nav class="navbar">
@@ -112,7 +127,7 @@
                 <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
                 PyShare P2P
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
                 <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
                 <button class="icon-btn" onclick="document.getElementById('clipboardModal').classList.add('open')" title="Shared Clipboard">📋</button>
             </div>

@@ -17,7 +17,8 @@ let lastSpeedLoaded = 0;
 
 // Theme Initialization
 (function initTheme() {
-    const savedTheme = localStorage.getItem('pyshare_theme') || 'dark';
+    const urlTheme = new URLSearchParams(window.location.search).get('theme');
+    const savedTheme = urlTheme || localStorage.getItem('pyshare_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
 })();
 
@@ -112,8 +113,8 @@ function startHostMode() {
     document.getElementById('screenLanding').style.display = 'none';
     document.getElementById('screenHost').style.display = 'flex';
     document.getElementById('hostPinDisplay').innerText = currentPin;
-
-    updateConnectionStatus('Creating P2P room...', 'yellow');
+    generateHostQR(currentPin);
+    updateConnectionStatus('Ready! Waiting for device to scan...', 'blue');
 
     try {
         peer = new Peer(peerId, PEER_CONFIG);
@@ -778,12 +779,14 @@ function setupDragAndDrop() {
     });
 }
 
-// Auto-check URL for ?room=XXXX on page load & setup drag/drop
+// Auto-check URL for ?room=XXXX or ?mode=host on page load & setup drag/drop
 window.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop();
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
     if (roomParam && roomParam.length === 4) {
         startJoinMode(roomParam);
+    } else if (params.get('mode') === 'host') {
+        startHostMode();
     }
 });
