@@ -104,6 +104,20 @@ function setupHostSSE(es) {
             updateTunnelUI(data);
         } catch (err) {}
     });
+
+    // 5. Real-time Feedback Notification Listener
+    es.addEventListener('feedback', (e) => {
+        try {
+            const item = JSON.parse(e.data);
+            prependFeedbackCard(item);
+            incrementFeedbackBadge();
+            const catIcons = { bug: '🐛', feature: '💡', question: '❓', general: '⭐' };
+            const icon = catIcons[item.category] || '💬';
+            if (typeof showToast === 'function') {
+                showToast(`New feedback: ${icon} [${item.category.toUpperCase()}] ${item.message.slice(0, 30)}`, '💬');
+            }
+        } catch (err) {}
+    });
 }
 
 // --- CLOUDFLARE PUBLIC INTERNET TUNNEL CONTROLLER ---
@@ -225,3 +239,95 @@ setInterval(async () => {
         }
     } catch (e) {}
 }, 15000);
+
+// --- FEEDBACK LIVE HUB CONTROLLER ---
+let unreadFeedbackCount = 0;
+
+function incrementFeedbackBadge() {
+    unreadFeedbackCount++;
+    const badge = document.getElementById('feedbackBadge');
+    if (badge) {
+        badge.innerText = unreadFeedbackCount;
+        badge.style.display = 'inline-block';
+    }
+}
+
+function createFeedbackCard(item) {
+    const card = document.createElement('div');
+    card.className = 'feedback-entry-card';
+
+    const catIcons = { bug: '🐛', feature: '💡', question: '❓', general: '⭐' };
+    const icon = catIcons[item.category] || '💬';
+    const tagClass = `badge-${item.category || 'general'}`;
+
+    let starsHtml = '';
+    if (item.rating && item.rating > 0) {
+        starsHtml = `<span>${'⭐'.repeat(item.rating)}</span>`;
+    }
+
+    const timeStr = item.created_at ? item.created_at.split(' ')[1] : '--:--';
+    const dateStr = item.created_at ? item.created_at.split(' ')[0] : '';
+    const contactStr = item.contact ? `<span>👤 ${escapeHtml(item.contact)}</span>` : '';
+    const ipStr = item.client_ip ? `<span>🌐 ${escapeHtml(item.client_ip)}</span>` : '';
+    const devStr = item.device && item.device.os ? `<span>📱 ${escapeHtml(item.device.os)} / ${escapeHtml(item.device.browser || '')}</span>` : '';
+
+    card.innerHTML = `
+        <div class="feedback-entry-header">
+            <span class="feedback-category-badge ${tagClass}">${icon} ${escapeHtml(item.category)}</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+                ${starsHtml}
+                <span class="log-timestamp" style="font-size:10px;">${escapeHtml(timeStr)}</span>
+            </div>
+        </div>
+        <div class="feedback-entry-msg">${escapeHtml(item.message)}</div>
+        <div class="feedback-entry-meta">
+            ${dateStr ? `<span>📅 ${escapeHtml(dateStr)}</span>` : ''}
+            ${contactStr}
+            ${ipStr}
+            ${devStr}
+        </div>
+    `;
+    return card;
+}
+
+async function loadFeedbackList() {
+    try {
+        const res = await fetch('/api/feedback');
+        if (!res.ok) return;
+        const data = await res.json();
+        const container = document.getElementById('feedbackListContainer');
+        if (!container) return;
+
+        const items = data.items || [];
+        if (items.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:16px 0; font-size:12px;">No feedback submissions yet</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        items.forEach(item => {
+            container.appendChild(createFeedbackCard(item));
+        });
+
+        // Reset badge once viewed
+        const badge = document.getElementById('feedbackBadge');
+        if (badge) {
+            badge.style.display = 'none';
+            unreadFeedbackCount = 0;
+        }
+    } catch (e) {}
+}
+
+function prependFeedbackCard(item) {
+    const container = document.getElementById('feedbackListContainer');
+    if (!container) return;
+    const emptyState = container.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
+
+    const card = createFeedbackCard(item);
+    container.prepend(card);
+}
+
+// Initial fetch of existing feedback items on load
+loadFeedbackList();
+
