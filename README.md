@@ -1,4 +1,4 @@
-# ⚡ PyShare — High-Speed Local Wi-Fi File Transfer & Clipboard Hub
+# ⚡ PyShare — High-Speed Cross-Device File Transfer & Clipboard Hub
 
 <div align="center">
 
@@ -9,38 +9,72 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)
 ![Release](https://img.shields.io/github/v/release/pattanayakpratik/PyShare?style=for-the-badge&logo=github&color=00ffcc)
 ![Download](https://img.shields.io/badge/Download-Standalone%20EXE-brightgreen?style=for-the-badge&logo=windows)
-![Network](https://img.shields.io/badge/Network-Offline%20Wi--Fi%20LAN-3b82f6?style=for-the-badge)
+![WebRTC](https://img.shields.io/badge/WebRTC-P2P%20Zero%20Install-8b5cf6?style=for-the-badge&logo=webrtc)
+![Cloudflare](https://img.shields.io/badge/Cloudflare-Internet%20Tunnel-f38020?style=for-the-badge&logo=cloudflare)
+![Network](https://img.shields.io/badge/Network-Offline%20LAN%20%2B%20Worldwide-3b82f6?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-orange?style=for-the-badge)
 
 <br/>
 
-**A modern, ultra-fast, local network file transfer & clipboard hub. Connect your PC and mobile devices over local Wi-Fi in seconds with zero configuration, no cables, and no external internet required.**
+**A modern, ultra-fast cross-platform file transfer & universal clipboard hub. Transfer photos, videos, documents, and text between PC, Mac, iPhone, Android, and Tablets with zero configuration.**
 
 <br/>
 
-[⬇️ **Download Standalone EXE (v4.0.0)**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.zip) • [Screenshots](#-screenshots) • [What's New](#-whats-new-in-v400) • [Key Features](#-key-features) • [Usage Guide](#-usage-guide) • [Installation](#-installation-for-developers)
+[⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.zip) • [Screenshots](#-screenshots) • [Two Ways to Use](#-two-ways-to-use-pyshare) • [What's New](#-whats-new-in-v450) • [Key Features](#-key-features) • [Architecture](#-system-architecture) • [Usage Guide](#-usage-guide)
 
 </div>
 
 ---
 
+## 🚀 Two Ways to Use PyShare
+
+PyShare is built around complete flexibility: **downloading an app is 100% optional!**
+
+| Mode | 🌐 1. Instant Web Mode (Zero Install) | 💻 2. Desktop App Mode (`.exe`) |
+| :--- | :--- | :--- |
+| **Download Needed?** | ❌ **No downloads required** | Optional portable `.exe` |
+| **Supported Devices** | PC, Mac, Linux, iPhone, Android, iPad | Windows PC / Laptop |
+| **How to Access** | Open in any browser (Chrome, Safari, Edge) | Double-click to launch offline hub |
+| **Network** | Any Wi-Fi, 4G/5G, or Cellular | 100% Offline Wi-Fi LAN / Hotspot + Cloudflare Tunnel |
+| **Transfer Speed** | Peer-to-Peer WebRTC DataChannels | Ultra-fast Local Stream (**50–100 MB/s**) |
+| **File Storage** | Direct in-browser download & Lightbox | Auto-saved to `Desktop/PyShare_Files` |
+| **Clipboard** | Synced Web Clipboard modal | Native 1-click Windows OS Clipboard Push |
+
+---
+
 ## 📸 Screenshots
 
-### 🖥️ Desktop Host View
+### 🖥️ Desktop Host Studio (Dark & Light Mode)
+The complete workstation command center on PC with live dynamic QR code, rotating 4-digit PIN, 1-click Cloudflare Internet Tunnel toggle, Windows OS clipboard push, and received files manager.
 
 <p align="center">
-  <img src="Screenshots/host_dark.png" alt="PyShare Host Dark Mode" width="100%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+  <img src="Screenshots/host_dark.png" alt="PyShare Host Studio Dark Mode" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+  <img src="Screenshots/host_white.png" alt="PyShare Host Studio Light Mode" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
 </p>
 
-### 📱 Mobile Client Views
+### 📱 Mobile Phone as Host (Zero PC Required — Dark & Light Mode)
+Your phone can now act as the **Host** directly from any mobile browser! Phone A taps **Create Room** to generate an instant Room PIN and QR code; Phone B or PC connects to send/receive files peer-to-peer over WebRTC with zero app installation.
 
 <p align="center">
-  <img src="Screenshots/client_dark.jpg" alt="Client Dark Mode" width="46%" style="max-width: 220px; border-radius: 12px; margin: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
-  <img src="Screenshots/client_login.jpg" alt="Client PIN Login" width="46%" style="max-width: 220px; border-radius: 12px; margin: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+  <img src="Screenshots/mobile_host_dark.png" alt="Mobile Phone Host Dark Mode" width="46%" style="max-width: 250px; border-radius: 16px; margin: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3);">
+  <img src="Screenshots/mobile_host_white.png" alt="Mobile Phone Host Light Mode" width="46%" style="max-width: 250px; border-radius: 16px; margin: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3);">
 </p>
+
+### 📱 Mobile Client Views & PIN Login
+Touch-friendly mobile interface with PIN keypad authentication, built-in How-To Guide shortcut, media preview lightbox, real-time upload progress, and 1-tap theme switching.
+
 <p align="center">
-  <img src="Screenshots/client_white.jpg" alt="Client Light Mode" width="46%" style="max-width: 220px; border-radius: 12px; margin: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
-  <img src="Screenshots/client_disconnect.jpg" alt="Client Disconnection" width="46%" style="max-width: 220px; border-radius: 12px; margin: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+  <img src="Screenshots/client_login.png" alt="Mobile PIN Keypad" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
+  <img src="Screenshots/client_dark.png" alt="Mobile Client Dark" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
+  <img src="Screenshots/client_white.png" alt="Mobile Client Light" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
+</p>
+
+### 🌐 Instant Web Transfer & 📖 Interactive How-To Guide
+Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-drop. Right: Built-in visual user manual and troubleshooting guide precached for offline use.
+
+<p align="center">
+  <img src="Screenshots/web_transfer.png" alt="PyShare Instant Web Transfer" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+  <img src="Screenshots/guide.png" alt="PyShare How-To Guide" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
 </p>
 
 ---
@@ -51,50 +85,43 @@
 
 * **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.exe)**
 * **PyShare (Compressed ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.zip)**
-* **GitHub Releases** 👉 **[PyShare v4.0.0 Release](https://github.com/pattanayakpratik/PyShare/releases/tag/v4.0.0)**
+* **GitHub Releases** 👉 **[PyShare Releases](https://github.com/pattanayakpratik/PyShare/releases)**
 
 > [!NOTE]
-> If Windows SmartScreen shows a warning on first launch, click **More info → Run anyway**. PyShare is 100% open-source and operates strictly on your local Wi-Fi.
+> If Windows SmartScreen shows a warning on first launch, click **More info → Run anyway**. PyShare is 100% open-source and operates strictly within your local environment.
 
 ---
 
-## 🆕 What's New in v4.0.0
+## 🆕 What's New in v4.5.0
 
+- 🌐 **Instant Web Transfer (WebRTC P2P):**
+  - Transfer files directly between any two browsers (PC, Mac, iPhone, Android, Tablet) with **zero app downloads**.
+  - Desktop drag-and-drop file upload and physical keyboard PIN entry.
+- 🌍 **1-Click Cloudflare Internet Tunnel:**
+  - Share files securely with phones on 4G/5G mobile data, college Wi-Fi (AP Isolation), or across the world with end-to-end HTTPS encryption.
+- 📖 **Interactive How-To Guide (`guide.html`):**
+  - Built-in visual manual and troubleshooting wizard accessible directly from the navbar and login screen with zero authentication required.
+- 📋 **Native OS Clipboard Integration:**
+  - 1-click **"Push PC Clipboard"** button pushes your current Windows clipboard (`pyperclip`) to all connected mobile devices in real time.
+- ⚡ **Server-Sent Events (SSE) Push Engine:**
+  - Replaced interval polling with instant push notifications for file additions, PIN rotation, and clipboard updates via `/api/events`.
+- 📦 **Zero-RAM ZIP Streaming (`/api/zip`):**
+  - Streams gigabyte-sized folders in disk-backed compressed archives without memory exhaustion.
+- 📱 **Progressive Web App (PWA v5):**
+  - Installable to iOS & Android home screens via `manifest.json` and offline-first caching with `sw.js`.
 - 🖼️ **In-App Media Preview Lightbox:**
-  - View full-resolution photos directly in your browser.
-  - Stream HTML5 videos with seeking and scrubber controls.
-  - Integrated audio player for smooth audio playback.
-  - In-browser code and text viewer with syntax formatting and a 1-click **Copy Text** button.
-- ⚡ **HTTP 206 Partial Content (Range Requests):**
-  - Smooth, buffer-free video and audio seeking without buffering pauses, fully compatible with iOS Safari and Android Chrome.
-- 📋 **Universal Shared Clipboard:**
-  - Beam text snippets, URLs, notes, and addresses bidirectionally between your phone and PC in real time.
-- 📦 **Download All as ZIP:**
-  - 1-click archiving of entire folders (`Shared_Files` or `Received_Files`) on the fly.
-- 🚀 **Multi-File Upload Queue & Speed Meter:**
-  - Floating upload drawer with individual per-file progress bars and real-time transfer speed (`MB/s` / `KB/s`).
-- 🛡️ **Collision-Safe File Renaming:**
-  - Automatically indexes duplicate uploads (`file (1).ext`) to ensure existing files are never overwritten.
-- 🔑 **Dual-Grace PIN Rotation:**
-  - 30-second PIN rollover with a grace window so entering the PIN right at the boundary never causes accidental lockouts.
-- 📱 **Dynamic QR Generation & mDNS Broadcast:**
-  - Regenerates QR codes automatically whenever IP or port changes and broadcasts via `_pyshare._tcp.local.`.
-- 🗑️ **In-App Host File Deletion:**
-  - Delete and manage received or shared files directly from the web dashboard.
+  - Full-resolution photo preview, HTML5 video streaming with seeking, audio player, and code/text viewer with 1-click copy.
 
 ---
 
 ## ⚡ Key Features
 
-- **🎨 Modern Dark Navy Aesthetic:** Beautifully balanced layout matching desktop studio standards and touch-friendly mobile conventions.
-- **📂 Automatic Desktop Integration:** Automatically creates and organizes `PyShare_Files/Shared_Files` and `Received_Files` on your Desktop.
-- **⚡ Zero Configuration:** Auto-detects local IP, finds available ports (8010–8020), and launches your browser on startup.
-- **🌗 Dark & Light Themes:** Crisp dark theme by default with smooth switching to light theme.
-- **☁️ Touch & Drag-and-Drop:** Intuitive file dropping on desktop and touch-friendly file picker on mobile.
-- **🔒 Local Network Security:** Requires rotating 4-digit PIN authentication. Client heartbeat detector alerts you immediately if the host disconnects.
-- **🛡️ 100% Offline & Private:** All data travels straight across your Wi-Fi network without leaving your local environment.
-- **🌐 Public Internet Mode:** 1-click Cloudflare Tunnel toggle allows phones to connect from 4G/5G mobile data, college Wi-Fi, or anywhere in the world with full end-to-end HTTPS encryption.
-- **📱 Mobile-to-Mobile P2P Mode (Zero PC Required):** Transfer files directly between two phones via WebRTC. Phone A generates a QR code & 4-digit PIN, Phone B scans to connect. 100% browser-based with zero apps needed!
+- **🎨 Modern Dark Navy Studio Aesthetic:** Clean, balanced interface matching desktop workstation standards and touch-friendly mobile conventions.
+- **📂 Automatic Desktop Integration:** Automatically creates and organizes `PyShare_Files/Shared_Files` and `Received_Files` on your Windows Desktop.
+- **⚡ Zero Configuration:** Auto-detects your primary physical network adapter (skips virtual/WSL bridges), finds open ports (8010–8020), and launches your browser on startup.
+- **🔒 Rotating PIN Security:** Dual-grace 30-second PIN rollover prevents unauthorized access while ensuring no accidental lockouts during typing.
+- **🛡️ 100% Private:** In local mode, all data travels straight across your Wi-Fi or phone hotspot without touching any external cloud servers.
+- **🌗 Light & Dark Themes:** Smooth theme switching with persistent local storage.
 
 ---
 
@@ -102,21 +129,22 @@
 
 ```text
 PyShare/
-├── main.py              # HTTP Server, SSE Push Engine, Range Streaming, PIN Ticker & mDNS
-├── host.html            # Host 3-column studio dashboard
+├── main.py              # HTTP Server, SSE Push Engine, Range Streaming, Cloudflare Tunnel & mDNS
+├── host.html            # Host 3-column studio dashboard with Internet mode & clipboard sync
 ├── host_styles.css      # Host desktop layout styling
 ├── host_scripts.js      # Host SSE listener, PIN sync, RX monitor & Windows clipboard sync
 ├── client.html          # Mobile-first client interface with PWA support
 ├── client_styles.css    # Client touch-friendly layout
-├── login.html           # 4-digit PIN authentication keypad
-├── p2p.html             # Mobile-to-Mobile WebRTC P2P interface (Zero PC Required)
-├── p2p.js               # WebRTC P2P chunking, transfer queue & clipboard sync
+├── login.html           # 4-digit PIN authentication keypad with guide shortcut
+├── guide.html           # Interactive visual How-To Guide & troubleshooting wizard
+├── p2p.html             # Universal Web Transfer interface (Zero App Install Required)
+├── p2p.js               # WebRTC P2P chunking, transfer queue, drag-and-drop & keyboard PIN
 ├── peerjs.min.js        # Vendored PeerJS WebRTC data broker
 ├── qrcode.min.js        # Vendored client-side QR code generator
 ├── styles.css           # Global design system & Lightbox modal
 ├── scripts.js           # Multi-file upload queue, SSE event stream & media preview
 ├── manifest.json        # Progressive Web App (PWA) manifest
-├── sw.js                # Service Worker for standalone mobile PWA
+├── sw.js                # Service Worker for standalone mobile PWA (Cache v5)
 ├── vercel.json          # 1-click cloud deployment configuration
 ├── requirements.txt     # Python dependencies
 ├── app_icon.ico         # Application icon for Windows executable
@@ -125,28 +153,39 @@ PyShare/
     ├── banner.png
     ├── host_dark.png
     ├── host_white.png
-    ├── client_dark.jpg
-    ├── client_white.jpg
-    ├── client_login.jpg
-    └── client_disconnect.jpg
+    ├── mobile_host_dark.png
+    ├── mobile_host_white.png
+    ├── client_dark.png
+    ├── client_white.png
+    ├── client_login.png
+    ├── web_transfer.png
+    └── guide.png
 ```
 
 ```mermaid
 graph TD
-    A[PC Host: PyShare.exe] -->|Port 8010-8020| B[Threading HTTP Server]
-    B -->|Dynamic QR Code| C[pyqrcode / pypng]
-    B -->|Local Discovery| D[Zeroconf mDNS: _pyshare._tcp.local]
-    B -->|Security| E[Dual-Grace PIN Rotator: 30s TTL]
-    
-    B -->|Streaming Engine| F[HTTP 206 Partial Content / Range Requests]
-    B -->|Data Sync| G[In-Memory Shared Clipboard /api/text]
-    B -->|Storage Manager| H[Desktop/PyShare_Files/Shared_Files & Received_Files]
-    
-    I[Mobile / Client Device] -->|1. Scan QR Code| J[Mobile Browser: Safari / Chrome]
-    J -->|2. PIN Auth| E
-    J -->|3. Streaming Media| F
-    J -->|4. Multi-File Queue| H
-    J -->|5. Clipboard Beam| G
+    subgraph "Mode 1: Local Wi-Fi (Desktop App)"
+        A[PC Host: PyShare.exe] -->|Port 8010-8020| B[Threading HTTP Server]
+        B -->|Dynamic QR Code| C[pyqrcode / pypng]
+        B -->|Local Discovery| D[Zeroconf mDNS: _pyshare._tcp.local]
+        B -->|Security| E[Dual-Grace PIN Rotator: 30s TTL]
+        B -->|Real-time Push| F[Server-Sent Events: /api/events]
+        B -->|Storage Manager| G[Desktop/PyShare_Files]
+        H[Mobile Device] -->|Scan QR & PIN| B
+    end
+
+    subgraph "Mode 2: Public Internet Mode"
+        A -->|1-Click Toggle| I[Cloudflare Tunnel daemon]
+        I -->|Secure HTTPS Proxy| J[Ephemeral trycloudflare.com URL]
+        K[Remote Device: 4G/5G] -->|Connect via Internet| J
+        J -->|Proxied Client Route| B
+    end
+
+    subgraph "Mode 3: Instant Web Transfer (Zero Install)"
+        L[Device A: PC / Phone] -->|WebRTC DataChannel| M[PeerJS Broker]
+        N[Device B: PC / Phone] -->|WebRTC DataChannel| M
+        L <===>|Direct P2P File Chunks & Clipboard| N
+    end
 ```
 
 ---
@@ -154,21 +193,23 @@ graph TD
 ## 🖥️ Usage Guide
 
 ### 1. Launch PyShare
-* **Windows App:** Double-click `PyShare.exe`.
-* **From Source:** Open terminal in the `PyShare` folder and run `python main.py`.
+* **Desktop App:** Double-click `PyShare.exe`.
+* **From Source:** Run `python main.py` in your terminal.
+* **Instant Web Mode:** Open `p2p.html` in any browser or visit your deployed web URL.
 
 ### 2. Connect Your Phone
-1. Connect your phone to the **same Wi-Fi network** as your PC.
-2. Scan the **QR Code** displayed on the host screen using your phone's camera.
-3. Enter the **4-digit PIN** shown on your PC (it refreshes every 30s).
+1. Connect your phone to the **same Wi-Fi** or connect your PC to your phone's **Personal Hotspot**.
+2. Scan the **QR Code** on the PC screen with your phone's camera.
+3. Enter the **4-digit PIN** displayed on your PC screen.
 
 ### 3. Share Files & Clipboard
-* **Send from Phone:** Tap **Browse Files** or drag files to upload. Files appear in `Desktop/PyShare_Files/Received_Files`.
-* **Download to Phone:** Tap any file to preview, download individually, or tap **📦 ZIP All** to download the whole folder.
-* **Shared Clipboard:** Tap **📋** in the top navigation bar to open the clipboard drawer, view shared text, copy it, or send new text.
+* **Send from Phone:** Tap **Browse Files** or drag files to upload. Files are saved into `Desktop/PyShare_Files/Received_Files`.
+* **Download to Phone:** Tap any file to preview, download individually, or tap **📦 ZIP All** to stream the whole folder.
+* **Shared Clipboard:** Tap **📋** in the top navigation bar to view, copy, or beam text. On PC, click **"Push PC Clipboard"** to send your current Windows clipboard instantly!
+* **Need Internet Sharing?** Click **"🌐 Enable Internet"** on PC to generate an instant Cloudflare tunnel for mobile data users.
 
 ### 4. Stop Server
-* Click the red **🛑 Shutdown** button in the top navigation bar or press `Ctrl + C` in the terminal.
+* Click the red **🛑 Shutdown** button in the top navigation bar or press `Ctrl + C` in your terminal.
 
 ---
 
@@ -192,6 +233,8 @@ python main.py
 # 5. Build standalone Windows executable
 pyinstaller --noconfirm --clean --onefile --windowed `
   --add-data "host.html;." --add-data "client.html;." --add-data "login.html;." `
+  --add-data "guide.html;." --add-data "p2p.html;." --add-data "p2p.js;." `
+  --add-data "peerjs.min.js;." --add-data "qrcode.min.js;." `
   --add-data "styles.css;." --add-data "host_styles.css;." --add-data "client_styles.css;." `
   --add-data "scripts.js;." --add-data "host_scripts.js;." `
   --add-data "app_icon.ico;." --add-data "app_icon.png;." `
