@@ -96,7 +96,112 @@ function setupHostSSE(es) {
             }
         } catch (err) {}
     });
+
+    // 4. Public Internet Tunnel Listener
+    es.addEventListener('tunnel', (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            updateTunnelUI(data);
+        } catch (err) {}
+    });
 }
+
+// --- CLOUDFLARE PUBLIC INTERNET TUNNEL CONTROLLER ---
+let currentTunnelUrl = null;
+
+function updateTunnelUI(data) {
+    const titleEl = document.getElementById('tunnel-mode-text');
+    const iconEl = document.getElementById('tunnel-mode-icon');
+    const subEl = document.getElementById('tunnel-mode-sub');
+    const btnEl = document.getElementById('btnToggleTunnel');
+    const btnTextEl = document.getElementById('btnTunnelText');
+    const badgeEl = document.getElementById('tunnel-url-badge');
+    const urlTextEl = document.getElementById('tunnel-url-text');
+    const qrImg = document.querySelector('.qr-code-img');
+
+    if (!titleEl || !btnEl) return;
+
+    if (data.status === 'starting' || data.status === 'downloading') {
+        iconEl.innerText = '⏳';
+        titleEl.innerText = data.status === 'downloading' ? 'Downloading Engine...' : 'Starting Tunnel...';
+        subEl.innerText = 'Securing public HTTPS route...';
+        btnEl.disabled = true;
+        btnTextEl.innerText = 'Connecting...';
+    } else if (data.status === 'active' && data.url) {
+        currentTunnelUrl = data.url;
+        iconEl.innerText = '🌐';
+        titleEl.innerText = 'Public Internet Mode';
+        titleEl.style.color = 'var(--accent-green)';
+        subEl.innerText = 'Accessible via 4G/5G mobile data worldwide';
+        btnEl.disabled = false;
+        btnEl.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        btnEl.style.color = 'var(--accent-red)';
+        btnTextEl.innerText = 'Switch to Local';
+        if (badgeEl && urlTextEl) {
+            badgeEl.style.display = 'inline-block';
+            urlTextEl.innerText = data.url;
+        }
+        if (qrImg) {
+            qrImg.src = '/qrcode.png?t=' + Date.now();
+        }
+    } else {
+        currentTunnelUrl = null;
+        iconEl.innerText = '🏠';
+        titleEl.innerText = 'Local Wi-Fi Mode';
+        titleEl.style.color = 'inherit';
+        subEl.innerText = 'Works on same Wi-Fi / Hotspot';
+        btnEl.disabled = false;
+        btnEl.style.borderColor = 'var(--border-color)';
+        btnEl.style.color = 'var(--text-main)';
+        btnTextEl.innerText = 'Enable Internet';
+        if (badgeEl) {
+            badgeEl.style.display = 'none';
+        }
+        if (qrImg) {
+            qrImg.src = '/qrcode.png?t=' + Date.now();
+        }
+    }
+}
+
+async function toggleTunnel() {
+    const btnEl = document.getElementById('btnToggleTunnel');
+    const btnTextEl = document.getElementById('btnTunnelText');
+    if (btnEl) btnEl.disabled = true;
+    if (btnTextEl) btnTextEl.innerText = 'Updating...';
+
+    try {
+        const res = await fetch('/api/tunnel/toggle', { method: 'POST' });
+        const data = await res.json();
+        updateTunnelUI(data);
+        if (data.status === 'active') {
+            showToast('Internet Mode Active! Works on mobile data.', '🌐');
+        } else if (data.status === 'idle') {
+            showToast('Reverted to Local Wi-Fi Mode', '🏠');
+        }
+    } catch (e) {
+        showToast('Error toggling Internet Mode', '❌');
+        if (btnEl) btnEl.disabled = false;
+    }
+}
+
+function copyTunnelUrl() {
+    if (currentTunnelUrl) {
+        navigator.clipboard.writeText(currentTunnelUrl).then(() => {
+            showToast('Copied Public URL to clipboard!', '📋');
+        });
+    }
+}
+
+// Initial Tunnel Status Check
+(async function initTunnelStatus() {
+    try {
+        const res = await fetch('/api/tunnel');
+        if (res.ok) {
+            const data = await res.json();
+            updateTunnelUI(data);
+        }
+    } catch (e) {}
+})();
 
 // Bind to SSE when ready or immediately if already active
 if (window.globalSSE) {

@@ -93,6 +93,7 @@
 - **☁️ Touch & Drag-and-Drop:** Intuitive file dropping on desktop and touch-friendly file picker on mobile.
 - **🔒 Local Network Security:** Requires rotating 4-digit PIN authentication. Client heartbeat detector alerts you immediately if the host disconnects.
 - **🛡️ 100% Offline & Private:** All data travels straight across your Wi-Fi network without leaving your local environment.
+- **🌐 Public Internet Mode:** 1-click Cloudflare Tunnel toggle allows phones to connect from 4G/5G mobile data, college Wi-Fi, or anywhere in the world with full end-to-end HTTPS encryption.
 
 ---
 

@@ -17,6 +17,11 @@ window.globalSSE = null;
     initSSE();
     registerServiceWorker();
     
+    if (window.location.protocol === 'https:') {
+        const clientPill = document.querySelector('.client-status-pill span:last-child');
+        if (clientPill) clientPill.innerText = 'Connected via Internet 🌐';
+    }
+    
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closePreview();
     });

@@ -52,10 +52,26 @@
             <div class="connect-hub-card card-panel">
                 <div class="hub-title">📱 Connect Device</div>
                 
+                <!-- Network Mode Switcher: Local Wi-Fi vs Public Internet -->
+                <div class="network-mode-pill" style="margin-bottom: 12px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="display: flex; flex-direction: column; text-align: left; min-width: 0;">
+                        <span id="tunnel-mode-title" style="font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px;">
+                            <span id="tunnel-mode-icon">🏠</span> <span id="tunnel-mode-text">Local Wi-Fi</span>
+                        </span>
+                        <span id="tunnel-mode-sub" style="font-size: 10px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Same Wi-Fi / Hotspot</span>
+                    </div>
+                    <button id="btnToggleTunnel" class="btn-secondary" onclick="toggleTunnel()" style="font-size: 11px; padding: 5px 10px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; gap: 4px;" title="Share over 4G/5G mobile data or different Wi-Fi">
+                        <span>🌐</span> <span id="btnTunnelText">Enable Internet</span>
+                    </button>
+                </div>
+
                 <div class="qr-white-card">
-                    <img src="/qrcode.png" class="qr-code-img" alt="Scan QR Code to Connect">
+                    <img src="/qrcode.png" class="qr-code-img" alt="Scan QR Code to Connect" onerror="setTimeout(() => { this.src = '/qrcode.png?t=' + Date.now(); }, 1000);">
                 </div>
                 <div class="qr-caption">Scan to connect</div>
+                <div id="tunnel-url-badge" style="display: none; margin-top: 6px; font-size: 11px; font-family: monospace; color: var(--accent-cyan); background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 5px 8px; cursor: pointer; word-break: break-all;" onclick="copyTunnelUrl()" title="Click to copy public link">
+                    <span id="tunnel-url-text">https://...</span> 📋
+                </div>
 
                 <!-- Live Rotating PIN Code -->
                 <div class="pin-display-box">

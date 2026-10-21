@@ -22,6 +22,8 @@ import io
 import datetime
 import queue
 import pyperclip
+import re
+import secrets
 
 # Protect against Windows cp1252 console UnicodeEncodeError
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
@@ -78,6 +80,129 @@ def broadcast_sse(event_type, data):
                 dead.append(q)
         for q in dead:
             sse_subscribers.discard(q)
+
+# --- CLOUDFLARE TUNNEL (PUBLIC INTERNET MODE) ---
+TUNNEL_PROC = None
+TUNNEL_URL = None
+TUNNEL_STATUS = "idle"  # idle | downloading | starting | active | error
+TUNNEL_LOCK = threading.Lock()
+
+def get_cloudflared_path():
+    """Locate or download cloudflared executable."""
+    cf = shutil.which("cloudflared")
+    if cf:
+        return cf
+    desktop_bin = os.path.join(os.path.expanduser("~"), "Desktop", "PyShare_Files", "bin", "cloudflared.exe")
+    if os.path.exists(desktop_bin):
+        return desktop_bin
+    local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "cloudflared.exe")
+    if os.path.exists(local_bin):
+        return local_bin
+    return desktop_bin
+
+def download_cloudflared(dest_path):
+    """Download standalone cloudflared binary if missing."""
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+    urllib.request.urlretrieve(url, dest_path)
+
+def tunnel_worker():
+    global TUNNEL_PROC, TUNNEL_URL, TUNNEL_STATUS
+    try:
+        bin_path = get_cloudflared_path()
+        if not os.path.exists(bin_path):
+            with TUNNEL_LOCK:
+                TUNNEL_STATUS = "downloading"
+            broadcast_sse("tunnel", {"status": "downloading", "url": None})
+            download_cloudflared(bin_path)
+
+        with TUNNEL_LOCK:
+            TUNNEL_STATUS = "starting"
+        broadcast_sse("tunnel", {"status": "starting", "url": None})
+
+        creationflags = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
+        cmd = [bin_path, "tunnel", "--url", f"http://127.0.0.1:{ACTUAL_PORT}"]
+        
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            creationflags=creationflags
+        )
+        
+        with TUNNEL_LOCK:
+            TUNNEL_PROC = proc
+
+        found_url = None
+        for line in iter(proc.stdout.readline, ''):
+            if not line:
+                break
+            m = re.search(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com', line)
+            if m:
+                found_url = m.group(0)
+                with TUNNEL_LOCK:
+                    TUNNEL_URL = found_url
+                    TUNNEL_STATUS = "active"
+                generate_qr(TUNNEL_URL)
+                broadcast_sse("tunnel", {"status": "active", "url": TUNNEL_URL})
+                add_event(f"Public Internet Mode Active: {TUNNEL_URL}")
+                break
+
+        if not found_url:
+            with TUNNEL_LOCK:
+                if TUNNEL_STATUS != "idle":
+                    TUNNEL_STATUS = "error"
+                    broadcast_sse("tunnel", {"status": "error", "url": None})
+                    add_event("Failed to establish Internet Tunnel")
+            return
+
+        # Keep monitoring process
+        proc.wait()
+
+    except Exception as e:
+        with TUNNEL_LOCK:
+            if TUNNEL_STATUS != "idle":
+                TUNNEL_STATUS = "error"
+                broadcast_sse("tunnel", {"status": "error", "url": None})
+                add_event(f"Tunnel Error: {e}")
+    finally:
+        with TUNNEL_LOCK:
+            if TUNNEL_STATUS not in ("idle", "error"):
+                TUNNEL_STATUS = "idle"
+                TUNNEL_URL = None
+                TUNNEL_PROC = None
+                generate_qr()
+                broadcast_sse("tunnel", {"status": "idle", "url": None})
+
+def start_tunnel():
+    global TUNNEL_STATUS
+    with TUNNEL_LOCK:
+        if TUNNEL_STATUS in ("starting", "active"):
+            return
+        TUNNEL_STATUS = "starting"
+    t = threading.Thread(target=tunnel_worker, daemon=True)
+    t.start()
+
+def stop_tunnel():
+    global TUNNEL_PROC, TUNNEL_URL, TUNNEL_STATUS
+    with TUNNEL_LOCK:
+        TUNNEL_STATUS = "idle"
+        TUNNEL_URL = None
+        if TUNNEL_PROC:
+            try:
+                TUNNEL_PROC.terminate()
+                TUNNEL_PROC.wait(timeout=2)
+            except Exception:
+                try:
+                    TUNNEL_PROC.kill()
+                except Exception:
+                    pass
+            TUNNEL_PROC = None
+    generate_qr()
+    broadcast_sse("tunnel", {"status": "idle", "url": None})
+    add_event("Reverted to Local Wi-Fi Mode")
 
 # Ensure MIME types are registered for streaming & previews
 mimetypes.init()
@@ -221,9 +346,15 @@ def get_unique_filepath(directory, filename):
         counter += 1
     return candidate
 
-def generate_qr(url):
-    """Generates a dynamic QR Code pointing to the current server URL."""
+def generate_qr(url=None):
+    """Generates a dynamic QR Code pointing to the current server URL or tunnel URL."""
     try:
+        if url is None:
+            if TUNNEL_URL:
+                url = TUNNEL_URL
+            else:
+                ip = get_ip()
+                url = f"http://{ip}:{ACTUAL_PORT}"
         qr_path = os.path.join(BASE_DIR, "qrcode.png")
         qr = pyqrcode.create(url)
         qr.png(qr_path, scale=6)
@@ -322,14 +453,36 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return up_fp
         return None
 
+    def get_session_token(self):
+        cookie_str = self.headers.get("Cookie", "")
+        for item in cookie_str.split(";"):
+            item = item.strip()
+            if item.startswith("pyshare_session="):
+                return item.split("pyshare_session=")[1].strip()
+        return None
+
+    def get_client_ip(self):
+        cf_ip = self.headers.get("CF-Connecting-IP")
+        if cf_ip:
+            return cf_ip.strip()
+        x_forwarded = self.headers.get("X-Forwarded-For")
+        if x_forwarded:
+            return x_forwarded.split(",")[0].strip()
+        return self.client_address[0]
+
     def is_authenticated(self):
-        """Check if client IP is in allowed sessions or is localhost/host."""
-        ip = self.client_address[0]
-        if ip in ("127.0.0.1", "localhost", get_ip()):
+        """Check if client is authenticated via session cookie, client IP, or direct host access."""
+        if self.is_host_client():
             return True
-        return ip in SESSIONS
+        token = self.get_session_token()
+        if token and token in SESSIONS:
+            return True
+        return self.get_client_ip() in SESSIONS
 
     def is_host_client(self):
+        # Incoming requests through Cloudflare tunnel are external clients, not the host
+        if self.headers.get("CF-Connecting-IP") or self.headers.get("CF-Ray"):
+            return False
         return self.client_address[0] in ("127.0.0.1", "localhost", get_ip())
 
     def do_GET(self):
@@ -339,52 +492,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         else:
             ASSET_DIR = os.path.dirname(os.path.abspath(__file__))
 
-        # 1. SERVE STATIC ASSETS (No Auth Required for assets & PWA shell)
-        asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
-        clean_path = self.path.split('?')[0].lstrip('/')
-        if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js'):
-            fp = os.path.join(ASSET_DIR, clean_path)
-            if os.path.exists(fp):
-                if clean_path.endswith('.css'): 
-                    ctype = 'text/css; charset=utf-8'
-                elif clean_path.endswith('.js') or clean_path == 'sw.js': 
-                    ctype = 'application/javascript; charset=utf-8'
-                elif clean_path.endswith('.json') or clean_path == 'manifest.json':
-                    ctype = 'application/manifest+json; charset=utf-8'
-                elif clean_path.endswith('.ico'): 
-                    ctype = 'image/x-icon'
-                elif clean_path.endswith('.png'): 
-                    ctype = 'image/png'
-                elif clean_path.endswith(('.jpg', '.jpeg')): 
-                    ctype = 'image/jpeg'
-                elif clean_path.endswith('.svg'): 
-                    ctype = 'image/svg+xml'
-                elif clean_path.endswith('.webp'): 
-                    ctype = 'image/webp'
-                elif clean_path.endswith('.html'): 
-                    ctype = 'text/html; charset=utf-8'
-                else: 
-                    ctype = 'application/octet-stream'
-                
-                with open(fp, "rb") as f:
-                    content = f.read()
-                self.send_response(200)
-                self.send_header("Content-Type", ctype)
-                self.send_header("Content-Length", str(len(content)))
-                self.send_header("Cache-Control", "no-cache")
-                self.end_headers()
-                self.wfile.write(content)
-                return
-            else:
-                self.send_error(404, "Asset not found")
-                return
-
-        # 2. SERVE QR CODE
+        # 1. SERVE QR CODE (Must precede static assets)
         if self.path == '/qrcode.png' or self.path.startswith('/qrcode.png?'):
             qr_path = os.path.join(BASE_DIR, "qrcode.png")
             if not os.path.exists(qr_path):
-                ip = get_ip()
-                generate_qr(f"http://{ip}:{ACTUAL_PORT}")
+                generate_qr()
             if os.path.exists(qr_path):
                 with open(qr_path, "rb") as f:
                     content = f.read()
@@ -397,6 +509,47 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             else:
                 self.send_error(404, "QR Code not ready")
             return
+
+        # 2. SERVE STATIC ASSETS (No Auth Required for assets & PWA shell)
+        asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
+        clean_path = self.path.split('?')[0].lstrip('/')
+        if not clean_path.startswith(('view/', 'download/', 'api/')):
+            if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js'):
+                fp = os.path.join(ASSET_DIR, clean_path)
+                if os.path.exists(fp) and os.path.isfile(fp):
+                    if clean_path.endswith('.css'): 
+                        ctype = 'text/css; charset=utf-8'
+                    elif clean_path.endswith('.js') or clean_path == 'sw.js': 
+                        ctype = 'application/javascript; charset=utf-8'
+                    elif clean_path.endswith('.json') or clean_path == 'manifest.json':
+                        ctype = 'application/manifest+json; charset=utf-8'
+                    elif clean_path.endswith('.ico'): 
+                        ctype = 'image/x-icon'
+                    elif clean_path.endswith('.png'): 
+                        ctype = 'image/png'
+                    elif clean_path.endswith(('.jpg', '.jpeg')): 
+                        ctype = 'image/jpeg'
+                    elif clean_path.endswith('.svg'): 
+                        ctype = 'image/svg+xml'
+                    elif clean_path.endswith('.webp'): 
+                        ctype = 'image/webp'
+                    elif clean_path.endswith('.html'): 
+                        ctype = 'text/html; charset=utf-8'
+                    else: 
+                        ctype = 'application/octet-stream'
+                    
+                    with open(fp, "rb") as f:
+                        content = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Content-Length", str(len(content)))
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    self.wfile.write(content)
+                    return
+                elif clean_path in ('login.html', 'manifest.json', 'sw.js'):
+                    self.send_error(404, "Asset not found")
+                    return
 
         # 3. AUTHENTICATION ENFORCEMENT
         if not self.is_authenticated():
@@ -470,6 +623,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         ttl = max(0, int(NEXT_CHANGE - time.time()))
                         pin_json = json.dumps({"pin": CURRENT_PIN, "ttl": ttl})
                     self.wfile.write(f"event: pin\ndata: {pin_json}\n\n".encode('utf-8'))
+
+                # 4. Tunnel snapshot (Host only)
+                if self.is_host_client():
+                    with TUNNEL_LOCK:
+                        tun_json = json.dumps({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
+                    self.wfile.write(f"event: tunnel\ndata: {tun_json}\n\n".encode('utf-8'))
                 self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError, Exception):
                 remove_sse_subscriber(q)
@@ -510,6 +669,15 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_json({"status": "empty", "message": "PC clipboard is empty"})
             except Exception as e:
                 self.send_error(500, str(e))
+            return
+
+        # D. API: Tunnel Status (Host Only)
+        if self.path == '/api/tunnel':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            with TUNNEL_LOCK:
+                self.send_json({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
             return
 
         # D. API: PIN (Host Only)
@@ -693,6 +861,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_text("Shutting down")
             def kill():
                 global zc, httpd
+                stop_tunnel()
                 if zc:
                     try:
                         zc.unregister_all_services()
@@ -721,9 +890,22 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 valid_pins = {CURRENT_PIN, PREVIOUS_PIN}
             
             if pin_input in valid_pins and pin_input != "":
-                SESSIONS.add(self.client_address[0])
-                add_event(f"Device connected: {self.client_address[0]}")
-                self.send_text("OK")
+                token = secrets.token_hex(16)
+                client_ip = self.get_client_ip()
+                SESSIONS.add(token)
+                SESSIONS.add(client_ip)
+                add_event(f"Device connected: {client_ip}")
+
+                body_bytes = b"OK"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(body_bytes)))
+                cookie_flags = "Path=/; Max-Age=86400; SameSite=Lax"
+                if self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-Proto") == "https":
+                    cookie_flags += "; Secure"
+                self.send_header("Set-Cookie", f"pyshare_session={token}; {cookie_flags}")
+                self.end_headers()
+                self.wfile.write(body_bytes)
             else:
                 self.send_text("Invalid PIN", status=401)
             return
@@ -731,6 +913,21 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # 2. CHECK AUTH FOR PROTECTED ACTIONS
         if not self.is_authenticated():
             self.send_error(401, "Unauthorized")
+            return
+
+        # 3. HANDLE CLOUDFLARE TUNNEL TOGGLE (/api/tunnel/toggle - Host Only)
+        if self.path == '/api/tunnel/toggle':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            with TUNNEL_LOCK:
+                is_active = (TUNNEL_STATUS == "active" or TUNNEL_STATUS == "starting")
+            if is_active:
+                stop_tunnel()
+            else:
+                start_tunnel()
+            with TUNNEL_LOCK:
+                self.send_json({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
             return
 
         # 3. HANDLE SHARED CLIPBOARD POST (/api/text)
@@ -790,7 +987,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
         # 5. HANDLE FILE UPLOAD (High-speed 256KB buffer + throttled progress lock)
-        client_ip = self.client_address[0]
+        client_ip = self.get_client_ip()
         try:
             is_host_upload = "dest=host" in self.path
             target_dir = DOWNLOAD_DIR if is_host_upload else UPLOAD_DIR
@@ -923,6 +1120,7 @@ def start_server():
     except KeyboardInterrupt: 
         print("\n[-] Shutting down server...")
     finally:
+        stop_tunnel()
         if zc:
             try:
                 zc.unregister_all_services()
