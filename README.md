@@ -8,6 +8,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)
 ![Release](https://img.shields.io/github/v/release/pattanayakpratik/PyShare?style=for-the-badge&logo=github&color=00ffcc)
+[![Live Web App](https://img.shields.io/badge/Vercel-pyshare.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://pyshare.vercel.app)
 ![Download](https://img.shields.io/badge/Download-Standalone%20EXE-brightgreen?style=for-the-badge&logo=windows)
 ![WebRTC](https://img.shields.io/badge/WebRTC-P2P%20Zero%20Install-8b5cf6?style=for-the-badge&logo=webrtc)
 ![Cloudflare](https://img.shields.io/badge/Cloudflare-Internet%20Tunnel-f38020?style=for-the-badge&logo=cloudflare)
@@ -20,7 +21,7 @@
 
 <br/>
 
-[⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.6.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.6.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
+[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.6.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.6.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
@@ -35,7 +36,7 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 | :--- | :--- | :--- |
 | **Download Needed?** | ❌ **No downloads required** | Optional portable `.exe` |
 | **Supported Devices** | PC, Mac, Linux, iPhone, Android, iPad | Windows PC / Laptop |
-| **How to Access** | Open in any browser (Chrome, Safari, Edge) | Double-click to launch offline hub |
+| **How to Access** | Open [pyshare.vercel.app](https://pyshare.vercel.app) in any browser | Double-click to launch offline hub |
 | **Network** | Any Wi-Fi, 4G/5G, or Cellular | 100% Offline Wi-Fi LAN / Hotspot + Cloudflare Tunnel |
 | **Transfer Speed** | Peer-to-Peer WebRTC DataChannels | Ultra-fast Local Stream (**50–100 MB/s**) |
 | **File Storage** | Direct in-browser download & Lightbox | Auto-saved to `Desktop/PyShare_Files` |
