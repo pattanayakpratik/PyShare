@@ -259,6 +259,73 @@
     word-break: break-word;
 }
 
+/* Hub Feedback Tab & Cards */
+.hub-tab-badge {
+    background: var(--accent-blue);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 99px;
+    margin-left: 4px;
+}
+
+.feedback-entry-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+    font-family: inherit;
+    transition: border-color 0.15s ease;
+}
+
+.feedback-entry-card:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.feedback-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+}
+
+.feedback-category-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.badge-bug { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.badge-feature { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+.badge-question { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+.badge-general { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+
+.feedback-entry-msg {
+    font-size: 12px;
+    color: var(--text-main);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.feedback-entry-meta {
+    font-size: 10px;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 /* --- COLUMN 3: DUAL FILE PANELS --- */
 .col-files {
     display: flex;
