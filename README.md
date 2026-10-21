@@ -17,7 +17,7 @@
 
 <br/>
 
-**A modern, ultra-fast cross-platform file transfer & universal clipboard hub. Transfer photos, videos, documents, and text between PC, Mac, iPhone, Android, and Tablets with zero configuration.**
+**A modern, ultra-fast cross-platform file transfer & universal clipboard hub. Transfer photos, videos, documents, and text between PC, Mac, iPhone, Android, and Tablets with zero configuration — try it live at [pyshare.vercel.app](https://pyshare.vercel.app).**
 
 <br/>
 
