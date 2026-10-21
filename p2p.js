@@ -734,8 +734,53 @@ function updateKeypadDisplay() {
     }
 }
 
-// Auto-check URL for ?room=XXXX on page load
+// Keyboard Input Support for PC / Laptop Web Users
+window.addEventListener('keydown', (e) => {
+    const keypad = document.getElementById('screenKeypad');
+    if (keypad && keypad.style.display !== 'none' && keypad.style.display !== '') {
+        if (e.key >= '0' && e.key <= '9') {
+            keypadAdd(e.key);
+        } else if (e.key === 'Backspace') {
+            keypadBack();
+        } else if (e.key === 'Escape' || e.key.toLowerCase() === 'c') {
+            keypadClear();
+        }
+    }
+});
+
+// Drag & Drop Support for Desktop Web Browsers
+function setupDragAndDrop() {
+    window.addEventListener('dragover', (e) => e.preventDefault(), false);
+    window.addEventListener('drop', (e) => e.preventDefault(), false);
+
+    const zones = [document.getElementById('hostDropZone'), document.getElementById('clientDropZone')];
+    zones.forEach((zone) => {
+        if (!zone) return;
+        zone.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        }, false);
+        zone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        }, false);
+        zone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+        }, false);
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                sendFiles(e.dataTransfer.files);
+            }
+        }, false);
+    });
+}
+
+// Auto-check URL for ?room=XXXX on page load & setup drag/drop
 window.addEventListener('DOMContentLoaded', () => {
+    setupDragAndDrop();
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
     if (roomParam && roomParam.length === 4) {
