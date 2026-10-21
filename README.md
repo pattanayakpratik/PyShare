@@ -101,9 +101,8 @@ Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-dro
 - 💬 **Universal Help & Feedback System:**
   - One-click feedback modal accessible across all interfaces (Host, Client, Web P2P, Login, and Guide).
   - Category selector (🐛 Bug, 💡 Feature Idea, ❓ Question, ⭐ Feedback), 1–5 star rating, problem textarea, and auto-detected device diagnostics.
-  - Automatically saves submissions locally to `Desktop/PyShare_Files/Feedback/` with timestamped JSON records and plain-text activity log.
-  - Host Studio Live Hub includes a dedicated **💬 Feedback** tab with real-time SSE notifications, unread badge counter, and 1-click **"📂 Open Folder"** button.
-  - Web P2P mode includes offline localStorage persistence and 1-click pre-filled GitHub Issue generator.
+  - Zero local device clutter: All feedback from both Host and Client is securely delivered straight to the developer via Formspree.
+  - Offline GitHub Issue generator fallback if the device is disconnected from the internet.
 - 🔄 **Universal Host & Client Terminology:**
   - Cleanly decoupled rigid "PC" and "Mobile" labels into universal "Host" and "Client", allowing phones and PCs to act as either Host or Client seamlessly.
 - 🌐 **Instant Web Transfer (WebRTC P2P):**

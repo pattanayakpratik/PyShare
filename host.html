@@ -99,12 +99,11 @@
                     </div>
                 </div>
 
-                <!-- Tabbed Live Hub (Activity Log / Clipboard / Feedback) -->
+                <!-- Tabbed Live Hub (Activity Log / Clipboard) -->
                 <div class="hub-bottom-card">
                     <div class="hub-tabs">
                         <button id="tabBtnLog" class="hub-tab active" onclick="switchHubTab('log')">⚡ Live Log</button>
                         <button id="tabBtnClip" class="hub-tab" onclick="switchHubTab('clip')">📋 Quick Clipboard</button>
-                        <button id="tabBtnFeedback" class="hub-tab" onclick="switchHubTab('feedback')">💬 Feedback <span id="feedbackBadge" class="hub-tab-badge" style="display:none;">0</span></button>
                     </div>
 
                     <!-- Pane 1: Activity Log -->
@@ -125,19 +124,6 @@
                             <button class="btn-primary" onclick="sendClipboard()" style="padding:6px 14px; font-size:12px; border-radius:8px;">Send</button>
                         </div>
                         <button class="btn-secondary" onclick="syncPCClipboard()" style="margin-top:6px; width:100%; font-size:11px; padding:6px 10px; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px;" title="Sync current Host clipboard to all devices">📋 Push Host Clipboard to Devices</button>
-                    </div>
-
-                    <!-- Pane 3: Feedback Submissions -->
-                    <div id="hubFeedbackPane" class="hub-tab-pane" style="font-family:inherit;">
-                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                            <span style="font-size:11px; font-weight:700; color:var(--text-sub);">User Submissions</span>
-                            <button class="btn-secondary" onclick="fetch('/api/open?folder=feedback')" style="font-size:11px; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;" title="Open PyShare Feedback folder in Windows Explorer">
-                                📂 Open Folder
-                            </button>
-                        </div>
-                        <div id="feedbackListContainer" style="display:flex; flex-direction:column; gap:8px;">
-                            <div class="empty-state" style="padding:16px 0; font-size:12px;">No feedback submissions yet</div>
-                        </div>
                     </div>
                 </div>
 
@@ -219,25 +205,20 @@
         function switchHubTab(tab) {
             const btnLog = document.getElementById('tabBtnLog');
             const btnClip = document.getElementById('tabBtnClip');
-            const btnFeedback = document.getElementById('tabBtnFeedback');
             const paneLog = document.getElementById('hubLogPane');
             const paneClip = document.getElementById('hubClipPane');
-            const paneFeedback = document.getElementById('hubFeedbackPane');
-
-            [btnLog, btnClip, btnFeedback].forEach(b => b && b.classList.remove('active'));
-            [paneLog, paneClip, paneFeedback].forEach(p => p && p.classList.remove('active'));
 
             if (tab === 'log') {
-                if (btnLog) btnLog.classList.add('active');
-                if (paneLog) paneLog.classList.add('active');
-            } else if (tab === 'clip') {
-                if (btnClip) btnClip.classList.add('active');
-                if (paneClip) paneClip.classList.add('active');
+                btnLog.classList.add('active');
+                btnClip.classList.remove('active');
+                paneLog.classList.add('active');
+                paneClip.classList.remove('active');
+            } else {
+                btnClip.classList.add('active');
+                btnLog.classList.remove('active');
+                paneClip.classList.add('active');
+                paneLog.classList.remove('active');
                 loadClipboard();
-            } else if (tab === 'feedback') {
-                if (btnFeedback) btnFeedback.classList.add('active');
-                if (paneFeedback) paneFeedback.classList.add('active');
-                if (typeof loadFeedbackList === 'function') loadFeedbackList();
             }
         }
     </script>

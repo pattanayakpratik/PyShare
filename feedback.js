@@ -305,24 +305,9 @@ async function submitFeedback() {
         device: diagnostics
     };
 
-    let submittedLocally = false;
-    let submittedPublicly = false;
+    let submitted = false;
 
-    // 1. Send to local PyShare Host if running
-    try {
-        const res = await fetch('/api/feedback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-            submittedLocally = true;
-        }
-    } catch (e) {
-        submittedLocally = false;
-    }
-
-    // 2. Send to Public Formspree Endpoint (Direct email to developer)
+    // Send directly to Public Formspree Endpoint (Delivered to developer inbox)
     if (PUBLIC_FEEDBACK_ENDPOINT) {
         try {
             const formspreePayload = {
@@ -349,14 +334,14 @@ async function submitFeedback() {
                 body: JSON.stringify(formspreePayload)
             });
             if (pubRes.ok) {
-                submittedPublicly = true;
+                submitted = true;
             }
         } catch (err) {
-            submittedPublicly = false;
+            submitted = false;
         }
     }
 
-    // Prepare GitHub Issue pre-fill link as direct developer submission option
+    // Prepare GitHub Issue pre-fill link as fallback if offline
     const issueTitle = encodeURIComponent(`[${currentFeedbackCategory.toUpperCase()}] ${message.slice(0, 50)}`);
     const diagStr = includeDiag ? ('\n\n### System Diagnostics\n```json\n' + JSON.stringify(diagnostics, null, 2) + '\n```') : '';
     const issueBody = encodeURIComponent(
@@ -376,7 +361,7 @@ async function submitFeedback() {
     const ghAction = document.getElementById('feedbackGhAction');
     const ghLink = document.getElementById('feedbackGhLink');
 
-    if (submittedPublicly || submittedLocally) {
+    if (submitted) {
         if (successDesc) {
             successDesc.innerText = 'Thank you! Your feedback has been sent directly to the PyShare developer.';
         }
@@ -386,7 +371,7 @@ async function submitFeedback() {
         }
     } else {
         if (successDesc) {
-            successDesc.innerText = 'Could not reach the server or internet. You can open an issue on GitHub directly:';
+            successDesc.innerText = 'Could not reach the feedback service. Please check your internet connection or open an issue on GitHub directly:';
         }
         if (ghAction) ghAction.style.display = 'block';
         if (ghLink) ghLink.href = ghUrl;
