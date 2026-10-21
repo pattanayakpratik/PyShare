@@ -94,6 +94,7 @@
 - **🔒 Local Network Security:** Requires rotating 4-digit PIN authentication. Client heartbeat detector alerts you immediately if the host disconnects.
 - **🛡️ 100% Offline & Private:** All data travels straight across your Wi-Fi network without leaving your local environment.
 - **🌐 Public Internet Mode:** 1-click Cloudflare Tunnel toggle allows phones to connect from 4G/5G mobile data, college Wi-Fi, or anywhere in the world with full end-to-end HTTPS encryption.
+- **📱 Mobile-to-Mobile P2P Mode (Zero PC Required):** Transfer files directly between two phones via WebRTC. Phone A generates a QR code & 4-digit PIN, Phone B scans to connect. 100% browser-based with zero apps needed!
 
 ---
 
@@ -108,10 +109,15 @@ PyShare/
 ├── client.html          # Mobile-first client interface with PWA support
 ├── client_styles.css    # Client touch-friendly layout
 ├── login.html           # 4-digit PIN authentication keypad
+├── p2p.html             # Mobile-to-Mobile WebRTC P2P interface (Zero PC Required)
+├── p2p.js               # WebRTC P2P chunking, transfer queue & clipboard sync
+├── peerjs.min.js        # Vendored PeerJS WebRTC data broker
+├── qrcode.min.js        # Vendored client-side QR code generator
 ├── styles.css           # Global design system & Lightbox modal
 ├── scripts.js           # Multi-file upload queue, SSE event stream & media preview
 ├── manifest.json        # Progressive Web App (PWA) manifest
 ├── sw.js                # Service Worker for standalone mobile PWA
+├── vercel.json          # 1-click cloud deployment configuration
 ├── requirements.txt     # Python dependencies
 ├── app_icon.ico         # Application icon for Windows executable
 ├── app_icon.png         # Cross-platform web icon for desktop and mobile browsers

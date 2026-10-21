@@ -510,11 +510,23 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "QR Code not ready")
             return
 
-        # 2. SERVE STATIC ASSETS (No Auth Required for assets & PWA shell)
+        # 2. SERVE P2P SUITE & STATIC ASSETS (No Auth Required for assets, PWA shell & P2P)
+        if self.path in ('/p2p', '/p2p/', '/p2p.html') or self.path.startswith('/p2p?') or self.path.startswith('/p2p.html?'):
+            fp = os.path.join(ASSET_DIR, "p2p.html")
+            if os.path.exists(fp):
+                with open(fp, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+
         asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
         clean_path = self.path.split('?')[0].lstrip('/')
         if not clean_path.startswith(('view/', 'download/', 'api/')):
-            if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js'):
+            if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js', 'p2p.html'):
                 fp = os.path.join(ASSET_DIR, clean_path)
                 if os.path.exists(fp) and os.path.isfile(fp):
                     if clean_path.endswith('.css'): 
@@ -547,7 +559,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(content)
                     return
-                elif clean_path in ('login.html', 'manifest.json', 'sw.js'):
+                elif clean_path in ('login.html', 'manifest.json', 'sw.js', 'p2p.html'):
                     self.send_error(404, "Asset not found")
                     return
 

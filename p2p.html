@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>PyShare P2P — Mobile to Mobile</title>
+    <link rel="icon" type="image/x-icon" href="app_icon.ico">
+    <link rel="apple-touch-icon" href="app_icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#141d2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="client_styles.css">
+    <link rel="stylesheet" href="host_styles.css">
+    <style>
+        .p2p-landing-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-top: 24px;
+            width: 100%;
+            max-width: 440px;
+        }
+        @media (min-width: 600px) {
+            .p2p-landing-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .mode-select-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .mode-select-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+            box-shadow: var(--glow-blue);
+        }
+        .mode-select-card:active {
+            transform: scale(0.98);
+        }
+        .mode-icon {
+            font-size: 48px;
+            filter: drop-shadow(0 4px 10px rgba(59, 130, 246, 0.3));
+        }
+        .qr-wrapper {
+            background: #ffffff;
+            padding: 16px;
+            border-radius: 16px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            margin: 12px 0;
+        }
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+        .keypad-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 16px 0;
+            font-size: 22px;
+            font-weight: 700;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .keypad-btn:active {
+            transform: scale(0.95);
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" style="max-width: 520px; margin: 0 auto; padding: 12px 16px; min-height: 100vh; display: flex; flex-direction: column;">
+
+        <!-- Top Navbar -->
+        <nav class="navbar">
+            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+            <div class="logo">
+                <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
+                PyShare P2P
+            </div>
+            <button class="icon-btn" onclick="document.getElementById('clipboardModal').classList.add('open')" title="Shared Clipboard">📋</button>
+        </nav>
+
+        <!-- SCREEN 1: LANDING MODE SELECTOR (Host or Join) -->
+        <div id="screenLanding" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 20px 0;">
+            <div style="font-size: 40px; margin-bottom: 12px;">⚡</div>
+            <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 6px;">Phone to Phone Transfer</h2>
+            <p style="color: var(--text-sub); font-size: 13px; max-width: 320px; line-height: 1.5;">
+                Direct peer-to-peer file transfer between mobile phones. Zero PC needed, zero apps to install.
+            </p>
+
+            <div class="p2p-landing-grid">
+                <!-- Card 1: Be Host (Share) -->
+                <div class="mode-select-card" onclick="startHostMode()">
+                    <div class="mode-icon">📤</div>
+                    <h3 style="font-size: 17px; font-weight: 700;">Create Room</h3>
+                    <p style="font-size: 12px; color: var(--text-sub);">Show QR code & PIN to share files from this phone</p>
+                    <button class="btn-primary" style="pointer-events: none; padding: 8px 18px; font-size: 12px; margin-top: 4px;">
+                        Be Host
+                    </button>
+                </div>
+
+                <!-- Card 2: Join Room (Receive) -->
+                <div class="mode-select-card" onclick="startJoinMode()">
+                    <div class="mode-icon">📱</div>
+                    <h3 style="font-size: 17px; font-weight: 700;">Join Room</h3>
+                    <p style="font-size: 12px; color: var(--text-sub);">Enter a 4-digit PIN to connect to another phone</p>
+                    <button class="btn-secondary" style="pointer-events: none; padding: 8px 18px; font-size: 12px; margin-top: 4px;">
+                        Enter PIN
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN 2: HOST DASHBOARD -->
+        <div id="screenHost" style="display: none; flex-direction: column; gap: 14px; flex: 1;">
+            <!-- Status Bar -->
+            <div class="status-bar" style="margin-bottom: 0;">
+                <div id="hostStatusPill" class="client-status-pill">
+                    <span class="status-dot"></span>
+                    <span>Starting P2P Host...</span>
+                </div>
+            </div>
+
+            <!-- Host QR Code & PIN Card -->
+            <div class="card-panel" style="padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                <div style="font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px;">SCAN WITH PHONE B</div>
+                
+                <div class="qr-wrapper">
+                    <div id="qrcodeContainer"></div>
+                </div>
+
+                <!-- 4-Digit Room PIN -->
+                <div style="background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 8px 24px; margin-top: 4px;">
+                    <span style="font-size: 11px; color: var(--text-sub); display: block; letter-spacing: 1px; font-weight: 700;">ROOM PIN</span>
+                    <span id="hostPinDisplay" style="font-size: 32px; font-weight: 800; letter-spacing: 8px; font-family: monospace; color: var(--accent-cyan);">----</span>
+                </div>
+
+                <div id="hostConnectedBadge" style="display: none; margin-top: 10px; align-items: center; gap: 6px; font-size: 12px; color: var(--accent-green); background: rgba(16,185,129,0.1); border: 1px solid var(--accent-green); border-radius: 20px; padding: 4px 12px;">
+                    <span>✅ Peer Connected! Ready to send files.</span>
+                </div>
+
+                <button class="btn-secondary" onclick="copyShareLink()" style="margin-top: 12px; font-size: 11px; padding: 6px 14px; border-radius: 8px;">
+                    📋 Copy Share Link
+                </button>
+            </div>
+
+            <!-- Upload Dropzone -->
+            <div class="client-upload-card card-panel" onclick="document.getElementById('hostFileInput').click()" style="padding: 24px 16px;">
+                <div class="cloud-icon" style="font-size: 40px; margin-bottom: 8px;">☁️</div>
+                <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 4px;">Send Files to Peer</h3>
+                <p style="font-size: 11px; color: var(--text-sub); margin-bottom: 12px;">Tap to select photos, videos, or documents</p>
+                <button class="btn-primary" type="button" style="pointer-events: none; padding: 8px 20px; font-size: 12px;">
+                    Browse Files
+                </button>
+                <input type="file" id="hostFileInput" multiple hidden onchange="sendFiles(this.files)">
+            </div>
+
+            <!-- Shared Files List (Sent by Host) -->
+            <div class="card-panel" style="padding: 16px; flex: 1; display: flex; flex-direction: column;">
+                <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <span>📤 Shared by You</span>
+                </h3>
+                <ul id="hostSharedFileList" class="file-list" style="max-height: 25vh; overflow-y: auto;">
+                    <li class="empty-state">No files shared yet</li>
+                </ul>
+            </div>
+
+            <!-- Received Files List (Sent by Peer) -->
+            <div class="card-panel" style="padding: 16px; flex: 1; display: flex; flex-direction: column;">
+                <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <span>📥 Received from Peer</span>
+                </h3>
+                <ul id="receivedFileList" class="file-list" style="max-height: 25vh; overflow-y: auto;">
+                    <li class="empty-state">No files received yet</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: KEYPAD PIN ENTRY (Join Mode) -->
+        <div id="screenKeypad" style="display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center;">
+            <div style="font-size: 36px; margin-bottom: 8px;">🔑</div>
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">Enter Host Room PIN</h2>
+            <p style="color: var(--text-sub); font-size: 12px; margin-bottom: 20px;">Look at Phone A's screen to see the 4-digit PIN</p>
+
+            <div id="keypadPinDisplay" style="font-size: 32px; letter-spacing: 14px; margin-bottom: 24px; background: var(--input-bg); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 14px; min-width: 200px; font-family: monospace; color: var(--accent-cyan);">
+                ••••
+            </div>
+
+            <div class="keypad-grid">
+                <button class="keypad-btn" onclick="keypadAdd('1')">1</button>
+                <button class="keypad-btn" onclick="keypadAdd('2')">2</button>
+                <button class="keypad-btn" onclick="keypadAdd('3')">3</button>
+                <button class="keypad-btn" onclick="keypadAdd('4')">4</button>
+                <button class="keypad-btn" onclick="keypadAdd('5')">5</button>
+                <button class="keypad-btn" onclick="keypadAdd('6')">6</button>
+                <button class="keypad-btn" onclick="keypadAdd('7')">7</button>
+                <button class="keypad-btn" onclick="keypadAdd('8')">8</button>
+                <button class="keypad-btn" onclick="keypadAdd('9')">9</button>
+                <button class="keypad-btn" onclick="keypadClear()" style="font-size: 15px; color: var(--accent-red);">C</button>
+                <button class="keypad-btn" onclick="keypadAdd('0')">0</button>
+                <button class="keypad-btn" onclick="keypadBack()" style="font-size: 18px;">⌫</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 4: CLIENT DASHBOARD (Connected to Host) -->
+        <div id="screenClient" style="display: none; flex-direction: column; gap: 14px; flex: 1;">
+            <!-- Status Bar -->
+            <div class="status-bar" style="margin-bottom: 0;">
+                <div id="clientStatusPill" class="client-status-pill">
+                    <span class="status-dot"></span>
+                    <span>Connecting...</span>
+                </div>
+            </div>
+
+            <!-- Send to Host Card -->
+            <div class="client-upload-card card-panel" onclick="document.getElementById('clientFileInput').click()" style="padding: 24px 16px;">
+                <div class="cloud-icon" style="font-size: 40px; margin-bottom: 8px;">☁️</div>
+                <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 4px;">Send Files to Host</h3>
+                <p style="font-size: 11px; color: var(--text-sub); margin-bottom: 12px;">Tap to select photos, videos, or documents</p>
+                <button class="btn-primary" type="button" style="pointer-events: none; padding: 8px 20px; font-size: 12px;">
+                    Browse Files
+                </button>
+                <input type="file" id="clientFileInput" multiple hidden onchange="sendFiles(this.files)">
+            </div>
+
+            <!-- Host's Files Available for Download -->
+            <div class="card-panel" style="padding: 16px; flex: 1; display: flex; flex-direction: column;">
+                <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <span>📂 Files Shared by Host</span>
+                </h3>
+                <ul id="peerCatalogList" class="file-list" style="max-height: 25vh; overflow-y: auto;">
+                    <li class="empty-state">Waiting for Host to share files...</li>
+                </ul>
+            </div>
+
+            <!-- Received Files List -->
+            <div class="card-panel" style="padding: 16px; flex: 1; display: flex; flex-direction: column;">
+                <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <span>📥 Downloaded Files</span>
+                </h3>
+                <ul id="receivedFileListClient" class="file-list" style="max-height: 25vh; overflow-y: auto;">
+                    <li class="empty-state">No files downloaded yet</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Universal Shared Clipboard Modal -->
+    <div id="clipboardModal" class="modal-backdrop" onclick="if(event.target===this) this.classList.remove('open')">
+        <div class="modal-box" style="max-width: 420px;">
+            <div class="modal-header">
+                <span class="modal-title-text">📋 Shared Clipboard</span>
+                <button class="icon-btn" onclick="document.getElementById('clipboardModal').classList.remove('open')" style="width:34px; height:34px;" title="Close">✕</button>
+            </div>
+            <div style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-size: 12px; color: var(--text-sub);">Direct peer-to-peer synced text:</div>
+                <div id="clipboardCurrent" style="font-size: 13px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; word-break: break-all;">
+                    <span style="color: var(--text-sub);">Clipboard is empty.</span>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                    <input type="text" id="clipboardInput" placeholder="Type text or paste link..." class="search-input-box" style="margin-bottom: 0; flex: 1; min-width: 0;" onkeydown="if(event.key==='Enter') sendClipboardP2P()">
+                    <button class="btn-primary" onclick="sendClipboardP2P()" style="padding: 10px 18px; font-size: 13px; border-radius: 10px; flex-shrink: 0;">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Upload Queue Drawer -->
+    <div id="floatingQueue" class="floating-queue">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700;">
+            <span>Transfer Queue</span>
+            <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
+        </div>
+        <div id="queueItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
+    </div>
+
+    <!-- Lightbox Media Preview Modal -->
+    <div id="previewModal" class="modal-backdrop" onclick="if(event.target===this) closePreview()">
+        <div class="modal-box" style="max-height: 85vh;">
+            <div class="modal-header">
+                <span id="previewModalTitle" class="modal-title-text">File Preview</span>
+                <button class="icon-btn" onclick="closePreview()" style="width:34px; height:34px;" title="Close">✕</button>
+            </div>
+            <div id="previewModalBody" class="modal-content-area" style="max-height: calc(85vh - 120px);"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePreview()">Close</button>
+                <a id="previewDownloadBtn" href="#" class="btn-primary" style="padding:10px 20px; font-size:13px;">⬇️ Download</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vendored Client Libraries: QRCode & PeerJS -->
+    <script src="qrcode.min.js"></script>
+    <script src="peerjs.min.js"></script>
+    <script src="p2p.js"></script>
+</body>
+</html>
