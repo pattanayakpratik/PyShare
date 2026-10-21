@@ -43,8 +43,21 @@ httpd = None
 BASE_DIR = ""
 UPLOAD_DIR = ""    # Received from Clients (Client Uploads)
 DOWNLOAD_DIR = ""  # Shared by Host (Host Shared Files)
+FEEDBACK_DIR = ""  # User Feedback & Help Reports
 ACTUAL_PORT = START_PORT
 zc = None
+
+def get_feedback_dir():
+    """Returns absolute path to PyShare Feedback storage directory, creating if needed."""
+    global FEEDBACK_DIR, BASE_DIR
+    if FEEDBACK_DIR and os.path.exists(FEEDBACK_DIR):
+        return FEEDBACK_DIR
+    if not BASE_DIR:
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        BASE_DIR = os.path.join(desktop, "PyShare_Files")
+    FEEDBACK_DIR = os.path.join(BASE_DIR, "Feedback")
+    os.makedirs(FEEDBACK_DIR, exist_ok=True)
+    return FEEDBACK_DIR
 
 # --- SECURITY & STATE ---
 CURRENT_PIN = "0000"
@@ -762,11 +775,33 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 target_path = UPLOAD_DIR
             elif folder_type == 'shared': 
                 target_path = DOWNLOAD_DIR
+            elif folder_type == 'feedback':
+                target_path = get_feedback_dir()
             open_folder(target_path)
             self.send_text("Opened")
             return
 
-        # I. API: Download All as ZIP (Zero-RAM Disk-Backed Stream)
+        # I. API: Feedback Submissions List (Host Studio Hub)
+        if self.path == '/api/feedback':
+            f_dir = get_feedback_dir()
+            items = []
+            try:
+                if os.path.exists(f_dir):
+                    json_files = [f for f in os.listdir(f_dir) if f.startswith('fb_') and f.endswith('.json')]
+                    json_files.sort(reverse=True)
+                    for fn in json_files[:50]:
+                        fp = os.path.join(f_dir, fn)
+                        try:
+                            with open(fp, 'r', encoding='utf-8') as f:
+                                items.append(json.load(f))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            self.send_json({"status": "ok", "items": items, "count": len(items)})
+            return
+
+        # J. API: Download All as ZIP (Zero-RAM Disk-Backed Stream)
         if self.path.startswith('/api/zip'):
             query = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(query)
@@ -941,6 +976,95 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_text("Invalid PIN", status=401)
             return
 
+        # 1B. HANDLE FEEDBACK SUBMISSION (/api/feedback - Open to all clients/hosts/users)
+        if self.path == '/api/feedback':
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 1024 * 128:
+                self.send_error(413, "Feedback payload too large (Max 128KB)")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            data = {}
+            try:
+                data = json.loads(body)
+            except Exception:
+                parsed = urllib.parse.parse_qs(body)
+                for k, v in parsed.items():
+                    data[k] = v[0] if v else ""
+
+            message = str(data.get("message", "")).strip()
+            if not message:
+                self.send_json({"status": "error", "message": "Feedback message cannot be empty"}, status=400)
+                return
+
+            category = str(data.get("category", "general")).lower().strip()
+            if category not in {"bug", "feature", "question", "general"}:
+                category = "general"
+
+            try:
+                rating = int(data.get("rating", 0))
+                rating = max(0, min(5, rating))
+            except Exception:
+                rating = 0
+
+            contact = str(data.get("contact", "")).strip()
+            device_info = data.get("device", {})
+            if not isinstance(device_info, dict):
+                device_info = {}
+
+            client_ip = self.get_client_ip()
+            now = datetime.datetime.now()
+            timestamp_iso = now.isoformat()
+            ts_str = now.strftime('%Y%m%d_%H%M%S')
+            item_id = f"fb_{ts_str}_{secrets.token_hex(3)}"
+
+            feedback_item = {
+                "id": item_id,
+                "timestamp": timestamp_iso,
+                "created_at": now.strftime('%Y-%m-%d %H:%M:%S'),
+                "category": category,
+                "rating": rating,
+                "message": message,
+                "contact": contact,
+                "client_ip": client_ip,
+                "device": device_info
+            }
+
+            f_dir = get_feedback_dir()
+            os.makedirs(f_dir, exist_ok=True)
+
+            # 1. Save detailed JSON report
+            json_fp = os.path.join(f_dir, f"{item_id}.json")
+            try:
+                with open(json_fp, 'w', encoding='utf-8') as f:
+                    json.dump(feedback_item, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
+
+            # 2. Append to plain-text log
+            log_fp = os.path.join(f_dir, "feedback_log.txt")
+            try:
+                with open(log_fp, 'a', encoding='utf-8') as f:
+                    cat_tag = category.upper()
+                    rate_str = f" [Rating: {rating}/5]" if rating > 0 else ""
+                    contact_str = f" [Contact: {contact}]" if contact else ""
+                    f.write(f"[{feedback_item['created_at']}] [{cat_tag}]{rate_str} (IP: {client_ip}){contact_str}\n")
+                    f.write(f"Message: {message}\n")
+                    if device_info:
+                        f.write(f"Diagnostics: {json.dumps(device_info)}\n")
+                    f.write("-" * 50 + "\n")
+            except Exception:
+                pass
+
+            # 3. Live Server Event & SSE Push Notification
+            cat_icons = {"bug": "🐛", "feature": "💡", "question": "❓", "general": "⭐"}
+            icon = cat_icons.get(category, "💬")
+            snippet = (message[:38] + "...") if len(message) > 38 else message
+            add_event(f"Feedback: {icon} [{category.capitalize()}] {snippet}")
+            broadcast_sse("feedback", feedback_item)
+
+            self.send_json({"status": "ok", "id": item_id, "message": "Feedback submitted successfully"})
+            return
+
         # 2. CHECK AUTH FOR PROTECTED ACTIONS
         if not self.is_authenticated():
             self.send_error(401, "Unauthorized")
@@ -1081,7 +1205,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
 # --- SERVER CONTROLLER ---
 def start_server():
-    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, httpd, ACTUAL_PORT, zc
+    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, FEEDBACK_DIR, httpd, ACTUAL_PORT, zc
     
     print("\n" + "="*45)
     print("[*] Starting PyShare...")
@@ -1091,8 +1215,10 @@ def start_server():
         BASE_DIR = os.path.join(desktop, "PyShare_Files")
         UPLOAD_DIR = os.path.join(BASE_DIR, "Received_Files")
         DOWNLOAD_DIR = os.path.join(BASE_DIR, "Shared_Files")
+        FEEDBACK_DIR = os.path.join(BASE_DIR, "Feedback")
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+        os.makedirs(FEEDBACK_DIR, exist_ok=True)
     except Exception as e:
         print(f"[!] Storage Directory Initialization Error: {e}")
         return
