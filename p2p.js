@@ -1,6 +1,6 @@
 /* ==========================================================================
-   PyShare P2P - Mobile-to-Mobile WebRTC Peer-to-Peer Engine
-   Zero PC Required • Zero App Install • Works across any network
+   PyShare v4.6.0 - WebRTC Peer-to-Peer Transfer Engine
+   Direct Device-to-Device • Zero App Install • Works across any browser
    ========================================================================== */
 
 const CHUNK_SIZE = 32 * 1024; // 32KB chunk slice for smooth WebRTC backpressure

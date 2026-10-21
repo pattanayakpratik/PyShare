@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PyShare Feedback & Help System
+   PyShare v4.6.0 - Universal Feedback & Help System
    Client, Host & Web P2P Universal Support
    ========================================================================== */
 

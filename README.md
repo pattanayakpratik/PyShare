@@ -96,8 +96,16 @@ Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-dro
 ---
 
 <span id="whats-new"></span>
-## 🆕 What's New in v4.5.0
+## 🆕 What's New in v4.6.0
 
+- 💬 **Universal Help & Feedback System:**
+  - One-click feedback modal accessible across all interfaces (Host, Client, Web P2P, Login, and Guide).
+  - Category selector (🐛 Bug, 💡 Feature Idea, ❓ Question, ⭐ Feedback), 1–5 star rating, problem textarea, and auto-detected device diagnostics.
+  - Automatically saves submissions locally to `Desktop/PyShare_Files/Feedback/` with timestamped JSON records and plain-text activity log.
+  - Host Studio Live Hub includes a dedicated **💬 Feedback** tab with real-time SSE notifications, unread badge counter, and 1-click **"📂 Open Folder"** button.
+  - Web P2P mode includes offline localStorage persistence and 1-click pre-filled GitHub Issue generator.
+- 🔄 **Universal Host & Client Terminology:**
+  - Cleanly decoupled rigid "PC" and "Mobile" labels into universal "Host" and "Client", allowing phones and PCs to act as either Host or Client seamlessly.
 - 🌐 **Instant Web Transfer (WebRTC P2P):**
   - Transfer files directly between any two browsers (PC, Mac, iPhone, Android, Tablet) with **zero app downloads**.
   - Desktop drag-and-drop file upload and physical keyboard PIN entry.
@@ -139,6 +147,7 @@ PyShare/
 ├── host.html            # Host 3-column studio dashboard with Internet mode & clipboard sync
 ├── host_styles.css      # Host desktop layout styling
 ├── host_scripts.js      # Host SSE listener, PIN sync, RX monitor & Windows clipboard sync
+├── feedback.js          # Universal Feedback & Help modal, device diagnostics & GitHub Issue fallback
 ├── client.html          # Mobile-first client interface with PWA support
 ├── client_styles.css    # Client touch-friendly layout
 ├── login.html           # 4-digit PIN authentication keypad with guide shortcut
@@ -204,16 +213,17 @@ graph TD
 * **From Source:** Run `python main.py` in your terminal.
 * **Instant Web Mode:** Open `p2p.html` in any browser or visit your deployed web URL.
 
-### 2. Connect Your Phone
-1. Connect your phone to the **same Wi-Fi** or connect your PC to your phone's **Personal Hotspot**.
-2. Scan the **QR Code** on the PC screen with your phone's camera.
-3. Enter the **4-digit PIN** displayed on your PC screen.
+### 2. Connect Any Device (Host &amp; Client)
+1. Make sure both Host and Client devices are connected to the **same Wi-Fi router** or connect to a device's **Personal Hotspot**.
+2. Scan the **QR Code** displayed on the Host screen with the Client device camera.
+3. Enter the **4-digit PIN** displayed on the Host screen.
 
-### 3. Share Files & Clipboard
-* **Send from Phone:** Tap **Browse Files** or drag files to upload. Files are saved into `Desktop/PyShare_Files/Received_Files`.
-* **Download to Phone:** Tap any file to preview, download individually, or tap **📦 ZIP All** to stream the whole folder.
-* **Shared Clipboard:** Tap **📋** in the top navigation bar to view, copy, or beam text. On PC, click **"Push PC Clipboard"** to send your current Windows clipboard instantly!
-* **Need Internet Sharing?** Click **"🌐 Enable Internet"** on PC to generate an instant Cloudflare tunnel for mobile data users.
+### 3. Share Files &amp; Clipboard
+* **Send to Host:** Tap **Browse Files** or drag files to upload. Files are automatically saved into `Desktop/PyShare_Files/Received_Files` on the Host.
+* **Download from Host:** Tap any file to preview, download individually, or tap **📦 ZIP All** to stream the whole folder.
+* **Universal Clipboard:** Tap **📋** in the top navigation bar to view, copy, or beam text. On Host, click **"📋 Push Host Clipboard"** to send your clipboard instantly!
+* **Need Internet Sharing?** Click **"🌐 Enable Internet"** on the Host to generate an instant Cloudflare tunnel for clients on cellular/mobile data.
+* **Help &amp; Feedback:** Tap **💬** in the top navigation bar across any interface to report bugs, request features, or ask questions.
 
 ### 4. Stop Server
 * Click the red **🛑 Shutdown** button in the top navigation bar or press `Ctrl + C` in your terminal.
@@ -244,7 +254,7 @@ pyinstaller --noconfirm --clean --onefile --windowed `
   --add-data "guide.html;." --add-data "p2p.html;." --add-data "p2p.js;." `
   --add-data "peerjs.min.js;." --add-data "qrcode.min.js;." `
   --add-data "styles.css;." --add-data "host_styles.css;." --add-data "client_styles.css;." `
-  --add-data "scripts.js;." --add-data "host_scripts.js;." `
+  --add-data "scripts.js;." --add-data "host_scripts.js;." --add-data "feedback.js;." `
   --add-data "app_icon.ico;." --add-data "app_icon.png;." `
   --add-data "manifest.json;." --add-data "sw.js;." `
   --icon app_icon.ico --name "PyShare" main.py
