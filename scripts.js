@@ -8,7 +8,8 @@ let lastClipboardTs = 0;
 window.globalSSE = null;
 
 (function init() {
-    const savedTheme = localStorage.getItem('pyshare_theme') || 'dark';
+    const urlTheme = new URLSearchParams(window.location.search).get('theme');
+    const savedTheme = urlTheme || localStorage.getItem('pyshare_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
     
     loadFiles();
