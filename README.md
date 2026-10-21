@@ -20,12 +20,13 @@
 
 <br/>
 
-[⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.zip) • [Screenshots](#-screenshots) • [Two Ways to Use](#-two-ways-to-use-pyshare) • [What's New](#-whats-new-in-v450) • [Key Features](#-key-features) • [Architecture](#-system-architecture) • [Usage Guide](#-usage-guide)
+[⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.0.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
 ---
 
+<span id="two-ways-to-use-pyshare"></span>
 ## 🚀 Two Ways to Use PyShare
 
 PyShare is built around complete flexibility: **downloading an app is 100% optional!**
@@ -42,6 +43,7 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 
 ---
 
+<span id="screenshots"></span>
 ## 📸 Screenshots
 
 ### 🖥️ Desktop Host Studio (Dark & Light Mode)
@@ -79,6 +81,7 @@ Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-dro
 
 ---
 
+<span id="download"></span>
 ## 📥 Download Standalone Windows App
 
 **Windows Users:** Run PyShare directly as a single portable application — **zero Python setup required.**
@@ -92,6 +95,7 @@ Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-dro
 
 ---
 
+<span id="whats-new"></span>
 ## 🆕 What's New in v4.5.0
 
 - 🌐 **Instant Web Transfer (WebRTC P2P):**
@@ -114,6 +118,7 @@ Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-dro
 
 ---
 
+<span id="key-features"></span>
 ## ⚡ Key Features
 
 - **🎨 Modern Dark Navy Studio Aesthetic:** Clean, balanced interface matching desktop workstation standards and touch-friendly mobile conventions.
@@ -125,6 +130,7 @@ Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-dro
 
 ---
 
+<span id="system-architecture"></span>
 ## 📂 System Architecture
 
 ```text
@@ -165,31 +171,32 @@ PyShare/
 ```mermaid
 graph TD
     subgraph "Mode 1: Local Wi-Fi (Desktop App)"
-        A[PC Host: PyShare.exe] -->|Port 8010-8020| B[Threading HTTP Server]
-        B -->|Dynamic QR Code| C[pyqrcode / pypng]
-        B -->|Local Discovery| D[Zeroconf mDNS: _pyshare._tcp.local]
-        B -->|Security| E[Dual-Grace PIN Rotator: 30s TTL]
-        B -->|Real-time Push| F[Server-Sent Events: /api/events]
-        B -->|Storage Manager| G[Desktop/PyShare_Files]
-        H[Mobile Device] -->|Scan QR & PIN| B
+        A["PC Host: PyShare.exe"] -->|"Port 8010-8020"| B["Threading HTTP Server"]
+        B -->|"Dynamic QR Code"| C["pyqrcode / pypng"]
+        B -->|"Local Discovery"| D["Zeroconf mDNS: _pyshare._tcp.local"]
+        B -->|"Security"| E["Dual-Grace PIN Rotator: 30s TTL"]
+        B -->|"Real-time Push"| F["Server-Sent Events: /api/events"]
+        B -->|"Storage Manager"| G["Desktop/PyShare_Files"]
+        H["Mobile Device"] -->|"Scan QR & PIN"| B
     end
 
     subgraph "Mode 2: Public Internet Mode"
-        A -->|1-Click Toggle| I[Cloudflare Tunnel daemon]
-        I -->|Secure HTTPS Proxy| J[Ephemeral trycloudflare.com URL]
-        K[Remote Device: 4G/5G] -->|Connect via Internet| J
-        J -->|Proxied Client Route| B
+        A -->|"1-Click Toggle"| I["Cloudflare Tunnel daemon"]
+        I -->|"Secure HTTPS Proxy"| J["Ephemeral trycloudflare.com URL"]
+        K["Remote Device: 4G/5G"] -->|"Connect via Internet"| J
+        J -->|"Proxied Client Route"| B
     end
 
     subgraph "Mode 3: Instant Web Transfer (Zero Install)"
-        L[Device A: PC / Phone] -->|WebRTC DataChannel| M[PeerJS Broker]
-        N[Device B: PC / Phone] -->|WebRTC DataChannel| M
-        L <===>|Direct P2P File Chunks & Clipboard| N
+        L["Device A: PC / Phone"] -->|"WebRTC DataChannel"| M["PeerJS Broker"]
+        N["Device B: PC / Phone"] -->|"WebRTC DataChannel"| M
+        L <==>|"Direct P2P File Chunks & Clipboard"| N
     end
 ```
 
 ---
 
+<span id="usage-guide"></span>
 ## 🖥️ Usage Guide
 
 ### 1. Launch PyShare
@@ -213,6 +220,7 @@ graph TD
 
 ---
 
+<span id="installation"></span>
 ## 🛠️ Installation (For Developers)
 
 ```bash
