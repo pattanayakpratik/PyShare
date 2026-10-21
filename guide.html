@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>How to Use PyShare — Complete Guide</title>
+    <link rel="icon" type="image/x-icon" href="app_icon.ico">
+    <link rel="apple-touch-icon" href="app_icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#141d2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .guide-container {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 16px 20px 48px;
+        }
+
+        .guide-hero {
+            text-align: center;
+            padding: 36px 16px 24px;
+        }
+
+        .guide-hero-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: inline-block;
+            filter: drop-shadow(0 4px 12px rgba(59, 130, 246, 0.4));
+        }
+
+        .guide-hero-title {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #60a5fa 0%, #38bdf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .guide-hero-sub {
+            color: var(--text-sub);
+            font-size: 14px;
+            max-width: 480px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            margin: 32px 0 16px 0;
+            color: var(--text-main);
+        }
+
+        .step-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 14px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            transition: all 0.2s ease;
+        }
+
+        .step-card:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--glow-blue);
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: #ffffff;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .step-body h4 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text-main);
+        }
+
+        .step-body p {
+            font-size: 13px;
+            color: var(--text-sub);
+            line-height: 1.5;
+        }
+
+        .method-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+
+        @media (min-width: 600px) {
+            .method-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .method-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .method-icon {
+            font-size: 32px;
+            margin-bottom: 4px;
+        }
+
+        .method-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .method-desc {
+            font-size: 12px;
+            color: var(--text-sub);
+            line-height: 1.4;
+            flex: 1;
+        }
+
+        .badge-fast {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            align-self: center;
+        }
+
+        .badge-anywhere {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--accent-cyan);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            align-self: center;
+        }
+
+        .badge-p2p {
+            background: rgba(139, 92, 246, 0.15);
+            color: #a78bfa;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            align-self: center;
+        }
+
+        .faq-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 10px;
+        }
+
+        .faq-q {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .faq-a {
+            font-size: 13px;
+            color: var(--text-sub);
+            line-height: 1.5;
+        }
+
+        .tip-callout {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin: 20px 0;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .tip-callout-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .tip-callout-text {
+            font-size: 12px;
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="guide-container">
+
+        <!-- Top Navbar -->
+        <nav class="navbar" style="padding: 8px 0;">
+            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+            <div class="logo">
+                <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
+                PyShare Guide
+            </div>
+            <a href="/" class="btn-primary" style="padding: 6px 14px; font-size: 12px; text-decoration: none;">
+                Open App ⚡
+            </a>
+        </nav>
+
+        <!-- Hero Header -->
+        <div class="guide-hero">
+            <span class="guide-hero-icon">📖</span>
+            <h1 class="guide-hero-title">How to Use PyShare</h1>
+            <p class="guide-hero-sub">
+                Fast, private, local file transfer and clipboard hub. Connect your PC and phones in seconds with zero configuration.
+            </p>
+        </div>
+
+        <!-- Section 1: Quick Start in 3 Steps -->
+        <div class="section-header">
+            <span>🚀</span> Quick Start (PC to Phone in 3 Steps)
+        </div>
+
+        <!-- Step 1 -->
+        <div class="step-card">
+            <div class="step-number">1</div>
+            <div class="step-body">
+                <h4>Connect to the Same Wi-Fi</h4>
+                <p>
+                    Make sure both your PC and phone are connected to the <strong>same Wi-Fi router</strong> or connect your PC to your phone's <strong>Personal Hotspot</strong>. No internet is required!
+                </p>
+            </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-card">
+            <div class="step-number">2</div>
+            <div class="step-body">
+                <h4>Scan the QR Code on Your PC Screen</h4>
+                <p>
+                    Launch PyShare on your PC. A dynamic QR code will appear on your screen. Point your phone's camera (iPhone Camera or Android Google Lens) at the screen and tap the link to open.
+                </p>
+            </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-card">
+            <div class="step-number">3</div>
+            <div class="step-body">
+                <h4>Enter the 4-Digit PIN</h4>
+                <p>
+                    Look at the <strong>PIN CODE</strong> displayed on your PC screen and type it on your phone's keypad. The PIN rotates every 30 seconds for security. You are now securely connected!
+                </p>
+            </div>
+        </div>
+
+        <!-- Callout Tip -->
+        <div class="tip-callout">
+            <span class="tip-callout-icon">💡</span>
+            <div class="tip-callout-text">
+                <strong>Zero App Installation Required on ANY Device:</strong> Whether on a <strong>PC, Mac, iPhone, iPad, or Android</strong>, users can run PyShare 100% inside their web browser without downloading or installing any software! And if you <em>do</em> download the desktop app, that works offline with maximum 100 MB/s local speeds!
+            </div>
+        </div>
+
+        <!-- Section 2: The 3 Ways to Connect -->
+        <div class="section-header">
+            <span>🌐</span> 3 Ways to Connect Any Device
+        </div>
+
+        <div class="method-grid">
+            <!-- Mode 1: Local Wi-Fi -->
+            <div class="method-card">
+                <span class="method-icon">🏠</span>
+                <span class="method-title">Local Wi-Fi Hub</span>
+                <span class="badge-fast">⚡ 50–100 MB/s</span>
+                <p class="method-desc">
+                    Desktop app mode on PC. Both devices on same home Wi-Fi or Hotspot. 100% offline, zero internet consumed, ultra-fast transfers.
+                </p>
+            </div>
+
+            <!-- Mode 2: Public Internet Mode -->
+            <div class="method-card">
+                <span class="method-icon">🌐</span>
+                <span class="method-title">Internet Mode</span>
+                <span class="badge-anywhere">4G / 5G Anywhere</span>
+                <p class="method-desc">
+                    Click <strong>"Enable Internet"</strong> on PC. Generates a secure Cloudflare HTTPS tunnel so phones on 4G/5G mobile data can connect from anywhere!
+                </p>
+            </div>
+
+            <!-- Mode 3: 100% Web P2P -->
+            <div class="method-card">
+                <span class="method-icon">⚡</span>
+                <span class="method-title">100% Web Transfer</span>
+                <span class="badge-p2p">Zero Downloads</span>
+                <p class="method-desc">
+                    Visit <code>/p2p.html</code> on any browser (PC, Mac, Phone, Tablet). Device A creates a room & PIN; Device B joins. Direct browser-to-browser WebRTC!
+                </p>
+            </div>
+        </div>
+
+        <!-- Section 3: Key Features -->
+        <div class="section-header">
+            <span>✨</span> Core Features & Superpowers
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+            <div class="faq-card">
+                <div class="faq-q"><span>📤</span> Sending Files (PC & Phone)</div>
+                <div class="faq-a">
+                    Drag and drop files anywhere onto the dashboard, or tap <strong>Browse Files</strong>. A floating upload drawer with real-time speed meter (MB/s) and individual progress bars tracks your transfers.
+                </div>
+            </div>
+
+            <div class="faq-card">
+                <div class="faq-q"><span>👁️</span> In-App Media Lightbox Previews</div>
+                <div class="faq-a">
+                    Tap any photo, video, song, or text file to preview it instantly in full resolution! Videos play with smooth HTML5 scrubbing, audio files play in an integrated player, and code/text files include a 1-click <strong>Copy Text</strong> button.
+                </div>
+            </div>
+
+            <div class="faq-card">
+                <div class="faq-q"><span>📋</span> Universal Shared Clipboard</div>
+                <div class="faq-a">
+                    Tap the 📋 icon in the navbar. Type text or paste links to beam them across all connected devices in real time. On PC, click <strong>"Push PC Clipboard"</strong> to send your current Windows clipboard with 1 click!
+                </div>
+            </div>
+
+            <div class="faq-card">
+                <div class="faq-q"><span>📦</span> Download All as ZIP</div>
+                <div class="faq-a">
+                    Need to download 20 photos or an entire folder at once? Click the <strong>📦 ZIP All</strong> button to stream the whole folder in an optimized, zero-RAM compressed archive.
+                </div>
+            </div>
+
+            <div class="faq-card">
+                <div class="faq-q"><span>📱</span> Progressive Web App (PWA)</div>
+                <div class="faq-a">
+                    On your iPhone (Safari) or Android (Chrome), tap <strong>Share → Add to Home Screen</strong>. PyShare will install as a full-screen mobile app without URL bars!
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Troubleshooting & FAQ -->
+        <div class="section-header">
+            <span>❓</span> Troubleshooting & FAQs
+        </div>
+
+        <div class="faq-card">
+            <div class="faq-q"><span>💻</span> Do I have to download the PC app to use PyShare?</div>
+            <div class="faq-a">
+                <strong>No!</strong> You can use PyShare completely from the web on both PC and mobile by opening Web Transfer mode (<code>/p2p.html</code>). No software download is required on any device.<br>
+                However, downloading the PyShare desktop app gives you extra powers: 100 MB/s local offline Wi-Fi speeds without consuming any internet, automatic file saving to your Desktop folder, and 1-click Windows clipboard sync. Both work seamlessly!
+            </div>
+        </div>
+
+        <div class="faq-card">
+            <div class="faq-q"><span>⚠️</span> My phone says "Site can't be reached" after scanning QR code?</div>
+            <div class="faq-a">
+                1. Make sure your phone is connected to the <strong>same Wi-Fi</strong> as your PC.<br>
+                2. If you are on university/college, airport, or hotel Wi-Fi, the router likely has <em>AP Isolation (Guest Mode)</em> turned on. <strong>Solution:</strong> Turn on your phone's Personal Hotspot and connect your PC to it, or click <strong>"🌐 Enable Internet"</strong> on your PC!
+            </div>
+        </div>
+
+        <div class="faq-card">
+            <div class="faq-q"><span>🔑</span> Why does the PIN keep changing?</div>
+            <div class="faq-a">
+                The 4-digit PIN rotates every 30 seconds to prevent unauthorized devices on your Wi-Fi from guessing it. PyShare includes a 30-second dual-grace window, so if the PIN changes while you are typing it, your login still succeeds!
+            </div>
+        </div>
+
+        <div class="faq-card">
+            <div class="faq-q"><span>📂</span> Where are received files saved on my PC?</div>
+            <div class="faq-a">
+                All files uploaded from phones are automatically saved into: <code>Desktop/PyShare_Files/Received_Files</code>. Files you place inside <code>Shared_Files</code> are immediately visible for connected phones to download.
+            </div>
+        </div>
+
+        <div class="faq-card">
+            <div class="faq-q"><span>🛑</span> How do I shut down the server?</div>
+            <div class="faq-a">
+                Click the red <strong>🛑</strong> button in the top right corner of the host dashboard, or press <code>Ctrl + C</code> in your terminal. All active connections and tunnels will close safely.
+            </div>
+        </div>
+
+        <!-- Bottom Action CTA -->
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="/" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; font-size: 14px; text-decoration: none; border-radius: 12px;">
+                <span>🚀</span> Ready? Return to PyShare
+            </a>
+        </div>
+
+    </div>
+
+    <script>
+        // Theme Switcher Logic
+        (function initTheme() {
+            const saved = localStorage.getItem('pyshare_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+        })();
+
+        function toggleTheme() {
+            const cur = document.documentElement.getAttribute('data-theme');
+            const target = cur === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', target);
+            localStorage.setItem('pyshare_theme', target);
+        }
+    </script>
+</body>
+</html>
