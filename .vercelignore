@@ -1,0 +1,9 @@
+.venv
+build
+dist
+*.exe
+*.zip
+*.spec
+main.py
+requirements.txt
+Screenshots
