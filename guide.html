@@ -230,9 +230,12 @@
                 <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
                 PyShare Guide
             </div>
-            <a href="/" class="btn-primary" style="padding: 6px 14px; font-size: 12px; text-decoration: none;">
-                Open App ⚡
-            </a>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
+                <a href="/" class="btn-primary" style="padding: 6px 14px; font-size: 12px; text-decoration: none;">
+                    Open App ⚡
+                </a>
+            </div>
         </nav>
 
         <!-- Hero Header -->
@@ -411,6 +414,18 @@
             </div>
         </div>
 
+        <!-- Feedback & Help Support Card -->
+        <div style="margin-top: 36px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(168, 85, 247, 0.1)); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
+            <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Have a Problem or Feature Idea?</h3>
+            <p style="color: var(--text-sub); font-size: 13px; max-width: 480px; margin: 0 auto 16px; line-height: 1.5;">
+                We are actively improving PyShare. If you encountered any bugs, have questions, or want to suggest new features, share your thoughts!
+            </p>
+            <button class="btn-primary" onclick="openFeedbackModal()" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; font-size: 13px; border-radius: 10px;">
+                <span>💬</span> Give Feedback &amp; Report Issue
+            </button>
+        </div>
+
         <!-- Bottom Action CTA -->
         <div style="text-align: center; margin-top: 40px;">
             <a href="/" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; font-size: 14px; text-decoration: none; border-radius: 12px;">
@@ -435,5 +450,6 @@
             localStorage.setItem('pyshare_theme', target);
         }
     </script>
+    <script src="feedback.js"></script>
 </body>
 </html>

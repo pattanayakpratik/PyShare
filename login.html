@@ -161,9 +161,12 @@
             <button class="key-btn-submit" onclick="submitPin()">Connect</button>
         </div>
 
-        <div style="margin-top: 20px; text-align: center;">
-            <a href="/guide.html" style="color: #60a5fa; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 500;">
+        <div style="margin-top: 18px; text-align: center; display: flex; flex-direction: column; gap: 8px;">
+            <a href="/guide.html" style="color: #60a5fa; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 500;">
                 <span>❓</span> How to connect &amp; use PyShare
+            </a>
+            <a href="javascript:void(0)" onclick="openFeedbackModal()" style="color: #8292ab; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                <span>💬</span> Having trouble? Report issue or get help
             </a>
         </div>
     </div>
@@ -250,5 +253,6 @@
 
         updateDisplay();
     </script>
+    <script src="feedback.js"></script>
 </body>
 </html>
