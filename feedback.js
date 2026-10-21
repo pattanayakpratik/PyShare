@@ -3,6 +3,9 @@
    Client, Host & Web P2P Universal Support
    ========================================================================== */
 
+// Public Formspree endpoint for instant email notifications
+const PUBLIC_FEEDBACK_ENDPOINT = 'https://formspree.io/f/xzedlljr';
+
 let currentFeedbackCategory = 'bug';
 let currentFeedbackRating = 5;
 let isSubmittingFeedback = false;
@@ -303,15 +306,15 @@ async function submitFeedback() {
     };
 
     let submittedLocally = false;
+    let submittedPublicly = false;
 
-    // Try posting to PyShare backend
+    // 1. Send to local PyShare Host if running
     try {
         const res = await fetch('/api/feedback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-
         if (res.ok) {
             submittedLocally = true;
         }
@@ -319,17 +322,41 @@ async function submitFeedback() {
         submittedLocally = false;
     }
 
-    // Always persist in localStorage as well
-    try {
-        const stored = JSON.parse(localStorage.getItem('pyshare_feedback_history') || '[]');
-        stored.push({
-            ...payload,
-            timestamp: new Date().toISOString()
-        });
-        localStorage.setItem('pyshare_feedback_history', JSON.stringify(stored));
-    } catch (e) {}
+    // 2. Send to Public Formspree Endpoint (Direct email to developer)
+    if (PUBLIC_FEEDBACK_ENDPOINT) {
+        try {
+            const formspreePayload = {
+                category: currentFeedbackCategory.toUpperCase(),
+                rating: `${currentFeedbackRating} / 5 ⭐`,
+                message: message,
+                contact: contact || 'Anonymous',
+                _subject: `[PyShare Feedback] ${currentFeedbackCategory.toUpperCase()} (${currentFeedbackRating}/5 ⭐)`,
+                os: diagnostics.os || 'Unknown',
+                browser: diagnostics.browser || 'Unknown',
+                screen: diagnostics.screen || 'Unknown',
+                mode: diagnostics.deviceType || 'Web'
+            };
+            if (contact && contact.includes('@')) {
+                formspreePayload._replyto = contact;
+                formspreePayload.email = contact;
+            }
+            const pubRes = await fetch(PUBLIC_FEEDBACK_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(formspreePayload)
+            });
+            if (pubRes.ok) {
+                submittedPublicly = true;
+            }
+        } catch (err) {
+            submittedPublicly = false;
+        }
+    }
 
-    // Prepare GitHub Issue pre-fill link
+    // Prepare GitHub Issue pre-fill link as direct developer submission option
     const issueTitle = encodeURIComponent(`[${currentFeedbackCategory.toUpperCase()}] ${message.slice(0, 50)}`);
     const diagStr = includeDiag ? ('\n\n### System Diagnostics\n```json\n' + JSON.stringify(diagnostics, null, 2) + '\n```') : '';
     const issueBody = encodeURIComponent(
@@ -349,23 +376,22 @@ async function submitFeedback() {
     const ghAction = document.getElementById('feedbackGhAction');
     const ghLink = document.getElementById('feedbackGhLink');
 
-    if (submittedLocally) {
+    if (submittedPublicly || submittedLocally) {
         if (successDesc) {
-            successDesc.innerText = 'Your report has been saved to the host PC\'s PyShare Feedback folder. Thank you for helping improve PyShare!';
+            successDesc.innerText = 'Thank you! Your feedback has been sent directly to the PyShare developer.';
         }
-        if (ghAction) ghAction.style.display = 'block';
-        if (ghLink) ghLink.href = ghUrl;
+        if (ghAction) ghAction.style.display = 'none';
         if (typeof showToast === 'function') {
-            showToast('Feedback submitted successfully! 🙏', '💬');
+            showToast('Feedback sent! Thank you 🙏', '💬');
         }
     } else {
         if (successDesc) {
-            successDesc.innerText = 'Feedback saved locally! You can also submit this report directly to GitHub Issues with 1 click below:';
+            successDesc.innerText = 'Could not reach the server or internet. You can open an issue on GitHub directly:';
         }
         if (ghAction) ghAction.style.display = 'block';
         if (ghLink) ghLink.href = ghUrl;
         if (typeof showToast === 'function') {
-            showToast('Feedback saved! 🚀', '💬');
+            showToast('Please submit on GitHub Issues', '⚠️');
         }
     }
 
