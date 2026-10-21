@@ -2,9 +2,10 @@
    PyShare v4.0 - Progressive Web App Service Worker
    ========================================================================== */
 
-const CACHE_NAME = 'pyshare-shell-v4';
+const CACHE_NAME = 'pyshare-shell-v5';
 const PRECACHE_RESOURCES = [
   '/',
+  '/guide.html',
   '/manifest.json',
   '/styles.css',
   '/client_styles.css',
