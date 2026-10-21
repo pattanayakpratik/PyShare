@@ -2,15 +2,42 @@
    PyShare Client Styles - Exact Mobile-First App Aesthetics
    ========================================================================== */
 
+body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+}
+
 .app-container {
     width: 100%;
-    max-width: 480px;
+    max-width: 420px;
     margin: 0 auto;
-    padding: 16px;
+    padding: 14px 16px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
     min-height: 100vh;
+    box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+    .app-container {
+        padding: 12px 14px;
+        gap: 12px;
+    }
+    .icon-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+        border-radius: 10px;
+    }
+    .logo {
+        font-size: 16px;
+        gap: 6px;
+    }
+    .navbar {
+        padding: 6px 0;
+    }
 }
 
 /* Green Status Pill for Client */
@@ -18,16 +45,17 @@
     width: 100%;
     background: rgba(16, 185, 129, 0.08);
     border: 1px solid var(--accent-green);
-    padding: 10px 20px;
+    padding: 8px 16px;
     border-radius: 9999px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     color: var(--text-main);
     box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+    box-sizing: border-box;
 }
 
 /* Upload Card (Touch-Friendly Cloud Dropzone) */

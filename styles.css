@@ -151,6 +151,8 @@ body {
     border-radius: 18px;
     box-shadow: var(--shadow-card);
     transition: border-color 0.2s ease;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 /* Button Primary (Iconic Blue Pill) */
