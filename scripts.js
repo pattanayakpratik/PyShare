@@ -49,8 +49,8 @@ function initSSE() {
         es.addEventListener('files', (e) => {
             try {
                 const data = JSON.parse(e.data);
-                pcFiles = data.pc || [];
-                mobileFiles = data.mobile || [];
+                pcFiles = data.host || data.pc || [];
+                mobileFiles = data.client || data.mobile || [];
                 renderPCFiles();
                 renderMobileFiles();
             } catch (err) {}
@@ -310,8 +310,8 @@ async function loadFiles() {
         const res = await fetch('/api/files');
         if (!res.ok) return;
         const data = await res.json();
-        pcFiles = data.pc || [];
-        mobileFiles = data.mobile || [];
+        pcFiles = data.host || data.pc || [];
+        mobileFiles = data.client || data.mobile || [];
 
         renderPCFiles();
         renderMobileFiles();

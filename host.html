@@ -87,10 +87,10 @@
                     <div id="pin-timer-bar" class="pin-timer-line"></div>
                 </div>
 
-                <!-- Receiving Progress (Active only when mobile uploads) -->
+                <!-- Receiving Progress (Active only when client uploads) -->
                 <div id="rx-container" style="display:none; width:100%; background:rgba(16,185,129,0.1); border:1px solid var(--accent-green); border-radius:10px; padding:10px; text-align:left;">
                     <div style="font-size:11px; margin-bottom:5px; font-weight:700; display:flex; justify-content:space-between;">
-                        <span>⬇️ Receiving from Phone...</span>
+                        <span>⬇️ Receiving from Client...</span>
                         <span id="rx-filename" style="opacity:0.8;">file.ext</span>
                     </div>
                     <div style="height:5px; background:rgba(255,255,255,0.1); border-radius:99px; overflow:hidden;">
@@ -122,7 +122,7 @@
                             <input type="text" id="clipboardInput" placeholder="Type text or paste URL..." style="flex:1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; color:var(--text-main); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') sendClipboard()">
                             <button class="btn-primary" onclick="sendClipboard()" style="padding:6px 14px; font-size:12px; border-radius:8px;">Send</button>
                         </div>
-                        <button class="btn-secondary" onclick="syncPCClipboard()" style="margin-top:6px; width:100%; font-size:11px; padding:6px 10px; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px;" title="Sync current Windows clipboard to all devices">💻 Push PC Clipboard to Devices</button>
+                        <button class="btn-secondary" onclick="syncPCClipboard()" style="margin-top:6px; width:100%; font-size:11px; padding:6px 10px; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px;" title="Sync current Host clipboard to all devices">📋 Push Host Clipboard to Devices</button>
                     </div>
                 </div>
 
@@ -131,7 +131,7 @@
 
         <!-- Column 3: Dual File Managers -->
         <div class="col-files">
-            <!-- Received Files (From Phone) -->
+            <!-- Received Files (From Clients) -->
             <div class="file-panel-card card-panel">
                 <div class="panel-header">
                     <div class="panel-title">📥 Received Files</div>
@@ -145,12 +145,12 @@
 
                 <div class="file-scroll-area">
                     <ul id="mobile-list" class="file-list">
-                        <li class="empty-state">No uploads from phone yet</li>
+                        <li class="empty-state">No client uploads yet</li>
                     </ul>
                 </div>
             </div>
 
-            <!-- Shared Files (From PC) -->
+            <!-- Shared Files (From Host) -->
             <div class="file-panel-card card-panel">
                 <div class="panel-header">
                     <div class="panel-title">📤 Shared Files</div>

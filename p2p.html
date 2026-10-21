@@ -128,6 +128,7 @@
                 PyShare P2P
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
+                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
                 <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
                 <button class="icon-btn" onclick="document.getElementById('clipboardModal').classList.add('open')" title="Shared Clipboard">📋</button>
             </div>
@@ -181,7 +182,7 @@
 
             <!-- Host QR Code & PIN Card -->
             <div class="card-panel" style="padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center;">
-                <div style="font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px;">SCAN WITH PHONE OR ENTER PIN ON PC</div>
+                <div style="font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px;">SCAN QR CODE OR ENTER 4-DIGIT PIN ON CLIENT</div>
                 
                 <div class="qr-wrapper">
                     <div id="qrcodeContainer"></div>

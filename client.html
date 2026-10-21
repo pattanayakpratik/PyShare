@@ -25,6 +25,7 @@
                 PyShare
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
+                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
                 <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
                 <a href="/p2p.html" class="icon-btn" title="Web Transfer (Zero-Install Browser Mode)" style="text-decoration:none;">🌐</a>
                 <button class="icon-btn" onclick="toggleClipboardModal()" title="Shared Clipboard">📋</button>
@@ -35,14 +36,14 @@
         <div class="status-bar" style="margin-bottom: 0;">
             <div class="client-status-pill">
                 <span class="status-dot"></span>
-                <span>Connected to PC</span>
+                <span>Connected to Host</span>
             </div>
         </div>
 
-        <!-- 1. Send to PC Dropzone -->
+        <!-- 1. Send to Host Dropzone -->
         <div class="client-upload-card card-panel" id="dropZone" onclick="document.getElementById('fileInput').click()">
             <div class="cloud-icon">☁️</div>
-            <h3 class="client-upload-title">Send to PC</h3>
+            <h3 class="client-upload-title">Send to Host</h3>
             <p class="client-upload-sub">Tap here to upload files</p>
             <button class="btn-primary" type="button" style="pointer-events:none;">
                 Browse Files
@@ -50,16 +51,16 @@
             <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
         </div>
 
-        <!-- 2. Download from PC Section -->
+        <!-- 2. Download from Host Section -->
         <div class="card-panel" style="padding: 16px; display: flex; flex-direction: column; flex: 1; min-height: 0;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px;">
                 <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0;">
-                    <span>💾 Download</span>
+                    <span>💾 Download from Host</span>
                 </h3>
                 <a href="/api/zip?folder=shared" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; flex-shrink: 0;" title="Download all files as ZIP">📦 ZIP All</a>
             </div>
 
-            <input type="text" id="searchPC" class="search-input-box" placeholder="🔍 Search PC files..." onkeyup="renderPCFiles()">
+            <input type="text" id="searchPC" class="search-input-box" placeholder="🔍 Search host files..." onkeyup="renderPCFiles()">
 
             <ul id="file-list" class="file-list" style="max-height: 45vh; overflow-y: auto;">
                 <li class="empty-state">Loading files...</li>
@@ -91,7 +92,7 @@
     <!-- Floating Upload Queue Drawer -->
     <div id="floatingQueue" class="floating-queue">
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700;">
-            <span id="queueOverallStatus">Uploading to PC...</span>
+            <span id="queueOverallStatus">Uploading to Host...</span>
             <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
         </div>
         <div id="queueItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>

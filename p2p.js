@@ -227,7 +227,7 @@ function setupConnectionHandlers(conn) {
         activeConnections.push(conn);
         
         if (isHost) {
-            updateConnectionStatus('Connected to Mobile Peer! 📱', 'green');
+            updateConnectionStatus('Connected to Client Peer! ⚡', 'green');
             document.getElementById('hostConnectedBadge').style.display = 'flex';
             showToast('Peer connected! Ready to transfer.', '✅');
             

@@ -19,20 +19,20 @@ function handleFilesHost(files) {
     uploadManager.addFiles(files, '/?dest=host');
 }
 
-// Windows OS Clipboard Direct Sync
+// Host Clipboard Direct Sync
 async function syncPCClipboard() {
     try {
         const res = await fetch('/api/sync_clipboard');
         const data = await res.json();
         if (data.status === 'ok') {
-            showToast('PC Clipboard pushed to devices!', '💻');
+            showToast('Host clipboard pushed to devices!', '📋');
         } else if (data.status === 'empty') {
-            showToast('PC clipboard is empty', '⚠️');
+            showToast('Host clipboard is empty', '⚠️');
         } else {
-            showToast('Could not sync PC clipboard', '❌');
+            showToast('Could not sync host clipboard', '❌');
         }
     } catch (e) {
-        showToast('Error syncing PC clipboard', '❌');
+        showToast('Error syncing host clipboard', '❌');
     }
 }
 

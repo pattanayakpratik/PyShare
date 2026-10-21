@@ -41,8 +41,8 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
 START_PORT = 8010
 httpd = None
 BASE_DIR = ""
-UPLOAD_DIR = ""    # Received from Phone (Mobile Uploads)
-DOWNLOAD_DIR = ""  # Shared from PC (PC Shared Files)
+UPLOAD_DIR = ""    # Received from Clients (Client Uploads)
+DOWNLOAD_DIR = ""  # Shared by Host (Host Shared Files)
 ACTUAL_PORT = START_PORT
 zc = None
 
@@ -418,7 +418,14 @@ def list_dir(path):
     return data
 
 def get_files_data():
-    return {"pc": list_dir(DOWNLOAD_DIR), "mobile": list_dir(UPLOAD_DIR)}
+    host_files = list_dir(DOWNLOAD_DIR)
+    client_files = list_dir(UPLOAD_DIR)
+    return {
+        "host": host_files,
+        "client": client_files,
+        "pc": host_files,
+        "mobile": client_files
+    }
 
 # --- REQUEST HANDLER ---
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
@@ -686,11 +693,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         SHARED_TEXT = clip_val
                         TEXT_TIMESTAMP = int(time.time())
                     snippet = (clip_val[:35] + "...") if len(clip_val) > 35 else clip_val
-                    add_event(f"Synced PC Clipboard: {snippet}")
+                    add_event(f"Synced Host Clipboard: {snippet}")
                     broadcast_sse("clipboard", {"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
                     self.send_json({"status": "ok", "text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
                 else:
-                    self.send_json({"status": "empty", "message": "PC clipboard is empty"})
+                    self.send_json({"status": "empty", "message": "Host clipboard is empty"})
             except Exception as e:
                 self.send_error(500, str(e))
             return
