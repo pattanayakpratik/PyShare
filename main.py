@@ -510,9 +510,21 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "QR Code not ready")
             return
 
-        # 2. SERVE P2P SUITE & STATIC ASSETS (No Auth Required for assets, PWA shell & P2P)
+        # 2. SERVE P2P SUITE & USER GUIDE (No Auth Required)
         if self.path in ('/p2p', '/p2p/', '/p2p.html') or self.path.startswith('/p2p?') or self.path.startswith('/p2p.html?'):
             fp = os.path.join(ASSET_DIR, "p2p.html")
+            if os.path.exists(fp):
+                with open(fp, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+
+        if self.path in ('/guide', '/guide/', '/guide.html') or self.path.startswith('/guide?') or self.path.startswith('/guide.html?'):
+            fp = os.path.join(ASSET_DIR, "guide.html")
             if os.path.exists(fp):
                 with open(fp, "rb") as f:
                     content = f.read()
@@ -526,7 +538,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
         clean_path = self.path.split('?')[0].lstrip('/')
         if not clean_path.startswith(('view/', 'download/', 'api/')):
-            if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js', 'p2p.html'):
+            if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js', 'p2p.html', 'guide.html'):
                 fp = os.path.join(ASSET_DIR, clean_path)
                 if os.path.exists(fp) and os.path.isfile(fp):
                     if clean_path.endswith('.css'): 
