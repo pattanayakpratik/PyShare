@@ -116,14 +116,14 @@
             100% { transform: translateY(-5px); }
         }
         .qr-wrapper {
-            background: #ffffff;
+            background: var(--qr-wrapper-bg);
             padding: 14px;
             border-radius: 20px;
             display: inline-flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(0, 240, 255, 0.35);
-            border: 2px solid rgba(0, 240, 255, 0.3);
+            box-shadow: var(--qr-wrapper-shadow);
+            border: var(--qr-wrapper-border);
             margin: 12px 0;
             transition: transform 0.25s ease;
         }
@@ -139,10 +139,10 @@
             margin: 0 auto;
         }
         .keypad-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-top: 1px solid rgba(255, 255, 255, 0.18);
-            color: var(--text-main);
+            background: var(--keypad-bg);
+            border: 1px solid var(--keypad-border);
+            border-top: 1px solid var(--keypad-border-top);
+            color: var(--keypad-text);
             padding: 16px 0;
             font-size: 22px;
             font-weight: 700;
@@ -153,17 +153,40 @@
             transition: all 0.2s ease;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            box-shadow: var(--shadow-sm);
         }
         .keypad-btn:hover {
-            background: rgba(0, 240, 255, 0.14);
+            background: var(--btn-secondary-hover-bg);
             border-color: var(--accent-cyan);
-            box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 16px var(--glow-cyan);
             transform: translateY(-1px);
         }
         .keypad-btn:active {
             transform: scale(0.95);
             background: rgba(0, 240, 255, 0.25);
             border-color: var(--accent-cyan);
+        }
+
+        /* Light Mode Overrides for P2P Web */
+        [data-theme="light"] .mode-select-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-specular);
+            box-shadow: var(--shadow-card);
+        }
+        [data-theme="light"] .mode-select-card:hover {
+            border-color: var(--accent-cyan);
+            background: #ffffff;
+            box-shadow: var(--shadow-card), 0 0 24px rgba(2, 132, 199, 0.18);
+        }
+        [data-theme="light"] .keypad-btn:active {
+            background: rgba(2, 132, 199, 0.15);
+        }
+        [data-theme="light"] #hostPinDisplay,
+        [data-theme="light"] #keypadPinDisplay {
+            color: var(--accent-cyan);
+            text-shadow: none;
         }
 
         /* Responsive Studio Layout for Desktop */
@@ -252,12 +275,12 @@
             </div>
 
             <!-- Data-Saver Notice & Offline Mode Callout -->
-            <div style="margin-top: 20px; font-size: 12px; color: var(--text-sub); max-width: 440px; line-height: 1.5; background: rgba(59, 130, 246, 0.06); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; text-align: left; display: flex; flex-direction: column; gap: 8px;">
+            <div style="margin-top: 20px; font-size: 12px; color: var(--text-sub); max-width: 440px; line-height: 1.5; background: var(--callout-bg); border: 1px solid var(--callout-border); border-top: 1px solid var(--border-specular); border-radius: 14px; padding: 14px 16px; text-align: left; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-sm);">
                 <div style="display: flex; gap: 8px; align-items: flex-start;">
                     <span style="font-size: 14px; line-height: 1.2;">📶</span>
                     <span><strong>Data-Saver Notice:</strong> Web mode uses ~50 KB internet for the PIN handshake. On the same Wi-Fi / Hotspot, file transfers stay direct P2P and consume <strong>0 MB mobile data</strong>!</span>
                 </div>
-                <div style="display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px;">
+                <div style="display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 6px;">
                     <span style="font-size: 14px; line-height: 1.2;">⚡</span>
                     <span><strong>Want 100% offline sharing with Mobile Data OFF?</strong> Use the <a href="/guide.html" style="color:var(--accent-blue); text-decoration: underline;">PyShare Desktop App</a> — works offline with zero internet!</span>
                 </div>

@@ -198,3 +198,38 @@ body {
     -webkit-backdrop-filter: blur(32px) saturate(190%);
     box-sizing: border-box;
 }
+
+/* Light Mode Overrides for Client */
+[data-theme="light"] .client-status-pill {
+    background: rgba(5, 150, 105, 0.10);
+    border: 1px solid rgba(5, 150, 105, 0.35);
+    border-top: 1px solid rgba(5, 150, 105, 0.6);
+    color: #065f46;
+    box-shadow: 0 4px 16px rgba(5, 150, 105, 0.12), inset 0 1px 0 #ffffff;
+}
+
+[data-theme="light"] .client-upload-card {
+    border: 2px dashed rgba(2, 132, 199, 0.35);
+    border-top: 2px dashed rgba(2, 132, 199, 0.6);
+    background: var(--card-bg);
+}
+
+[data-theme="light"] .client-upload-card:hover {
+    border-color: var(--accent-cyan);
+    background: #ffffff;
+    box-shadow: var(--shadow-card), 0 0 24px rgba(2, 132, 199, 0.18);
+}
+
+[data-theme="light"] .disconnect-overlay {
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+[data-theme="light"] .disconnect-modal-card {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-top: 1px solid #ffffff;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12), 0 0 35px rgba(225, 29, 72, 0.15);
+    color: var(--text-main);
+}
