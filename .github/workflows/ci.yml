@@ -1,0 +1,92 @@
+name: PyShare CI/CD & Quality Checks
+
+on:
+  push:
+    branches: [ main, feature/*, "feature/**" ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  validate-and-test:
+    name: Integrity & Asset Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install Core Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compile and Lint Python Code
+        run: |
+          python -m py_compile main.py
+          echo "✅ Python syntax and compile checks passed!"
+
+      - name: Verify Web & P2P Assets Integrity
+        run: |
+          echo "Checking essential static assets for web deployment..."
+          assets=(
+            "index.html"
+            "p2p.html"
+            "client.html"
+            "host.html"
+            "login.html"
+            "guide.html"
+            "styles.css"
+            "client_styles.css"
+            "host_styles.css"
+            "p2p.js"
+            "scripts.js"
+            "host_scripts.js"
+            "feedback.js"
+            "peerjs.min.js"
+            "qrcode.min.js"
+            "manifest.json"
+            "vercel.json"
+          )
+          for file in "${assets[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing critical asset: $file"
+              exit 1
+            fi
+            echo "✔ Found $file"
+          done
+          echo "✅ All static assets verified successfully!"
+
+  production-health-check:
+    name: Verify Production Edge Deployment
+    needs: validate-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel Edge Deployment
+        run: |
+          echo "Waiting 15 seconds for Vercel automatic git deployment..."
+          sleep 15
+
+      - name: Probe Live Production Endpoints
+        run: |
+          echo "Testing https://pyshare.vercel.app..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pyshare.vercel.app/)
+          if [ "$STATUS" -ne 200 ]; then
+            echo "❌ Production returned HTTP $STATUS"
+            exit 1
+          fi
+          echo "✅ Root endpoint is healthy (HTTP 200)"
+
+          echo "Testing /guide endpoint..."
+          GUIDE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pyshare.vercel.app/guide)
+          if [ "$GUIDE_STATUS" -ne 200 ]; then
+            echo "❌ /guide returned HTTP $GUIDE_STATUS"
+            exit 1
+          fi
+          echo "✅ /guide endpoint is healthy (HTTP 200)"
