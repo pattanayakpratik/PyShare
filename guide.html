@@ -27,7 +27,13 @@
             font-size: 48px;
             margin-bottom: 12px;
             display: inline-block;
-            filter: drop-shadow(0 4px 12px rgba(59, 130, 246, 0.4));
+            filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.45));
+            animation: neonFloat 3.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes neonFloat {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-6px); }
         }
 
         .guide-hero-title {
@@ -35,7 +41,7 @@
             font-weight: 800;
             letter-spacing: -0.5px;
             margin-bottom: 8px;
-            background: linear-gradient(135deg, #60a5fa 0%, #38bdf8 100%);
+            background: linear-gradient(135deg, #00f0ff 0%, #a855f7 50%, #ec4899 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -61,31 +67,37 @@
         .step-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 20px;
+            border-top: 1px solid var(--border-specular);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-radius: 20px;
+            padding: 22px;
             margin-bottom: 14px;
             display: flex;
             gap: 16px;
             align-items: flex-start;
-            transition: all 0.2s ease;
+            box-shadow: var(--shadow-card);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .step-card:hover {
             border-color: var(--border-hover);
-            box-shadow: var(--glow-blue);
+            box-shadow: var(--shadow-card), 0 0 24px rgba(0, 240, 255, 0.2);
+            transform: translateY(-2px);
         }
 
         .step-number {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: #ffffff;
+            background: linear-gradient(135deg, #00f0ff 0%, #3b82f6 100%);
+            color: #060913;
             width: 36px;
             height: 36px;
-            border-radius: 10px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 16px;
             font-weight: 800;
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
             flex-shrink: 0;
         }
 
@@ -117,17 +129,29 @@
         .method-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 20px;
+            border-top: 1px solid var(--border-specular);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-radius: 20px;
+            padding: 22px;
             text-align: center;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            box-shadow: var(--shadow-card);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .method-card:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-card), 0 0 24px rgba(0, 240, 255, 0.2);
+            transform: translateY(-2px);
         }
 
         .method-icon {
             font-size: 32px;
             margin-bottom: 4px;
+            filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.3));
         }
 
         .method-title {
@@ -145,30 +169,33 @@
 
         .badge-fast {
             background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
             color: var(--accent-green);
             font-size: 11px;
             font-weight: 700;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 20px;
             align-self: center;
         }
 
         .badge-anywhere {
-            background: rgba(56, 189, 248, 0.15);
+            background: rgba(0, 240, 255, 0.15);
+            border: 1px solid rgba(0, 240, 255, 0.3);
             color: var(--accent-cyan);
             font-size: 11px;
             font-weight: 700;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 20px;
             align-self: center;
         }
 
         .badge-p2p {
-            background: rgba(139, 92, 246, 0.15);
-            color: #a78bfa;
+            background: rgba(168, 85, 247, 0.15);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            color: var(--accent-violet);
             font-size: 11px;
             font-weight: 700;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 20px;
             align-self: center;
         }
@@ -176,9 +203,18 @@
         .faq-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 16px 20px;
-            margin-bottom: 10px;
+            border-top: 1px solid var(--border-specular);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-radius: 16px;
+            padding: 18px 22px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow-card);
+            transition: all 0.2s ease;
+        }
+
+        .faq-card:hover {
+            border-color: var(--border-hover);
         }
 
         .faq-q {
@@ -198,19 +234,24 @@
         }
 
         .tip-callout {
-            background: rgba(59, 130, 246, 0.08);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: 12px;
-            padding: 14px 16px;
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-top: 1px solid rgba(0, 240, 255, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 16px;
+            padding: 16px 18px;
             margin: 20px 0;
             display: flex;
             gap: 12px;
             align-items: flex-start;
+            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.1);
         }
 
         .tip-callout-icon {
             font-size: 20px;
             flex-shrink: 0;
+            filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.5));
         }
 
         .tip-callout-text {
