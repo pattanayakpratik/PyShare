@@ -234,6 +234,16 @@
     </div>
 
     <script>
+        // Theme Switcher Logic
+        (function initTheme() {
+            const urlTheme = new URLSearchParams(window.location.search).get('theme');
+            const saved = urlTheme || localStorage.getItem('pyshare_theme') || document.documentElement.getAttribute('data-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            if (urlTheme) {
+                try { localStorage.setItem('pyshare_theme', urlTheme); } catch(e) {}
+            }
+        })();
+
         let pin = "";
         const pinBox = document.getElementById("pinBox");
 
