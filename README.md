@@ -37,10 +37,16 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 | **Download Needed?** | ❌ **No downloads required** | Optional portable `.exe` |
 | **Supported Devices** | PC, Mac, Linux, iPhone, Android, iPad | Windows PC / Laptop |
 | **How to Access** | Open [pyshare.vercel.app](https://pyshare.vercel.app) in any browser | Double-click to launch offline hub |
-| **Network** | Any Wi-Fi, 4G/5G, or Cellular | 100% Offline Wi-Fi LAN / Hotspot + Cloudflare Tunnel |
+| **Internet / Mobile Data** | Brief handshake (~50 KB) • **0 MB for files on same Wi-Fi** | ❌ **0% Internet needed (Works with Mobile Data OFF)** |
+| **Network** | Any Wi-Fi, Hotspot, 4G/5G | 100% Offline Wi-Fi LAN / Hotspot + Cloudflare Tunnel |
 | **Transfer Speed** | Peer-to-Peer WebRTC DataChannels | Ultra-fast Local Stream (**50–100 MB/s**) |
 | **File Storage** | Direct in-browser download & Lightbox | Auto-saved to `Desktop/PyShare_Files` |
 | **Clipboard** | Synced Web Clipboard modal | Native 1-click Windows OS Clipboard Push |
+
+> [!TIP]
+> **Data Usage & Offline Sharing Clarification:**
+> * **Want 100% offline sharing with Mobile Data OFF?** Use **`PyShare.exe`** on PC! It starts a local offline web server (`http://192.168.x.x:8000`). Scan the local QR code with your phone — **zero internet is consumed**.
+> * **Using the Web App (`pyshare.vercel.app`)?** It requires ~50 KB of internet to load and exchange the 4-digit PIN room handshake. Once connected on the same Wi-Fi or hotspot, file transfers stay direct P2P — **sending a 3 GB file uses 0 MB of your mobile data balance!**
 
 ---
 
