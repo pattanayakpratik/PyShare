@@ -325,7 +325,7 @@
                 <span class="method-title">100% Web Transfer</span>
                 <span class="badge-p2p">Zero Downloads</span>
                 <p class="method-desc">
-                    Visit <code>/p2p.html</code> on any browser (PC, Mac, Phone, Tablet). Device A creates a room & PIN; Device B joins. Direct browser-to-browser WebRTC!
+                    Visit <code>pyshare.vercel.app</code> on any browser. Uses ~50 KB internet for the room PIN handshake, then streams files directly P2P locally over Wi-Fi with <strong>0 MB internet data consumed!</strong>
                 </p>
             </div>
         </div>
@@ -380,8 +380,28 @@
         <div class="faq-card">
             <div class="faq-q"><span>💻</span> Do I have to download the PC app to use PyShare?</div>
             <div class="faq-a">
-                <strong>No!</strong> You can use PyShare completely from the web on both PC and mobile by opening Web Transfer mode (<code>/p2p.html</code>). No software download is required on any device.<br>
+                <strong>No!</strong> You can use PyShare completely from the web on both PC and mobile by opening Web Transfer mode (<a href="/p2p.html" style="color:var(--accent-blue);">pyshare.vercel.app</a>). No software download is required on any device.<br>
                 However, downloading the PyShare desktop app gives you extra powers: 100 MB/s local offline Wi-Fi speeds without consuming any internet, automatic file saving to your Desktop folder, and 1-click Windows clipboard sync. Both work seamlessly!
+            </div>
+        </div>
+
+        <div class="faq-card" style="border-left: 3px solid var(--accent-green);">
+            <div class="faq-q"><span>📶</span> Does the Web version consume mobile data when sending large files (e.g., 3 GB)?</div>
+            <div class="faq-a">
+                <strong>No, absolutely not!</strong> When both devices are on the same Wi-Fi router or Phone Hotspot, PyShare's WebRTC engine transfers the file <strong>directly between devices over local Wi-Fi radio waves</strong>.<br>
+                Internet data is only used for the initial 2-second PIN handshake (~50 KB to 100 KB). Transferring a 3 GB, 5 GB, or 10 GB file consumes <strong>0 MB of your mobile data balance</strong>!
+            </div>
+        </div>
+
+        <div class="faq-card" style="border-left: 3px solid var(--accent-blue);">
+            <div class="faq-q"><span>⚡</span> How do I share files 100% offline with Mobile Data turned OFF?</div>
+            <div class="faq-a">
+                If you have no internet or want your mobile data completely OFF, use the <strong>Desktop App Mode</strong>:<br>
+                1. Turn on your <strong>Phone Hotspot</strong> (Mobile Data can stay <strong>OFF</strong>).<br>
+                2. Connect your PC to the Phone Hotspot Wi-Fi.<br>
+                3. Double-click <strong><code>PyShare.exe</code></strong> on your PC.<br>
+                4. Scan the QR code or type the local IP shown on the PC screen (e.g. <code>http://192.168.43.xxx:8000</code>) in your phone browser.<br>
+                5. Enter the 4-digit PIN. Your phone connects directly to your PC's offline server with <strong>zero internet needed</strong>!
             </div>
         </div>
 
