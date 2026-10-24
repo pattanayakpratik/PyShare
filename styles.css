@@ -607,3 +607,63 @@ body {
     border: 1px solid var(--border-color);
     color: var(--text-main);
 }
+
+/* ==========================================================================
+   Floating Transfer Queue / Upload Drawer (Global)
+   ========================================================================== */
+.floating-queue {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 14px 18px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10000;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    animation: toastSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+    .floating-queue {
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 16px;
+        width: calc(100vw - 28px);
+        max-width: 440px;
+    }
+}
+
+.floating-queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.floating-queue-speed {
+    color: var(--accent-cyan);
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.queue-items-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+}

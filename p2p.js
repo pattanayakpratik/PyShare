@@ -485,14 +485,14 @@ function renderQueueItem(id, filename, totalSize, direction) {
 
     const el = document.createElement('div');
     el.id = 'q_' + id;
-    el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; display:flex; flex-direction:column; gap:4px;";
+    el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; gap:6px;";
     el.innerHTML = `
-        <div style="display:flex; justify-content:space-between; font-size:11px;">
-            <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">${direction === 'upload' ? '📤' : '⬇️'} ${escapeHtml(filename)}</span>
-            <span id="q_status_${id}" style="color:var(--text-sub);">${formatSize(totalSize)}</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+            <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(filename)}">${direction === 'upload' ? '📤' : '📥'} ${escapeHtml(filename)}</span>
+            <span id="q_status_${id}" style="color:var(--accent-cyan); font-family:monospace; font-size:11px;">0% • ${formatSize(totalSize)}</span>
         </div>
-        <div style="height:4px; background:rgba(255,255,255,0.1); border-radius:99px; overflow:hidden;">
-            <div id="q_bar_${id}" style="height:100%; width:0%; background:var(--accent-blue); transition:width 0.15s ease;"></div>
+        <div style="height:6px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden;">
+            <div id="q_bar_${id}" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition:width 0.15s ease; border-radius:99px;"></div>
         </div>
     `;
     list.appendChild(el);
