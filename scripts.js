@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PyShare v4.6.0 - Universal Client & App Logic
+   PyShare v4.7.0 - Universal Client & App Logic
    ========================================================================== */
 
 let pcFiles = [];
@@ -9,8 +9,11 @@ window.globalSSE = null;
 
 (function init() {
     const urlTheme = new URLSearchParams(window.location.search).get('theme');
-    const savedTheme = urlTheme || localStorage.getItem('pyshare_theme') || 'dark';
+    const savedTheme = urlTheme || localStorage.getItem('pyshare_theme') || document.documentElement.getAttribute('data-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    if (urlTheme) {
+        try { localStorage.setItem('pyshare_theme', urlTheme); } catch(e) {}
+    }
     
     loadFiles();
     loadClipboard();

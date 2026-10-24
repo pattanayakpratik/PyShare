@@ -21,7 +21,7 @@
 
 <br/>
 
-[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.6.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.6.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
+[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.7.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.7.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
@@ -53,20 +53,20 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 <span id="screenshots"></span>
 ## 📸 Screenshots
 
-### 🖥️ Desktop Host Studio (Dark & Light Mode)
-The complete workstation command center on PC with live dynamic QR code, rotating 4-digit PIN, 1-click Cloudflare Internet Tunnel toggle, Windows OS clipboard push, and received files manager.
+### 🖥️ Desktop Host Studio (Cyberpunk Neon Dark & Luxury Liquid Glass Light)
+The complete workstation command center on PC with multi-stop cyan & violet glows, live dynamic QR code, rotating 4-digit PIN, 1-click Cloudflare Internet Tunnel toggle, Windows OS clipboard push, and received files manager.
 
 <p align="center">
-  <img src="Screenshots/host_dark.png" alt="PyShare Host Studio Dark Mode" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-  <img src="Screenshots/host_white.png" alt="PyShare Host Studio Light Mode" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+  <img src="Screenshots/host_dark.png" alt="PyShare Host Studio Cyberpunk Neon Glass" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+  <img src="Screenshots/host_white.png" alt="PyShare Host Studio Luxury Liquid Glass" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
 </p>
 
 ### 📱 Mobile Phone as Host (Zero PC Required — Dark & Light Mode)
 Your phone can now act as the **Host** directly from any mobile browser! Phone A taps **Create Room** to generate an instant Room PIN and QR code; Phone B or PC connects to send/receive files peer-to-peer over WebRTC with zero app installation.
 
 <p align="center">
-  <img src="Screenshots/mobile_host_dark.png" alt="Mobile Phone Host Dark Mode" width="46%" style="max-width: 250px; border-radius: 16px; margin: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3);">
-  <img src="Screenshots/mobile_host_white.png" alt="Mobile Phone Host Light Mode" width="46%" style="max-width: 250px; border-radius: 16px; margin: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3);">
+  <img src="Screenshots/mobile_host_dark.png" alt="Mobile Phone Host Cyberpunk Glass" width="46%" style="max-width: 250px; border-radius: 16px; margin: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3);">
+  <img src="Screenshots/mobile_host_white.png" alt="Mobile Phone Host Liquid Glass" width="46%" style="max-width: 250px; border-radius: 16px; margin: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3);">
 </p>
 
 ### 📱 Mobile Client Views & PIN Login
@@ -74,15 +74,15 @@ Touch-friendly mobile interface with PIN keypad authentication, built-in How-To 
 
 <p align="center">
   <img src="Screenshots/client_login.png" alt="Mobile PIN Keypad" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-  <img src="Screenshots/client_dark.png" alt="Mobile Client Dark" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-  <img src="Screenshots/client_white.png" alt="Mobile Client Light" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
+  <img src="Screenshots/client_dark.png" alt="Mobile Client Cyberpunk Glass" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
+  <img src="Screenshots/client_white.png" alt="Mobile Client Liquid Glass" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
 </p>
 
 ### 🌐 Instant Web Transfer & 📖 Interactive How-To Guide
-Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-drop. Right: Built-in visual user manual and troubleshooting guide precached for offline use.
+Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column Studio layout on desktop with drag-and-drop. Right: Built-in visual user manual and troubleshooting guide precached for offline use.
 
 <p align="center">
-  <img src="Screenshots/web_transfer.png" alt="PyShare Instant Web Transfer" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+  <img src="Screenshots/web_transfer.png" alt="PyShare Instant Web Transfer Studio" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
   <img src="Screenshots/guide.png" alt="PyShare How-To Guide" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
 </p>
 
@@ -93,8 +93,8 @@ Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-dro
 
 **Windows Users:** Run PyShare directly as a single portable application — **zero Python setup required.**
 
-* **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.6.0/PyShare.exe)**
-* **PyShare (Compressed ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.6.0/PyShare.zip)**
+* **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.7.0/PyShare.exe)**
+* **PyShare (Compressed ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.7.0/PyShare.zip)**
 * **GitHub Releases** 👉 **[PyShare Releases](https://github.com/pattanayakpratik/PyShare/releases)**
 
 > [!NOTE]
@@ -103,6 +103,30 @@ Left: Direct browser-to-browser WebRTC file sharing on desktop with drag-and-dro
 ---
 
 <span id="whats-new"></span>
+## 🆕 What's New in v4.7.0
+
+- 🔮 **Cyberpunk Neon Glass Design System (Dark Mode):**
+  - Deep space-black (`#060913`) backdrop infused with multi-stop radial glows in electric cyan (`#00f0ff`) and neon violet (`#a855f7`).
+  - Ultra-high translucency frosted glass slabs (`backdrop-filter: blur(24px) saturate(190%)`) with specular top borders (`border-top: 1px solid rgba(255, 255, 255, 0.22)`).
+  - Ambient glowing status pills, neon keypad buttons, and custom cyberpunk neon scrollbars.
+- 💎 **Luxury Liquid Glass Design System (Light Mode):**
+  - Crystal-clear pearl backdrop (`#f8fafc`) with soft pastel ambient blurs and specular `#ffffff` top borders.
+  - High-contrast cerulean blue typography (`#0284c7`) and tactile frosted white keys with WCAG AAA legibility.
+  - Fixed focus and hover states so input boxes, cards, and buttons remain crisp and vibrant without washing out.
+- 🖥️ **Desktop & Big-Screen Responsive Studio Layout:**
+  - Expanded out of mobile constraints on screens 900px to 1180px+ into an ultra-wide Studio experience.
+  - Dual-column files management grid and side-by-side Host QR/PIN and upload dropzones.
+- ⚡ **Global Floating Upload Queue Drawer:**
+  - Fixed transfer queue positioning to float unobtrusively at `bottom: 24px; right: 24px` (`width: 380px`).
+  - Features real-time MB/s speed meter, individual progress bars, and a minimize button (`✕`).
+- 📶 **Data-Saver Notice & Offline Transparency Callouts:**
+  - Added clear in-app notices explaining that Web mode uses ~50 KB for room signaling, but large file transfers on the same Wi-Fi consume **0 MB of mobile data**.
+- 🤖 **Automated CI/CD Quality Pipeline (`ci.yml`):**
+  - GitHub Actions runs syntax and compile checks on Python code (`main.py`) and verifies the integrity of all 17 critical static and P2P assets on every push and pull request.
+  - Automatically verifies live production health (`HTTP 200 OK`) on edge deployments upon merge to `main`.
+
+---
+
 ## 🆕 What's New in v4.6.0
 
 - 💬 **Universal Help & Feedback System:**
