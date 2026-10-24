@@ -40,31 +40,34 @@
             </div>
         </div>
 
-        <!-- 1. Send to Host Dropzone -->
-        <div class="client-upload-card card-panel" id="dropZone" onclick="document.getElementById('fileInput').click()">
-            <div class="cloud-icon">☁️</div>
-            <h3 class="client-upload-title">Send to Host</h3>
-            <p class="client-upload-sub">Tap here to upload files</p>
-            <button class="btn-primary" type="button" style="pointer-events:none;">
-                Browse Files
-            </button>
-            <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
-        </div>
-
-        <!-- 2. Download from Host Section -->
-        <div class="card-panel" style="padding: 16px; display: flex; flex-direction: column; flex: 1; min-height: 0;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px;">
-                <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0;">
-                    <span>💾 Download from Host</span>
-                </h3>
-                <a href="/api/zip?folder=shared" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; flex-shrink: 0;" title="Download all files as ZIP">📦 ZIP All</a>
+        <!-- Client Main Grid (Responsive: 1-col on mobile, 2-col Studio on Desktop) -->
+        <div class="client-content-grid">
+            <!-- 1. Send to Host Dropzone -->
+            <div class="client-upload-card card-panel" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div class="cloud-icon">☁️</div>
+                <h3 class="client-upload-title">Send to Host</h3>
+                <p class="client-upload-sub">Tap here to upload files</p>
+                <button class="btn-primary" type="button" style="pointer-events:none;">
+                    Browse Files
+                </button>
+                <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
             </div>
 
-            <input type="text" id="searchPC" class="search-input-box" placeholder="🔍 Search host files..." onkeyup="renderPCFiles()">
+            <!-- 2. Download from Host Section -->
+            <div class="card-panel client-files-panel" style="padding: 16px; display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px;">
+                    <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0;">
+                        <span>💾 Download from Host</span>
+                    </h3>
+                    <a href="/api/zip?folder=shared" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; flex-shrink: 0;" title="Download all files as ZIP">📦 ZIP All</a>
+                </div>
 
-            <ul id="file-list" class="file-list" style="max-height: 45vh; overflow-y: auto;">
-                <li class="empty-state">Loading files...</li>
-            </ul>
+                <input type="text" id="searchPC" class="search-input-box" placeholder="🔍 Search host files..." onkeyup="renderPCFiles()">
+
+                <ul id="file-list" class="file-list" style="max-height: 45vh; overflow-y: auto;">
+                    <li class="empty-state">Loading files...</li>
+                </ul>
+            </div>
         </div>
 
     </div>
@@ -91,11 +94,17 @@
 
     <!-- Floating Upload Queue Drawer -->
     <div id="floatingQueue" class="floating-queue">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700;">
-            <span id="queueOverallStatus">Uploading to Host...</span>
-            <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
+        <div class="floating-queue-header">
+            <span style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:14px;">⚡</span>
+                <span id="queueOverallStatus">Uploading to Host...</span>
+            </span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span id="queueSpeed" class="floating-queue-speed">0 KB/s</span>
+                <button type="button" onclick="document.getElementById('floatingQueue').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); cursor:pointer; font-size:14px; padding:2px 6px;" title="Minimize Queue">✕</button>
+            </div>
         </div>
-        <div id="queueItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
+        <div id="queueItemsList" class="queue-items-container"></div>
     </div>
 
     <!-- In-App Lightbox Media Preview Modal -->
