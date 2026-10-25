@@ -48,8 +48,23 @@ function initSSE() {
     try {
         const es = new EventSource('/api/events');
         window.globalSSE = es;
+        let disconnectTimer = null;
+
+        const clearDisconnect = () => {
+            if (disconnectTimer) {
+                clearTimeout(disconnectTimer);
+                disconnectTimer = null;
+            }
+            const overlay = document.getElementById('disconnectOverlay');
+            if (overlay) overlay.classList.remove('visible');
+        };
+
+        es.onopen = () => {
+            clearDisconnect();
+        };
 
         es.addEventListener('files', (e) => {
+            clearDisconnect();
             try {
                 const data = JSON.parse(e.data);
                 pcFiles = data.host || data.pc || [];
@@ -60,6 +75,7 @@ function initSSE() {
         });
 
         es.addEventListener('clipboard', (e) => {
+            clearDisconnect();
             try {
                 const data = JSON.parse(e.data);
                 if (data.timestamp > lastClipboardTs) {
@@ -70,7 +86,15 @@ function initSSE() {
         });
 
         es.onerror = () => {
-            // EventSource handles automatic reconnection with exponential backoff
+            // EventSource handles automatic reconnection; show disconnect overlay if offline > 2.5s
+            if (!disconnectTimer) {
+                disconnectTimer = setTimeout(() => {
+                    if (es.readyState !== EventSource.OPEN) {
+                        const overlay = document.getElementById('disconnectOverlay');
+                        if (overlay) overlay.classList.add('visible');
+                    }
+                }, 2500);
+            }
         };
 
         // Notify other scripts (like host_scripts.js) that SSE is ready

@@ -143,27 +143,6 @@
                 if (m.classList.contains('open')) loadClipboard();
             }
         }
-
-        let failCount = 0;
-        const overlay = document.getElementById('disconnectOverlay');
-
-        setInterval(async () => {
-            try {
-                const res = await fetch('/api/files');
-                if (!res.ok) throw new Error("Server error");
-                failCount = 0;
-                overlay.classList.remove('visible');
-            } catch (e) {
-                failCount++;
-                if (failCount >= 3) {
-                    overlay.classList.add('visible');
-                }
-            }
-        }, 1500);
-
-        setInterval(() => {
-            loadClipboard();
-        }, 3000);
     </script>
 </body>
 </html>
