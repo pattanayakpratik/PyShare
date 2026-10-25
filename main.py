@@ -5,6 +5,7 @@ import socketserver
 import socket
 import pyqrcode
 import urllib.parse
+import urllib.request
 import shutil
 import json
 import mimetypes
@@ -104,7 +105,19 @@ def download_cloudflared(dest_path):
     """Download standalone cloudflared binary if missing."""
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
-    urllib.request.urlretrieve(url, dest_path)
+    temp_path = dest_path + ".tmp"
+    try:
+        urllib.request.urlretrieve(url, temp_path)
+        if os.path.exists(dest_path):
+            os.remove(dest_path)
+        os.replace(temp_path, dest_path)
+    except Exception:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        raise
 
 def tunnel_worker():
     global TUNNEL_PROC, TUNNEL_URL, TUNNEL_STATUS
