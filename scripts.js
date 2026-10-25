@@ -353,21 +353,28 @@ function renderFileList(files, elementId, emptyMsg, folderType) {
         <li class="file-row">
             <div class="file-icon">${icon}</div>
             <div class="file-details">
-                <a href="javascript:void(0)" onclick="openPreview('${escapeHtml(f.name)}', '${f.category}', ${f.size})" class="file-name" title="${escapeHtml(f.name)}">
+                <a href="javascript:void(0)" onclick="openPreviewEnc('${encName}', '${f.category}', ${f.size})" class="file-name" title="${escapeHtml(f.name)}">
                     ${escapeHtml(f.name)}
                 </a>
                 <div class="file-size">${size}</div>
             </div>
             <div class="file-actions">
-                <button class="action-circle-btn" onclick="openPreview('${escapeHtml(f.name)}', '${f.category}', ${f.size})" title="Preview">👁️</button>
+                <button class="action-circle-btn" onclick="openPreviewEnc('${encName}', '${f.category}', ${f.size})" title="Preview">👁️</button>
                 <a href="/download/${encName}" class="action-circle-btn" title="Download">⬇</a>
-                ${isHost ? `<button class="action-circle-btn btn-del" onclick="deleteFile('${escapeHtml(f.name)}', '${folderType}')" title="Delete">🗑️</button>` : ''}
+                ${isHost ? `<button class="action-circle-btn btn-del" onclick="deleteFileEnc('${encName}', '${folderType}')" title="Delete">🗑️</button>` : ''}
             </div>
         </li>`;
     }).join('');
 }
 
 // --- MEDIA PREVIEW LIGHTBOX MODAL ---
+function openPreviewEnc(encName, category, size) {
+    openPreview(decodeURIComponent(encName), category, size);
+}
+
+function deleteFileEnc(encName, folderType) {
+    deleteFile(decodeURIComponent(encName), folderType);
+}
 async function openPreview(filename, category, size) {
     const modal = document.getElementById('previewModal');
     const title = document.getElementById('previewModalTitle');

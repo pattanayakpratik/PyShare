@@ -5,6 +5,7 @@ import socketserver
 import socket
 import pyqrcode
 import urllib.parse
+import urllib.request
 import shutil
 import json
 import mimetypes
@@ -24,6 +25,10 @@ import queue
 import pyperclip
 import re
 import secrets
+try:
+    import ifaddr
+except ImportError:
+    ifaddr = None
 
 # Protect against Windows cp1252 console UnicodeEncodeError
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
@@ -50,7 +55,7 @@ zc = None
 CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
 NEXT_CHANGE = 0    # Track timestamp when PIN rotates
-SESSIONS = set()   # Stores authenticated client IPs
+SESSIONS = set()   # Stores authenticated client session tokens
 SHARED_TEXT = ""   # In-memory shared clipboard / quick link
 TEXT_TIMESTAMP = 0 # Timestamp of last clipboard change
 state_lock = threading.Lock()
@@ -104,7 +109,19 @@ def download_cloudflared(dest_path):
     """Download standalone cloudflared binary if missing."""
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
-    urllib.request.urlretrieve(url, dest_path)
+    temp_path = dest_path + ".tmp"
+    try:
+        urllib.request.urlretrieve(url, temp_path)
+        if os.path.exists(dest_path):
+            os.remove(dest_path)
+        os.replace(temp_path, dest_path)
+    except Exception:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        raise
 
 def tunnel_worker():
     global TUNNEL_PROC, TUNNEL_URL, TUNNEL_STATUS
@@ -269,7 +286,9 @@ def pop_events():
 def get_ip():
     """Detect the physical Wi-Fi / LAN IP, ignoring virtual / bridge adapters (WSL, Docker, VirtualBox)."""
     try:
-        import ifaddr
+        global ifaddr
+        if ifaddr is None:
+            import ifaddr
         adapters = ifaddr.get_adapters()
         virtual_keywords = ['virtual', 'vethernet', 'wsl', 'docker', 'vmware', 'vbox', 'pseudo', 'loopback', 'teredo']
         
@@ -469,22 +488,25 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return None
 
     def get_client_ip(self):
-        cf_ip = self.headers.get("CF-Connecting-IP")
-        if cf_ip:
-            return cf_ip.strip()
-        x_forwarded = self.headers.get("X-Forwarded-For")
-        if x_forwarded:
-            return x_forwarded.split(",")[0].strip()
+        # Only trust reverse-proxy headers if the incoming socket connection is from local loopback
+        if self.client_address[0] in ("127.0.0.1", "localhost", "::1"):
+            cf_ip = self.headers.get("CF-Connecting-IP")
+            if cf_ip:
+                return cf_ip.strip()
+            x_forwarded = self.headers.get("X-Forwarded-For")
+            if x_forwarded:
+                return x_forwarded.split(",")[0].strip()
         return self.client_address[0]
 
     def is_authenticated(self):
-        """Check if client is authenticated via session cookie, client IP, or direct host access."""
+        """Check if client is authenticated via session token cookie or direct host access."""
         if self.is_host_client():
             return True
         token = self.get_session_token()
-        if token and token in SESSIONS:
-            return True
-        return self.get_client_ip() in SESSIONS
+        if token:
+            with state_lock:
+                return token in SESSIONS
+        return False
 
     def is_host_client(self):
         # Incoming requests through Cloudflare tunnel or reverse proxy are external clients, not the host
@@ -920,8 +942,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if pin_input in valid_pins and pin_input != "":
                 token = secrets.token_hex(16)
                 client_ip = self.get_client_ip()
-                SESSIONS.add(token)
-                SESSIONS.add(client_ip)
+                with state_lock:
+                    SESSIONS.add(token)
                 add_event(f"Device connected: {client_ip}")
 
                 body_bytes = b"OK"

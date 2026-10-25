@@ -3,3 +3,5 @@ pypng
 zeroconf
 pyinstaller
 pyperclip
+ifaddr
+

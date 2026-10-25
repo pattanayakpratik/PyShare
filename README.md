@@ -45,7 +45,7 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 
 > [!TIP]
 > **Data Usage & Offline Sharing Clarification:**
-> * **Want 100% offline sharing with Mobile Data OFF?** Use **`PyShare.exe`** on PC! It starts a local offline web server (`http://192.168.x.x:8000`). Scan the local QR code with your phone — **zero internet is consumed**.
+> * **Want 100% offline sharing with Mobile Data OFF?** Use **`PyShare.exe`** on PC! It starts a local offline web server (`http://192.168.x.x:8010`). Scan the local QR code with your phone — **zero internet is consumed**.
 > * **Using the Web App (`pyshare.vercel.app`)?** It requires ~50 KB of internet to load and exchange the 4-digit PIN room handshake. Once connected on the same Wi-Fi or hotspot, file transfers stay direct P2P — **sending a 3 GB file uses 0 MB of your mobile data balance!**
 
 ---
