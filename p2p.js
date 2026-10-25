@@ -483,6 +483,8 @@ function showFloatingQueue() {
 }
 
 function renderQueueItem(id, filename, totalSize, direction) {
+    lastSpeedLoaded = 0;
+    lastSpeedCheck = Date.now();
     const list = document.getElementById('queueItemsList');
     if (!list) return;
 
@@ -514,6 +516,9 @@ function updateQueueProgress(id, current, total) {
     const now = Date.now();
     const timeDiff = (now - lastSpeedCheck) / 1000;
     if (timeDiff >= 0.5 && speedEl) {
+        if (current < lastSpeedLoaded) {
+            lastSpeedLoaded = 0;
+        }
         const bytesDiff = current - lastSpeedLoaded;
         const speed = bytesDiff / timeDiff;
         speedEl.innerText = `${formatSize(Math.max(0, speed))}/s`;
@@ -530,6 +535,12 @@ function markQueueDone(id) {
         bar.style.background = 'var(--accent-green)';
     }
     if (status) status.innerText = '✅ Complete';
+
+    // Reset speed calculation for subsequent transfers
+    lastSpeedLoaded = 0;
+    lastSpeedCheck = Date.now();
+    const speedEl = document.getElementById('queueSpeed');
+    if (speedEl) speedEl.innerText = '0 B/s';
 
     setTimeout(() => {
         const item = document.getElementById('q_' + id);
