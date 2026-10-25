@@ -25,6 +25,10 @@ import queue
 import pyperclip
 import re
 import secrets
+try:
+    import ifaddr
+except ImportError:
+    ifaddr = None
 
 # Protect against Windows cp1252 console UnicodeEncodeError
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
@@ -282,7 +286,9 @@ def pop_events():
 def get_ip():
     """Detect the physical Wi-Fi / LAN IP, ignoring virtual / bridge adapters (WSL, Docker, VirtualBox)."""
     try:
-        import ifaddr
+        global ifaddr
+        if ifaddr is None:
+            import ifaddr
         adapters = ifaddr.get_adapters()
         virtual_keywords = ['virtual', 'vethernet', 'wsl', 'docker', 'vmware', 'vbox', 'pseudo', 'loopback', 'teredo']
         

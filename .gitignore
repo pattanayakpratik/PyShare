@@ -24,6 +24,7 @@ build/
 dist/
 # Ignore the auto-generated configuration file
 *.spec
+!PyShare.spec
 # ignore the info file 
 version_info.txt
 
