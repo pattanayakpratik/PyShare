@@ -355,6 +355,20 @@ def get_category(ext):
         return 'code'
     return 'other'
 
+# Pre-compressed file formats where re-compression wastes CPU with zero size gain
+PRECOMPRESSED_EXTS = {
+    # Images
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.avif',
+    # Video
+    '.mp4', '.mkv', '.mov', '.avi', '.webm', '.flv', '.wmv', '.m4v', '.3gp',
+    # Audio
+    '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.wma', '.opus',
+    # Archives & Packages
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.zst', '.apk', '.dmg', '.iso',
+    # Compressed Documents
+    '.pdf', '.docx', '.xlsx', '.pptx'
+}
+
 def get_unique_filepath(directory, filename):
     """Avoid silent overwrite: append (1), (2), etc. if file already exists."""
     base, ext = os.path.splitext(filename)
@@ -806,7 +820,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         for file in files:
                             abs_p = os.path.join(root, file)
                             rel_p = os.path.relpath(abs_p, target_dir)
-                            zf.write(abs_p, rel_p)
+                            _, ext = os.path.splitext(file)
+                            comp_mode = zipfile.ZIP_STORED if ext.lower() in PRECOMPRESSED_EXTS else zipfile.ZIP_DEFLATED
+                            zf.write(abs_p, rel_p, compress_type=comp_mode)
 
                 zip_size = os.path.getsize(temp_zip_path)
                 zip_fn = f"PyShare_{folder_type.capitalize()}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
