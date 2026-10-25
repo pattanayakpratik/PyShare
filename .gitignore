@@ -5,9 +5,16 @@ __pycache__/
 *.pyd
 
 # --- Virtual Environments ---
+.venv/
 venv/
 env/
 .env
+
+# --- AI Agent Skills & Tooling ---
+.agents/
+.claude/
+agent/
+skills-lock.json
 
 # --- Project Specific ---
 qrcode.png
