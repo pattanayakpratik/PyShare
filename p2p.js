@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PyShare v4.7.0 - WebRTC Peer-to-Peer Transfer Engine
+   PyShare v4.8.0 - WebRTC Peer-to-Peer Transfer Engine
    Direct Device-to-Device • Zero App Install • Works across any browser
    ========================================================================== */
 

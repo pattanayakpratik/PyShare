@@ -310,10 +310,15 @@
                     window.location.reload();
                 } else {
                     pinBox.classList.add('error');
-                    pinBox.innerHTML = "<span style='font-size:15px; letter-spacing:1px; color:#ef4444; font-weight:700;'>WRONG PIN</span>";
+                    if (res.status === 429) {
+                        const errTxt = await res.text();
+                        pinBox.innerHTML = "<span style='font-size:11px; letter-spacing:0px; color:#ef4444; font-weight:700;'>" + (errTxt || 'LOCKED OUT') + "</span>";
+                    } else {
+                        pinBox.innerHTML = "<span style='font-size:15px; letter-spacing:1px; color:#ef4444; font-weight:700;'>WRONG PIN</span>";
+                    }
                     setTimeout(() => {
                         clearPin();
-                    }, 1200);
+                    }, 1500);
                 }
             } catch (e) {
                 pinBox.style.opacity = "1";

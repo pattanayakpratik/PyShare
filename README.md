@@ -21,7 +21,7 @@
 
 <br/>
 
-[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.7.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.7.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
+[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.8.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.8.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
@@ -93,8 +93,8 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 
 **Windows Users:** Run PyShare directly as a single portable application — **zero Python setup required.**
 
-* **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.7.0/PyShare.exe)**
-* **PyShare (Compressed ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.7.0/PyShare.zip)**
+* **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.8.0/PyShare.exe)**
+* **PyShare (Compressed ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.8.0/PyShare.zip)**
 * **GitHub Releases** 👉 **[PyShare Releases](https://github.com/pattanayakpratik/PyShare/releases)**
 
 > [!NOTE]
@@ -103,6 +103,24 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 ---
 
 <span id="whats-new"></span>
+## 🆕 What's New in v4.8.0
+
+- 🛡️ **Comprehensive Security Hardening & Vulnerability Remediation:**
+  - **Path Traversal Protection:** Static asset serving strictly canonicalizes paths and rejects directory traversal sequences (`..`, `\`).
+  - **PIN Brute-Force Rate Limiting:** Implemented a thread-safe sliding window rate limiter on `/login`; 5 consecutive failed attempts locks out the client IP for 30 seconds with visual countdown feedback in the keypad UI.
+  - **CSRF & Intranet Drive-By Defense:** Host actions (`/shutdown`, `/api/open`, `/api/tunnel/toggle`, `/api/delete`) validate `Origin`, `Referer`, and reject cross-site `Sec-Fetch-Site` requests.
+  - **Source Code Protection:** Removed directory browsing fallbacks; unhandled endpoints now strictly return `404 Not Found`.
+  - **Stored XSS Mitigation:** Injected `Content-Security-Policy: default-src 'none'; sandbox` on uploaded active web formats (`.html`, `.svg`, `.xml`) in file preview lightbox.
+  - **Archive Concurrency & DoS Defense:** Applied non-blocking semaphore controls to `/api/zip` to prevent CPU and disk starvation from concurrent archive builds.
+  - **Standard Security Headers & Filename Sanitization:** Enforced `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, and `Referrer-Policy`, while sanitizing Windows reserved device names (`CON`, `PRN`, `NUL`, etc.) during uploads.
+- ⚡ **Performance & Architecture Polish:**
+  - Removed client polling loops in `client.html`; switched offline detection to native SSE events (`/api/events`).
+  - Single source of truth deduplication: consolidated Web P2P mode into `index.html`.
+  - Direct-to-disk streaming via File System Access API (`window.showSaveFilePicker`) for large files in P2P mode with async write queue chaining.
+  - Pre-staging support in Web Host mode allowing files to be staged before peers connect.
+
+---
+
 ## 🆕 What's New in v4.7.0
 
 - 🔮 **Cyberpunk Neon Glass Design System (Dark Mode):**

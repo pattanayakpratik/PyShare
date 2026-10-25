@@ -62,6 +62,13 @@ state_lock = threading.Lock()
 events_queue = [] 
 upload_status = {}
 
+# --- RATE LIMITING & CONCURRENCY CONTROLS ---
+login_attempts = {}       # client_ip -> {"count": int, "lockout_until": float}
+login_lock = threading.Lock()
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION = 30     # seconds lockout after repeated failures
+zip_semaphore = threading.Semaphore(1)  # Maximum 1 active ZIP generation at a time
+
 # --- SERVER-SENT EVENTS (SSE) REAL-TIME PUSH ENGINE ---
 sse_subscribers = set()
 sse_lock = threading.Lock()
@@ -466,11 +473,18 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Suppress default console logs
 
+    def send_security_headers(self):
+        """Append defense-in-depth HTTP security headers."""
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+
     def send_json(self, data, status=200):
         body = json.dumps(data).encode('utf-8')
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.send_security_headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -479,6 +493,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        self.send_security_headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -526,7 +541,37 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # Incoming requests through Cloudflare tunnel or reverse proxy are external clients, not the host
         if self.headers.get("CF-Connecting-IP") or self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-For") or self.headers.get("X-Forwarded-Proto"):
             return False
-        return self.client_address[0] in ("127.0.0.1", "localhost", get_ip())
+
+        # Verify remote address is local loopback or local host IP
+        if self.client_address[0] not in ("127.0.0.1", "localhost", "::1", get_ip()):
+            return False
+
+        # Protect against Cross-Site Request Forgery (CSRF) & Cross-Origin Intranet Attacks
+        sec_fetch = self.headers.get("Sec-Fetch-Site")
+        if sec_fetch in ("cross-site",):
+            return False
+
+        origin = self.headers.get("Origin")
+        if origin:
+            try:
+                parsed_orig = urllib.parse.urlparse(origin)
+                allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip())
+                if parsed_orig.hostname not in allowed_hosts:
+                    return False
+            except Exception:
+                return False
+
+        referer = self.headers.get("Referer")
+        if referer:
+            try:
+                parsed_ref = urllib.parse.urlparse(referer)
+                allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip())
+                if parsed_ref.hostname not in allowed_hosts:
+                    return False
+            except Exception:
+                return False
+
+        return True
 
     def do_GET(self):
         global SHARED_TEXT, TEXT_TIMESTAMP
@@ -562,6 +607,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
+                self.send_security_headers()
                 self.end_headers()
                 self.wfile.write(content)
                 return
@@ -574,33 +620,41 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
+                self.send_security_headers()
                 self.end_headers()
                 self.wfile.write(content)
                 return
 
         asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
-        clean_path = self.path.split('?')[0].lstrip('/')
-        if not clean_path.startswith(('view/', 'download/', 'api/')):
-            if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js', 'index.html', 'guide.html'):
-                fp = os.path.join(ASSET_DIR, clean_path)
-                if os.path.exists(fp) and os.path.isfile(fp):
-                    if clean_path.endswith('.css'): 
+        raw_clean = urllib.parse.unquote(self.path.split('?')[0]).lstrip('/')
+        # Strictly reject directory traversal sequences
+        if '..' in raw_clean or '\\' in raw_clean:
+            self.send_error(400, "Bad Request")
+            return
+
+        if not raw_clean.startswith(('view/', 'download/', 'api/')):
+            if any(raw_clean.endswith(ext) for ext in asset_exts) or raw_clean in ('login.html', 'manifest.json', 'sw.js', 'index.html', 'guide.html'):
+                safe_asset_dir = os.path.abspath(ASSET_DIR)
+                fp = os.path.abspath(os.path.join(safe_asset_dir, raw_clean))
+                # Validate the target file resides strictly within ASSET_DIR
+                if fp.startswith(safe_asset_dir) and os.path.exists(fp) and os.path.isfile(fp):
+                    if raw_clean.endswith('.css'): 
                         ctype = 'text/css; charset=utf-8'
-                    elif clean_path.endswith('.js') or clean_path == 'sw.js': 
+                    elif raw_clean.endswith('.js') or raw_clean == 'sw.js': 
                         ctype = 'application/javascript; charset=utf-8'
-                    elif clean_path.endswith('.json') or clean_path == 'manifest.json':
+                    elif raw_clean.endswith('.json') or raw_clean == 'manifest.json': 
                         ctype = 'application/manifest+json; charset=utf-8'
-                    elif clean_path.endswith('.ico'): 
+                    elif raw_clean.endswith('.ico'): 
                         ctype = 'image/x-icon'
-                    elif clean_path.endswith('.png'): 
+                    elif raw_clean.endswith('.png'): 
                         ctype = 'image/png'
-                    elif clean_path.endswith(('.jpg', '.jpeg')): 
+                    elif raw_clean.endswith(('.jpg', '.jpeg')): 
                         ctype = 'image/jpeg'
-                    elif clean_path.endswith('.svg'): 
+                    elif raw_clean.endswith('.svg'): 
                         ctype = 'image/svg+xml'
-                    elif clean_path.endswith('.webp'): 
+                    elif raw_clean.endswith('.webp'): 
                         ctype = 'image/webp'
-                    elif clean_path.endswith('.html'): 
+                    elif raw_clean.endswith('.html'): 
                         ctype = 'text/html; charset=utf-8'
                     else: 
                         ctype = 'application/octet-stream'
@@ -611,10 +665,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Content-Type", ctype)
                     self.send_header("Content-Length", str(len(content)))
                     self.send_header("Cache-Control", "no-cache")
+                    self.send_security_headers()
                     self.end_headers()
                     self.wfile.write(content)
                     return
-                elif clean_path in ('login.html', 'manifest.json', 'sw.js', 'index.html'):
+                elif raw_clean in ('login.html', 'manifest.json', 'sw.js', 'index.html', 'guide.html'):
                     self.send_error(404, "Asset not found")
                     return
 
@@ -632,6 +687,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
+                self.send_security_headers()
                 self.end_headers()
                 self.wfile.write(content)
             else:
@@ -652,6 +708,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
+                self.send_security_headers()
                 self.end_headers()
                 self.wfile.write(content)
             else:
@@ -799,14 +856,20 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_text("Opened")
             return
 
-        # I. API: Download All as ZIP (Zero-RAM Disk-Backed Stream)
+        # I. API: Download All as ZIP (Zero-RAM Disk-Backed Stream with DoS Protection)
         if self.path.startswith('/api/zip'):
+            acquired = zip_semaphore.acquire(blocking=False)
+            if not acquired:
+                self.send_error(429, "An archive is already being generated. Please wait.")
+                return
+
             query = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(query)
             folder_type = params.get('folder', ['shared'])[0]
             target_dir = UPLOAD_DIR if folder_type == 'received' else DOWNLOAD_DIR
             
             if not os.path.exists(target_dir) or not os.listdir(target_dir):
+                zip_semaphore.release()
                 self.send_error(404, "No files found to archive")
                 return
 
@@ -831,6 +894,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header("Content-Type", "application/zip")
                 self.send_header("Content-Disposition", f'attachment; filename="{zip_fn}"')
                 self.send_header("Content-Length", str(zip_size))
+                self.send_security_headers()
                 self.end_headers()
 
                 with open(temp_zip_path, 'rb') as f:
@@ -844,6 +908,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_error(500, f"Error creating ZIP: {e}")
             finally:
+                zip_semaphore.release()
                 if os.path.exists(temp_zip_path):
                     try:
                         os.unlink(temp_zip_path)
@@ -870,12 +935,16 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if ctype is None: 
                 ctype = 'application/octet-stream'
 
+            # Defense-in-depth: Sandbox active HTML/SVG file views to eliminate Stored XSS
+            is_active_scriptable = fn.lower().endswith(('.html', '.htm', '.svg', '.xml', '.xhtml'))
+
             range_header = self.headers.get("Range")
             byte_range = parse_range_header(range_header, file_size)
 
             if byte_range == -1:
                 self.send_response(416, "Range Not Satisfiable")
                 self.send_header("Content-Range", f"bytes */{file_size}")
+                self.send_security_headers()
                 self.end_headers()
                 return
 
@@ -890,6 +959,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Accept-Ranges", "bytes")
                     if not is_view:
                         self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
+                    elif is_active_scriptable:
+                        self.send_header("Content-Security-Policy", "default-src 'none'; sandbox")
+                    self.send_security_headers()
                     self.end_headers()
                     
                     with open(fp, 'rb') as f:
@@ -908,6 +980,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Content-Length", str(file_size))
                     if not is_view:
                         self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
+                    elif is_active_scriptable:
+                        self.send_header("Content-Security-Policy", "default-src 'none'; sandbox")
+                    self.send_security_headers()
                     self.end_headers()
                     with open(fp, 'rb') as f:
                         while True:
@@ -942,12 +1017,31 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             threading.Thread(target=kill, daemon=True).start()
             return
 
-        return super().do_GET()
+        # Fallback for unhandled routes: Return 404 rather than serving directory contents
+        self.send_error(404, "Endpoint not found")
+        return
 
     def do_POST(self):
-        # 1. HANDLE LOGIN (Accept CURRENT_PIN or PREVIOUS_PIN for grace window)
+        # 1. HANDLE LOGIN (Accept CURRENT_PIN or PREVIOUS_PIN for grace window with Rate Limiting)
         if self.path == '/login':
+            client_ip = self.get_client_ip()
+            now = time.time()
+            
+            with login_lock:
+                attempt_info = login_attempts.get(client_ip, {"count": 0, "lockout_until": 0})
+                if attempt_info["lockout_until"] > now:
+                    remaining = int(attempt_info["lockout_until"] - now)
+                    self.send_text(f"Too many failed attempts. Locked out for {remaining}s", status=429)
+                    return
+                elif attempt_info["lockout_until"] != 0 and attempt_info["lockout_until"] <= now:
+                    # Lockout expired, reset counter
+                    attempt_info = {"count": 0, "lockout_until": 0}
+                    login_attempts[client_ip] = attempt_info
+
             length = int(self.headers.get('Content-Length', 0))
+            if length > 1024:
+                self.send_error(400, "Bad Request")
+                return
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             params = urllib.parse.parse_qs(body)
             pin_input = params.get('pin', [''])[0].strip()
@@ -956,8 +1050,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 valid_pins = {CURRENT_PIN, PREVIOUS_PIN}
             
             if pin_input in valid_pins and pin_input != "":
+                with login_lock:
+                    login_attempts.pop(client_ip, None)
+
                 token = secrets.token_hex(16)
-                client_ip = self.get_client_ip()
                 with state_lock:
                     SESSIONS.add(token)
                 add_event(f"Device connected: {client_ip}")
@@ -970,10 +1066,20 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 if self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-Proto") == "https":
                     cookie_flags += "; Secure"
                 self.send_header("Set-Cookie", f"pyshare_session={token}; {cookie_flags}")
+                self.send_security_headers()
                 self.end_headers()
                 self.wfile.write(body_bytes)
             else:
-                self.send_text("Invalid PIN", status=401)
+                with login_lock:
+                    attempt_info["count"] += 1
+                    if attempt_info["count"] >= MAX_FAILED_ATTEMPTS:
+                        attempt_info["lockout_until"] = now + LOCKOUT_DURATION
+                        login_attempts[client_ip] = attempt_info
+                        self.send_text(f"Too many failed attempts. Locked out for {LOCKOUT_DURATION}s", status=429)
+                    else:
+                        login_attempts[client_ip] = attempt_info
+                        remaining_tries = MAX_FAILED_ATTEMPTS - attempt_info["count"]
+                        self.send_text(f"Invalid PIN ({remaining_tries} tries left)", status=401)
             return
 
         # 2. CHECK AUTH FOR PROTECTED ACTIONS
@@ -1063,7 +1169,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(400, "Missing X-File-Name header")
                 return
                 
-            raw_fn = os.path.basename(urllib.parse.unquote(encoded_fn))
+            raw_fn = os.path.basename(urllib.parse.unquote(encoded_fn)).strip()
+            # Sanitize filename: prevent empty names or reserved Windows device names
+            reserved_names = {'con', 'prn', 'aux', 'nul', 'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9', 'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'}
+            base_check = raw_fn.split('.')[0].lower()
+            if not raw_fn or raw_fn in ('.', '..') or base_check in reserved_names:
+                raw_fn = f"upload_{int(time.time())}.bin"
             length = int(self.headers.get('Content-Length', 0))
             
             os.makedirs(target_dir, exist_ok=True)
