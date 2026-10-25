@@ -393,24 +393,27 @@ async function handleIncomingData(msg, conn) {
 // Send Files to All Active Peers
 function sendFiles(files) {
     if (!files || !files.length) return;
-    if (activeConnections.length === 0) {
+
+    // Allow Host to stage files in "Shared by You" even before a peer connects
+    if (activeConnections.length === 0 && !isHost) {
         showToast('No peer connected yet. Scan QR code to connect!', '⚠️');
         return;
     }
 
     const hasLargeFile = Array.from(files).some(f => f.size > 500 * 1024 * 1024);
     if (hasLargeFile) {
-        showToast('Large file (>500MB) queued. For multi-GB files, PyShare Desktop App provides unlimited offline transfer with zero browser RAM limits.', 'ℹ️');
+        showToast('Large file (>500MB) queued. For multi-GB files, PyShare Desktop App provides unlimited offline transfer with zero browser RAM limits.', '💡');
     }
 
-    showFloatingQueue();
+    if (activeConnections.length > 0) {
+        showFloatingQueue();
+    }
 
     Array.from(files).forEach(file => {
         const ext = file.name.split('.').pop().toLowerCase();
         const category = getCategory(ext);
         const fileId = 'f_' + Math.random().toString(36).substr(2, 9);
 
-        // Store in local shared files if host
         if (isHost) {
             sharedFilesList.push({
                 id: fileId,
@@ -423,13 +426,17 @@ function sendFiles(files) {
             renderHostSharedFilesUI();
         }
 
-        renderQueueItem(fileId, file.name, file.size, 'upload');
-
-        // Stream file to all connected peers
-        activeConnections.forEach(conn => {
-            streamFileToConnection(file, conn, fileId);
-        });
+        if (activeConnections.length > 0) {
+            renderQueueItem(fileId, file.name, file.size, 'upload');
+            activeConnections.forEach(conn => {
+                streamFileToConnection(file, conn, fileId);
+            });
+        }
     });
+
+    if (activeConnections.length === 0 && isHost) {
+        showToast('Files staged! They will sync as soon as a peer connects.', '✅');
+    }
 }
 
 // Stream File using FileReader and Backpressure Control
