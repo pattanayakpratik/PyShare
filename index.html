@@ -170,23 +170,50 @@
 
         /* Light Mode Overrides for P2P Web */
         [data-theme="light"] .mode-select-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-top: 1px solid var(--border-specular);
-            box-shadow: var(--shadow-card);
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-top: 1px solid #ffffff;
+            box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.07), 0 4px 12px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
+        }
+        [data-theme="light"] .mode-select-card::before {
+            background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.4), transparent);
         }
         [data-theme="light"] .mode-select-card:hover {
-            border-color: var(--accent-cyan);
+            border-color: rgba(37, 99, 235, 0.5);
             background: #ffffff;
-            box-shadow: var(--shadow-card), 0 0 24px rgba(2, 132, 199, 0.18);
+            box-shadow: 0 20px 45px -8px rgba(37, 99, 235, 0.16), 0 0 0 1px rgba(37, 99, 235, 0.2), inset 0 1px 0 #ffffff;
+            transform: translateY(-3px);
+        }
+        [data-theme="light"] .mode-icon {
+            filter: drop-shadow(0 8px 18px rgba(37, 99, 235, 0.22));
+        }
+        [data-theme="light"] .keypad-btn {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-top: 1px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff;
+            color: #0f172a;
+        }
+        [data-theme="light"] .keypad-btn:hover {
+            background: #ffffff;
+            border-color: rgba(37, 99, 235, 0.4);
+            color: #2563eb;
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.15), inset 0 1px 0 #ffffff;
+            transform: translateY(-2px);
         }
         [data-theme="light"] .keypad-btn:active {
-            background: rgba(2, 132, 199, 0.15);
+            background: rgba(241, 245, 249, 0.95);
+            transform: translateY(1px);
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
         }
         [data-theme="light"] #hostPinDisplay,
         [data-theme="light"] #keypadPinDisplay {
-            color: var(--accent-cyan);
+            background: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #7c3aed 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
             text-shadow: none;
+            filter: drop-shadow(0 2px 8px rgba(37, 99, 235, 0.2));
         }
 
         /* Responsive Studio Layout for Desktop */

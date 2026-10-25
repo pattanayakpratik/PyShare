@@ -201,7 +201,7 @@ body {
 
 /* Light Mode Overrides for Client */
 [data-theme="light"] .client-status-pill {
-    background: rgba(5, 150, 105, 0.10);
+    background: rgba(5, 150, 105, 0.08);
     border: 1px solid rgba(5, 150, 105, 0.35);
     border-top: 1px solid rgba(5, 150, 105, 0.6);
     color: #065f46;
@@ -209,21 +209,22 @@ body {
 }
 
 [data-theme="light"] .client-upload-card {
-    border: 2px dashed rgba(2, 132, 199, 0.35);
-    border-top: 2px dashed rgba(2, 132, 199, 0.6);
-    background: var(--card-bg);
+    border: 2px dashed rgba(37, 99, 235, 0.35);
+    border-top: 2px dashed rgba(37, 99, 235, 0.65);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(241, 245, 249, 0.72) 100%);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff;
 }
 
 [data-theme="light"] .client-upload-card:hover {
-    border-color: var(--accent-cyan);
+    border-color: #2563eb;
     background: #ffffff;
-    box-shadow: var(--shadow-card), 0 0 24px rgba(2, 132, 199, 0.18);
+    box-shadow: 0 16px 40px rgba(37, 99, 235, 0.16), 0 0 24px rgba(37, 99, 235, 0.12), inset 0 1px 0 #ffffff;
 }
 
 [data-theme="light"] .disconnect-overlay {
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
 }
 
 [data-theme="light"] .disconnect-modal-card {

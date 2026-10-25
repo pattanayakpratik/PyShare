@@ -358,15 +358,16 @@
 
 /* Light Mode Overrides for Host Studio */
 [data-theme="light"] .upload-dropzone-card {
-    border: 2px dashed rgba(2, 132, 199, 0.35);
-    border-top: 2px dashed rgba(2, 132, 199, 0.6);
-    background: var(--card-bg);
+    border: 2px dashed rgba(37, 99, 235, 0.35);
+    border-top: 2px dashed rgba(37, 99, 235, 0.65);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(241, 245, 249, 0.72) 100%);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff;
 }
 
 [data-theme="light"] .upload-dropzone-card:hover {
-    border-color: var(--accent-cyan);
+    border-color: #2563eb;
     background: #ffffff;
-    box-shadow: var(--shadow-card), 0 0 24px rgba(2, 132, 199, 0.18);
+    box-shadow: 0 16px 40px rgba(37, 99, 235, 0.16), 0 0 24px rgba(37, 99, 235, 0.12), inset 0 1px 0 #ffffff;
 }
 
 [data-theme="light"] .qr-white-card {
@@ -376,32 +377,38 @@
 }
 
 [data-theme="light"] .pin-display-box {
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.85) 100%);
+    border: 1px solid rgba(203, 213, 225, 0.85);
     border-top: 1px solid #ffffff;
-    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04), inset 0 1px 0 #ffffff;
+    border-radius: 16px;
 }
 
 [data-theme="light"] .pin-number-text {
-    color: var(--accent-cyan);
-    text-shadow: none;
+    background: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #7c3aed 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+    letter-spacing: 10px;
+    filter: drop-shadow(0 2px 8px rgba(37, 99, 235, 0.2));
 }
 
 [data-theme="light"] .hub-bottom-card {
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(226, 232, 240, 0.9);
     border-top: 1px solid #ffffff;
-    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04), inset 0 1px 0 #ffffff;
+    border-radius: 16px;
 }
 
 [data-theme="light"] .hub-tabs {
-    background: rgba(241, 245, 249, 0.85);
-    border-bottom: 1px solid var(--border-color);
+    background: rgba(241, 245, 249, 0.9);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 [data-theme="light"] .hub-tab.active {
-    color: var(--accent-cyan);
-    background: rgba(2, 132, 199, 0.1);
-    border-bottom: 2px solid var(--accent-cyan);
-    text-shadow: none;
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.08);
+    border-bottom: 2px solid #2563eb;
+    font-weight: 700;
 }
