@@ -36,7 +36,6 @@ jobs:
           echo "Checking essential static assets for web deployment..."
           assets=(
             "index.html"
-            "p2p.html"
             "client.html"
             "host.html"
             "login.html"
