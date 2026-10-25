@@ -51,7 +51,7 @@ zc = None
 CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
 NEXT_CHANGE = 0    # Track timestamp when PIN rotates
-SESSIONS = set()   # Stores authenticated client IPs
+SESSIONS = set()   # Stores authenticated client session tokens
 SHARED_TEXT = ""   # In-memory shared clipboard / quick link
 TEXT_TIMESTAMP = 0 # Timestamp of last clipboard change
 state_lock = threading.Lock()
@@ -482,22 +482,25 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return None
 
     def get_client_ip(self):
-        cf_ip = self.headers.get("CF-Connecting-IP")
-        if cf_ip:
-            return cf_ip.strip()
-        x_forwarded = self.headers.get("X-Forwarded-For")
-        if x_forwarded:
-            return x_forwarded.split(",")[0].strip()
+        # Only trust reverse-proxy headers if the incoming socket connection is from local loopback
+        if self.client_address[0] in ("127.0.0.1", "localhost", "::1"):
+            cf_ip = self.headers.get("CF-Connecting-IP")
+            if cf_ip:
+                return cf_ip.strip()
+            x_forwarded = self.headers.get("X-Forwarded-For")
+            if x_forwarded:
+                return x_forwarded.split(",")[0].strip()
         return self.client_address[0]
 
     def is_authenticated(self):
-        """Check if client is authenticated via session cookie, client IP, or direct host access."""
+        """Check if client is authenticated via session token cookie or direct host access."""
         if self.is_host_client():
             return True
         token = self.get_session_token()
-        if token and token in SESSIONS:
-            return True
-        return self.get_client_ip() in SESSIONS
+        if token:
+            with state_lock:
+                return token in SESSIONS
+        return False
 
     def is_host_client(self):
         # Incoming requests through Cloudflare tunnel or reverse proxy are external clients, not the host
@@ -933,8 +936,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if pin_input in valid_pins and pin_input != "":
                 token = secrets.token_hex(16)
                 client_ip = self.get_client_ip()
-                SESSIONS.add(token)
-                SESSIONS.add(client_ip)
+                with state_lock:
+                    SESSIONS.add(token)
                 add_event(f"Device connected: {client_ip}")
 
                 body_bytes = b"OK"
