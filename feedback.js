@@ -351,7 +351,7 @@ async function submitFeedback() {
         (contact ? `### Contact\n${contact}\n` : '') +
         diagStr
     );
-    const ghUrl = `https://github.com/mrpra/PyShare/issues/new?title=${issueTitle}&body=${issueBody}`;
+    const ghUrl = `https://github.com/pattanayakpratik/PyShare/issues/new?title=${issueTitle}&body=${issueBody}`;
 
     // Show Success State
     document.getElementById('feedbackFormContainer').style.display = 'none';
