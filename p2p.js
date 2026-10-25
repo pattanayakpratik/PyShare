@@ -429,6 +429,7 @@ function sendFiles(files) {
         if (activeConnections.length > 0) {
             renderQueueItem(fileId, file.name, file.size, 'upload');
             activeConnections.forEach(conn => {
+                if (isHost) syncSharedFilesToPeer(conn);
                 streamFileToConnection(file, conn, fileId);
             });
         }
