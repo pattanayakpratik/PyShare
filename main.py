@@ -487,8 +487,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return self.get_client_ip() in SESSIONS
 
     def is_host_client(self):
-        # Incoming requests through Cloudflare tunnel are external clients, not the host
-        if self.headers.get("CF-Connecting-IP") or self.headers.get("CF-Ray"):
+        # Incoming requests through Cloudflare tunnel or reverse proxy are external clients, not the host
+        if self.headers.get("CF-Connecting-IP") or self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-For") or self.headers.get("X-Forwarded-Proto"):
             return False
         return self.client_address[0] in ("127.0.0.1", "localhost", get_ip())
 
@@ -606,10 +606,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         
         # A. Serve Dashboard (Host or Client)
         if self.path == '/' or self.path.startswith('/?') or self.path == '/index.html':
-            client_ip = self.client_address[0]
-            host_ip = get_ip()
-            is_host = (client_ip in ("127.0.0.1", "localhost", host_ip))
-            
+            is_host = self.is_host_client()
             page_file = "host.html" if is_host else "client.html"
             file_path = os.path.join(ASSET_DIR, page_file)
 
@@ -1020,7 +1017,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # 5. HANDLE FILE UPLOAD (High-speed 256KB buffer + throttled progress lock)
         client_ip = self.get_client_ip()
         try:
-            is_host_upload = "dest=host" in self.path
+            is_host_upload = ("dest=host" in self.path) and self.is_host_client()
             target_dir = DOWNLOAD_DIR if is_host_upload else UPLOAD_DIR
 
             encoded_fn = self.headers.get('X-File-Name')
