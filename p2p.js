@@ -589,13 +589,13 @@ function renderReceivedFilesUI() {
             <li class="file-row">
                 <div class="file-icon">${getSmartIcon(f.category, f.ext)}</div>
                 <div class="file-details">
-                    <a href="javascript:void(0)" onclick="openPreviewBlob('${escapeHtml(f.name)}', '${f.category}', '${f.url}', ${f.size})" class="file-name" title="${escapeHtml(f.name)}">
+                    <a href="javascript:void(0)" onclick="openPreviewBlobById('${encodeURIComponent(f.id)}')" class="file-name" title="${escapeHtml(f.name)}">
                         ${escapeHtml(f.name)}
                     </a>
                     <div class="file-size">${formatSize(f.size)}</div>
                 </div>
                 <div class="file-actions">
-                    <button class="action-circle-btn" onclick="openPreviewBlob('${escapeHtml(f.name)}', '${f.category}', '${f.url}', ${f.size})" title="Preview">👁️</button>
+                    <button class="action-circle-btn" onclick="openPreviewBlobById('${encodeURIComponent(f.id)}')" title="Preview">👁️</button>
                     <a href="${f.url}" download="${escapeHtml(f.name)}" class="action-circle-btn" title="Download">⬇</a>
                 </div>
             </li>
@@ -627,6 +627,14 @@ function renderPeerCatalog(files) {
 }
 
 // --- LIGHTBOX PREVIEW MODAL ---
+function openPreviewBlobById(fileId) {
+    const id = decodeURIComponent(fileId);
+    const f = receivedFilesList.find(item => item.id === id);
+    if (f) {
+        openPreviewBlob(f.name, f.category, f.url, f.size);
+    }
+}
+
 function openPreviewBlob(filename, category, url, size) {
     const modal = document.getElementById('previewModal');
     const title = document.getElementById('previewModalTitle');
@@ -676,13 +684,16 @@ function closePreview() {
 }
 
 // --- SHARED CLIPBOARD ---
+let currentClipboardText = "";
+
 function renderClipboardText(text) {
+    currentClipboardText = text || "";
     const display = document.getElementById('clipboardCurrent');
     if (!display) return;
     if (text && text.trim().length > 0) {
         display.innerHTML = `
             <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%; font-size:12px;">${escapeHtml(text)}</span>
-            <button class="btn-secondary" onclick="copyClipboardText('${escapeHtml(text)}')" style="padding:4px 10px; font-size:11px;">📋 Copy</button>
+            <button class="btn-secondary" onclick="copyClipboardText()" style="padding:4px 10px; font-size:11px;">📋 Copy</button>
         `;
     } else {
         display.innerHTML = `<span style="color:var(--text-sub); font-size:12px;">Clipboard is empty.</span>`;
@@ -690,10 +701,32 @@ function renderClipboardText(text) {
 }
 
 function copyClipboardText(text) {
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(() => {
+    const textToCopy = (typeof text === 'string' && text) ? text : currentClipboardText;
+    if (!textToCopy) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
             showToast('Copied to clipboard!', '📋');
+        }).catch(() => {
+            legacyCopy(textToCopy);
         });
+    } else {
+        legacyCopy(textToCopy);
+    }
+}
+
+function legacyCopy(val) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = val;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Copied to clipboard!', '📋');
+    } catch(e) {
+        showToast('Could not copy to clipboard', '❌');
     }
 }
 
