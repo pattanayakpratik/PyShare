@@ -641,7 +641,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # 4. AUTHENTICATED ROUTES
         
         # A. Serve Dashboard (Host or Client)
-        if self.path == '/' or self.path.startswith('/?') or self.path == '/index.html':
+        if self.path == '/' or self.path.startswith('/?'):
             is_host = self.is_host_client()
             page_file = "host.html" if is_host else "client.html"
             file_path = os.path.join(ASSET_DIR, page_file)
