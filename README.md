@@ -182,7 +182,7 @@ PyShare/
 ├── client_styles.css    # Client touch-friendly layout
 ├── login.html           # 4-digit PIN authentication keypad with guide shortcut
 ├── guide.html           # Interactive visual How-To Guide & troubleshooting wizard
-├── p2p.html             # Universal Web Transfer interface (Zero App Install Required)
+├── index.html           # Universal Web Transfer interface (Zero App Install Required)
 ├── p2p.js               # WebRTC P2P chunking, transfer queue, drag-and-drop & keyboard PIN
 ├── peerjs.min.js        # Vendored PeerJS WebRTC data broker
 ├── qrcode.min.js        # Vendored client-side QR code generator
@@ -241,7 +241,7 @@ graph TD
 ### 1. Launch PyShare
 * **Desktop App:** Double-click `PyShare.exe`.
 * **From Source:** Run `python main.py` in your terminal.
-* **Instant Web Mode:** Open `p2p.html` in any browser or visit your deployed web URL.
+* **Instant Web Mode:** Open `index.html` in any browser or visit your deployed web URL.
 
 ### 2. Connect Any Device (Host &amp; Client)
 1. Make sure both Host and Client devices are connected to the **same Wi-Fi router** or connect to a device's **Personal Hotspot**.
@@ -281,12 +281,13 @@ python main.py
 # 5. Build standalone Windows executable
 pyinstaller --noconfirm --clean --onefile --windowed `
   --add-data "host.html;." --add-data "client.html;." --add-data "login.html;." `
-  --add-data "guide.html;." --add-data "p2p.html;." --add-data "p2p.js;." `
+  --add-data "guide.html;." --add-data "index.html;." --add-data "p2p.js;." `
   --add-data "peerjs.min.js;." --add-data "qrcode.min.js;." `
   --add-data "styles.css;." --add-data "host_styles.css;." --add-data "client_styles.css;." `
   --add-data "scripts.js;." --add-data "host_scripts.js;." --add-data "feedback.js;." `
   --add-data "app_icon.ico;." --add-data "app_icon.png;." `
   --add-data "manifest.json;." --add-data "sw.js;." `
+  --hidden-import ifaddr `
   --icon app_icon.ico --name "PyShare" main.py
 ```
 

@@ -355,6 +355,20 @@ def get_category(ext):
         return 'code'
     return 'other'
 
+# Pre-compressed file formats where re-compression wastes CPU with zero size gain
+PRECOMPRESSED_EXTS = {
+    # Images
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.avif',
+    # Video
+    '.mp4', '.mkv', '.mov', '.avi', '.webm', '.flv', '.wmv', '.m4v', '.3gp',
+    # Audio
+    '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.wma', '.opus',
+    # Archives & Packages
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.zst', '.apk', '.dmg', '.iso',
+    # Compressed Documents
+    '.pdf', '.docx', '.xlsx', '.pptx'
+}
+
 def get_unique_filepath(directory, filename):
     """Avoid silent overwrite: append (1), (2), etc. if file already exists."""
     base, ext = os.path.splitext(filename)
@@ -540,8 +554,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # 2. SERVE P2P SUITE & USER GUIDE (No Auth Required)
-        if self.path in ('/p2p', '/p2p/', '/p2p.html') or self.path.startswith('/p2p?') or self.path.startswith('/p2p.html?'):
-            fp = os.path.join(ASSET_DIR, "p2p.html")
+        if self.path in ('/p2p', '/p2p/', '/p2p.html', '/index.html') or self.path.startswith(('/p2p?', '/p2p.html?', '/index.html?')):
+            fp = os.path.join(ASSET_DIR, "index.html")
             if os.path.exists(fp):
                 with open(fp, "rb") as f:
                     content = f.read()
@@ -567,7 +581,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
         clean_path = self.path.split('?')[0].lstrip('/')
         if not clean_path.startswith(('view/', 'download/', 'api/')):
-            if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js', 'p2p.html', 'guide.html'):
+            if any(clean_path.endswith(ext) for ext in asset_exts) or clean_path in ('login.html', 'manifest.json', 'sw.js', 'index.html', 'guide.html'):
                 fp = os.path.join(ASSET_DIR, clean_path)
                 if os.path.exists(fp) and os.path.isfile(fp):
                     if clean_path.endswith('.css'): 
@@ -600,7 +614,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(content)
                     return
-                elif clean_path in ('login.html', 'manifest.json', 'sw.js', 'p2p.html'):
+                elif clean_path in ('login.html', 'manifest.json', 'sw.js', 'index.html'):
                     self.send_error(404, "Asset not found")
                     return
 
@@ -627,7 +641,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # 4. AUTHENTICATED ROUTES
         
         # A. Serve Dashboard (Host or Client)
-        if self.path == '/' or self.path.startswith('/?') or self.path == '/index.html':
+        if self.path == '/' or self.path.startswith('/?'):
             is_host = self.is_host_client()
             page_file = "host.html" if is_host else "client.html"
             file_path = os.path.join(ASSET_DIR, page_file)
@@ -806,7 +820,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         for file in files:
                             abs_p = os.path.join(root, file)
                             rel_p = os.path.relpath(abs_p, target_dir)
-                            zf.write(abs_p, rel_p)
+                            _, ext = os.path.splitext(file)
+                            comp_mode = zipfile.ZIP_STORED if ext.lower() in PRECOMPRESSED_EXTS else zipfile.ZIP_DEFLATED
+                            zf.write(abs_p, rel_p, compress_type=comp_mode)
 
                 zip_size = os.path.getsize(temp_zip_path)
                 zip_fn = f"PyShare_{folder_type.capitalize()}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"

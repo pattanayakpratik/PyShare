@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('host.html', '.'), ('client.html', '.'), ('login.html', '.'), ('p2p.html', '.'), ('guide.html', '.'), ('styles.css', '.'), ('host_styles.css', '.'), ('client_styles.css', '.'), ('scripts.js', '.'), ('host_scripts.js', '.'), ('feedback.js', '.'), ('p2p.js', '.'), ('peerjs.min.js', '.'), ('qrcode.min.js', '.'), ('app_icon.ico', '.'), ('app_icon.png', '.'), ('manifest.json', '.'), ('sw.js', '.')],
+    datas=[('host.html', '.'), ('client.html', '.'), ('login.html', '.'), ('index.html', '.'), ('guide.html', '.'), ('styles.css', '.'), ('host_styles.css', '.'), ('client_styles.css', '.'), ('scripts.js', '.'), ('host_scripts.js', '.'), ('feedback.js', '.'), ('p2p.js', '.'), ('peerjs.min.js', '.'), ('qrcode.min.js', '.'), ('app_icon.ico', '.'), ('app_icon.png', '.'), ('manifest.json', '.'), ('sw.js', '.')],
     hiddenimports=['ifaddr'],
     hookspath=[],
     hooksconfig={},

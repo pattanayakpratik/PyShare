@@ -27,7 +27,7 @@
             <div style="display:flex; align-items:center; gap:6px;">
                 <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
                 <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
-                <a href="/p2p.html" class="icon-btn" title="Web Transfer (Zero-Install Browser Mode)" style="text-decoration:none;">🌐</a>
+                <a href="/p2p" class="icon-btn" title="Web Transfer (Zero-Install Browser Mode)" style="text-decoration:none;">🌐</a>
                 <button class="icon-btn" onclick="toggleClipboardModal()" title="Shared Clipboard">📋</button>
             </div>
         </nav>
@@ -143,27 +143,6 @@
                 if (m.classList.contains('open')) loadClipboard();
             }
         }
-
-        let failCount = 0;
-        const overlay = document.getElementById('disconnectOverlay');
-
-        setInterval(async () => {
-            try {
-                const res = await fetch('/api/files');
-                if (!res.ok) throw new Error("Server error");
-                failCount = 0;
-                overlay.classList.remove('visible');
-            } catch (e) {
-                failCount++;
-                if (failCount >= 3) {
-                    overlay.classList.add('visible');
-                }
-            }
-        }, 1500);
-
-        setInterval(() => {
-            loadClipboard();
-        }, 3000);
     </script>
 </body>
 </html>

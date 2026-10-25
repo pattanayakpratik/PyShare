@@ -12,6 +12,8 @@ let isHost = false;
 let sharedFilesList = [];
 let receivedFilesList = [];
 let activeTransfers = {}; // fileId -> state
+let activeFileStreams = {}; // fileId -> FileSystemWritableFileStream
+let peerCatalogFiles = [];
 let lastSpeedCheck = Date.now();
 let lastSpeedLoaded = 0;
 
@@ -280,7 +282,7 @@ function updateClientStatus(text, color) {
 }
 
 // --- FILE STREAMING & RECEIVING ENGINE ---
-function handleIncomingData(msg, conn) {
+async function handleIncomingData(msg, conn) {
     if (!msg || !msg.type) return;
 
     // 1. File Metadata Arrival
@@ -293,6 +295,13 @@ function handleIncomingData(msg, conn) {
         };
         showFloatingQueue();
         renderQueueItem(msg.id, msg.name, msg.size, 'download');
+
+        if (msg.size > 500 * 1024 * 1024) {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                showToast(`Receiving large file (${formatSize(msg.size)}). Keep browser tab active. For multi-GB files, Desktop App mode is recommended.`, 'ℹ️');
+            }
+        }
     }
 
     // 2. Binary File Chunk
@@ -300,9 +309,19 @@ function handleIncomingData(msg, conn) {
         const transfer = activeTransfers[msg.id];
         if (!transfer) return;
 
-        transfer.chunks.push(msg.chunk);
-        transfer.receivedBytes += msg.chunk.byteLength;
+        const stream = activeFileStreams[msg.id];
+        if (stream) {
+            transfer.writeQueue = (transfer.writeQueue || Promise.resolve()).then(() => 
+                stream.write(msg.chunk)
+            ).catch(() => {
+                delete activeFileStreams[msg.id];
+                transfer.chunks.push(msg.chunk);
+            });
+        } else {
+            transfer.chunks.push(msg.chunk);
+        }
 
+        transfer.receivedBytes += msg.chunk.byteLength;
         updateQueueProgress(msg.id, transfer.receivedBytes, transfer.meta.size);
     }
 
@@ -311,25 +330,44 @@ function handleIncomingData(msg, conn) {
         const transfer = activeTransfers[msg.id];
         if (!transfer) return;
 
-        const blob = new Blob(transfer.chunks, { type: transfer.meta.mime });
-        const objectUrl = URL.createObjectURL(blob);
+        const stream = activeFileStreams[msg.id];
+        if (stream) {
+            try {
+                if (transfer.writeQueue) await transfer.writeQueue;
+                await stream.close();
+            } catch (e) {}
+            delete activeFileStreams[msg.id];
+            delete activeTransfers[msg.id];
+            markQueueDone(msg.id);
+            showToast(`Saved to disk: ${transfer.meta.name}`, '💾');
+            return;
+        }
 
-        const fileRecord = {
-            id: transfer.meta.id,
-            name: transfer.meta.name,
-            size: transfer.meta.size,
-            category: transfer.meta.category,
-            ext: transfer.meta.ext,
-            url: objectUrl,
-            blob: blob
-        };
+        try {
+            const blob = new Blob(transfer.chunks, { type: transfer.meta.mime });
+            transfer.chunks = []; // Clear array of ArrayBuffers to release RAM immediately
+            const objectUrl = URL.createObjectURL(blob);
 
-        receivedFilesList.push(fileRecord);
-        delete activeTransfers[msg.id];
+            const fileRecord = {
+                id: transfer.meta.id,
+                name: transfer.meta.name,
+                size: transfer.meta.size,
+                category: transfer.meta.category,
+                ext: transfer.meta.ext,
+                url: objectUrl,
+                blob: blob
+            };
 
-        markQueueDone(msg.id);
-        renderReceivedFilesUI();
-        showToast(`Saved: ${fileRecord.name}`, '📥');
+            receivedFilesList.push(fileRecord);
+            delete activeTransfers[msg.id];
+
+            markQueueDone(msg.id);
+            renderReceivedFilesUI();
+            showToast(`Saved: ${fileRecord.name}`, '📥');
+        } catch (err) {
+            delete activeTransfers[msg.id];
+            showToast('Memory limit reached. For large multi-GB transfers, use PyShare Desktop App.', '⚠️');
+        }
     }
 
     // 4. File Catalog Sync (From Host to Client)
@@ -341,7 +379,7 @@ function handleIncomingData(msg, conn) {
     else if (msg.type === 'request_file') {
         const target = sharedFilesList.find(f => f.id === msg.id);
         if (target && target.file) {
-            streamFileToConnection(target.file, conn);
+            streamFileToConnection(target.file, conn, target.id);
         }
     }
 
@@ -355,19 +393,27 @@ function handleIncomingData(msg, conn) {
 // Send Files to All Active Peers
 function sendFiles(files) {
     if (!files || !files.length) return;
-    if (activeConnections.length === 0) {
+
+    // Allow Host to stage files in "Shared by You" even before a peer connects
+    if (activeConnections.length === 0 && !isHost) {
         showToast('No peer connected yet. Scan QR code to connect!', '⚠️');
         return;
     }
 
-    showFloatingQueue();
+    const hasLargeFile = Array.from(files).some(f => f.size > 500 * 1024 * 1024);
+    if (hasLargeFile) {
+        showToast('Large file (>500MB) queued. For multi-GB files, PyShare Desktop App provides unlimited offline transfer with zero browser RAM limits.', '💡');
+    }
+
+    if (activeConnections.length > 0) {
+        showFloatingQueue();
+    }
 
     Array.from(files).forEach(file => {
         const ext = file.name.split('.').pop().toLowerCase();
         const category = getCategory(ext);
         const fileId = 'f_' + Math.random().toString(36).substr(2, 9);
 
-        // Store in local shared files if host
         if (isHost) {
             sharedFilesList.push({
                 id: fileId,
@@ -380,13 +426,18 @@ function sendFiles(files) {
             renderHostSharedFilesUI();
         }
 
-        renderQueueItem(fileId, file.name, file.size, 'upload');
-
-        // Stream file to all connected peers
-        activeConnections.forEach(conn => {
-            streamFileToConnection(file, conn, fileId);
-        });
+        if (activeConnections.length > 0) {
+            renderQueueItem(fileId, file.name, file.size, 'upload');
+            activeConnections.forEach(conn => {
+                if (isHost) syncSharedFilesToPeer(conn);
+                streamFileToConnection(file, conn, fileId);
+            });
+        }
     });
+
+    if (activeConnections.length === 0 && isHost) {
+        showToast('Files staged! They will sync as soon as a peer connects.', '✅');
+    }
 }
 
 // Stream File using FileReader and Backpressure Control
@@ -466,14 +517,33 @@ function syncSharedFilesToPeer(conn) {
     });
 }
 
-function requestFileFromHost(fileId) {
-    if (activeConnections.length > 0) {
-        showToast('Requesting file download...', '⏳');
-        activeConnections[0].send({
-            type: 'request_file',
-            id: fileId
-        });
+async function requestFileFromHost(fileId) {
+    if (activeConnections.length === 0) return;
+    const target = peerCatalogFiles.find(f => f.id === fileId);
+
+    // Stream large files directly to disk using File System Access API if supported
+    if (window.showSaveFilePicker && target && target.size > 50 * 1024 * 1024) {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: target.name
+            });
+            const writable = await handle.createWritable();
+            activeFileStreams[fileId] = writable;
+            showToast(`Streaming ${target.name} directly to disk...`, '💾');
+        } catch (e) {
+            if (e.name !== 'AbortError') {
+                console.warn('File System Access API fallback:', e);
+            }
+        }
+    } else if (target && target.size > 500 * 1024 * 1024) {
+        showToast('Large file (>500MB). Keep browser tab active until complete.', 'ℹ️');
     }
+
+    showToast('Requesting file download...', '⏳');
+    activeConnections[0].send({
+        type: 'request_file',
+        id: fileId
+    });
 }
 
 // --- FLOATING QUEUE & PROGRESS UI ---
@@ -604,6 +674,7 @@ function renderReceivedFilesUI() {
 }
 
 function renderPeerCatalog(files) {
+    peerCatalogFiles = files || [];
     const list = document.getElementById('peerCatalogList');
     if (!list) return;
 
