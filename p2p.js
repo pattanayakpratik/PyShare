@@ -311,11 +311,12 @@ async function handleIncomingData(msg, conn) {
 
         const stream = activeFileStreams[msg.id];
         if (stream) {
-            try {
-                stream.write(msg.chunk);
-            } catch (err) {
+            transfer.writeQueue = (transfer.writeQueue || Promise.resolve()).then(() => 
+                stream.write(msg.chunk)
+            ).catch(() => {
+                delete activeFileStreams[msg.id];
                 transfer.chunks.push(msg.chunk);
-            }
+            });
         } else {
             transfer.chunks.push(msg.chunk);
         }
@@ -332,6 +333,7 @@ async function handleIncomingData(msg, conn) {
         const stream = activeFileStreams[msg.id];
         if (stream) {
             try {
+                if (transfer.writeQueue) await transfer.writeQueue;
                 await stream.close();
             } catch (e) {}
             delete activeFileStreams[msg.id];
@@ -377,7 +379,7 @@ async function handleIncomingData(msg, conn) {
     else if (msg.type === 'request_file') {
         const target = sharedFilesList.find(f => f.id === msg.id);
         if (target && target.file) {
-            streamFileToConnection(target.file, conn);
+            streamFileToConnection(target.file, conn, target.id);
         }
     }
 
