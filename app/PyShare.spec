@@ -1,8 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 ctk_datas = collect_data_files('customtkinter')
+ctk_submodules = collect_submodules('customtkinter')
 
 spec_dir = os.path.dirname(os.path.abspath(SPEC))
 root_dir = os.path.abspath(os.path.join(spec_dir, ".."))
@@ -31,7 +32,7 @@ for wf in web_files:
 datas += ctk_datas
 
 a = Analysis(
-    ['app_gui.py'],
+    [os.path.join(spec_dir, 'app_gui.py')],
     pathex=[spec_dir, root_dir],
     binaries=[],
     datas=datas,
@@ -46,7 +47,7 @@ a = Analysis(
         'darkdetect',
         'windnd',
         'main'
-    ],
+    ] + ctk_submodules,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
