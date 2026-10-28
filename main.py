@@ -629,11 +629,7 @@ def get_staged_files():
         return list(valid)
 
 def get_files_data():
-    staged = get_staged_files()
-    if staged:
-        host_files = staged
-    else:
-        host_files = list_dir(DOWNLOAD_DIR)
+    host_files = get_staged_files()
     client_files = list_dir(UPLOAD_DIR)
     return {
         "host": host_files,

@@ -265,20 +265,6 @@ class PyShareApp(ctk.CTk):
         right_actions = ctk.CTkFrame(self.navbar, fg_color="transparent")
         right_actions.pack(side="right")
 
-        self.storage_btn = ctk.CTkButton(
-            right_actions,
-            text="📂 Base Folder",
-            height=32,
-            corner_radius=10,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color=self.colors["btn_pill_bg"],
-            border_width=1,
-            border_color=self.colors["btn_pill_border"],
-            hover_color=self.colors["btn_pill_hover"],
-            command=self.open_base_storage_dir
-        )
-        self.storage_btn.pack(side="left", padx=4)
-
     # =========================================================================
     # 2. STATUS BAR (Centered Status Pill with Glowing Dot & IP)
     # =========================================================================
@@ -830,6 +816,35 @@ class PyShareApp(ctk.CTk):
 
         ctk.CTkButton(
             actions,
+            text="➕ Add",
+            width=58,
+            height=26,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.add_files_to_host_share
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            actions,
+            text="🗑️ Clear",
+            width=62,
+            height=26,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            text_color=self.colors["accent_red"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.clear_all_staged_files
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            actions,
             text="📦 ZIP All",
             width=68,
             height=26,
@@ -840,34 +855,6 @@ class PyShareApp(ctk.CTk):
             border_color=self.colors["btn_pill_border"],
             hover_color=self.colors["btn_pill_hover"],
             command=lambda: os.startfile(f"http://127.0.0.1:{main.ACTUAL_PORT}/api/zip?folder=shared")
-        ).pack(side="left", padx=2)
-
-        ctk.CTkButton(
-            actions,
-            text="📂 Open Folder",
-            width=88,
-            height=26,
-            corner_radius=8,
-            font=ctk.CTkFont(size=10, weight="bold"),
-            fg_color=self.colors["btn_pill_bg"],
-            border_width=1,
-            border_color=self.colors["btn_pill_border"],
-            hover_color=self.colors["btn_pill_hover"],
-            command=lambda: os.startfile(main.DOWNLOAD_DIR)
-        ).pack(side="left", padx=2)
-
-        ctk.CTkButton(
-            actions,
-            text="📁 Change",
-            width=66,
-            height=26,
-            corner_radius=8,
-            font=ctk.CTkFont(size=10, weight="bold"),
-            fg_color=self.colors["btn_pill_bg"],
-            border_width=1,
-            border_color=self.colors["btn_pill_border"],
-            hover_color=self.colors["btn_pill_hover"],
-            command=self.change_host_shared_folder
         ).pack(side="left", padx=2)
 
         search_frame = ctk.CTkFrame(self.card_shared, fg_color="transparent")
@@ -1923,13 +1910,11 @@ class PyShareApp(ctk.CTk):
         total_size = sum(item.get("size", 0) for item in staged)
         count = len(staged)
 
+        display_files = staged
         if count > 0:
             self.tx_count_lbl.configure(text=f"{count} staged ({format_size(total_size)})")
-            display_files = staged
         else:
-            disk_files = main.list_dir(main.DOWNLOAD_DIR)
-            self.tx_count_lbl.configure(text=f"{len(disk_files)} in folder")
-            display_files = disk_files
+            self.tx_count_lbl.configure(text="0 files staged")
 
         # Apply search query if present
         if self.search_shared_query:
@@ -1941,19 +1926,19 @@ class PyShareApp(ctk.CTk):
         if not display_files:
             empty_lbl = ctk.CTkLabel(
                 self.shared_scroll,
-                text="No files staged. Drag & drop files into 'Add to Shared' card.",
+                text="No files staged to share yet.\nDrag & drop files or click 'Select Files' to choose what to share.",
                 font=ctk.CTkFont(size=11),
-                text_color=self.colors["text_sub"]
+                text_color=self.colors["text_sub"],
+                justify="center"
             )
-            empty_lbl.pack(pady=16)
+            empty_lbl.pack(pady=20)
             return
 
         for f in display_files:
             fn = f.get("name", "Unknown")
             sz = f.get("size", 0)
             fp = f.get("path")
-            is_staged = (count > 0)
-            self._render_shared_row(fn, sz, fp, is_staged)
+            self._render_shared_row(fn, sz, fp, is_staged=True)
 
     def _render_shared_row(self, fn, sz, fp, is_staged):
         row = ctk.CTkFrame(
