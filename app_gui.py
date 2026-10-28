@@ -1034,9 +1034,12 @@ class PyShareApp(ctk.CTk):
         t.start()
 
     def force_rotate_host_pin(self):
-        main.current_pin = str(main.random.randint(1000, 9999))
+        with main.state_lock:
+            main.PREVIOUS_PIN = main.CURRENT_PIN
+            main.CURRENT_PIN = f"{main.random.randint(1000, 9999)}"
+            main.NEXT_CHANGE = time.time() + 30
         main.pin_time_remaining = 30
-        self.host_pin_display.configure(text=f"{main.current_pin[0]} {main.current_pin[1]} {main.current_pin[2]} {main.current_pin[3]}")
+        self.host_pin_display.configure(text=f"{main.CURRENT_PIN[0]} {main.CURRENT_PIN[1]} {main.CURRENT_PIN[2]} {main.CURRENT_PIN[3]}")
         self.update_qr_image()
 
     def copy_host_url(self):
@@ -1047,13 +1050,13 @@ class PyShareApp(ctk.CTk):
 
     def copy_host_pin(self):
         self.clipboard_clear()
-        self.clipboard_append(main.current_pin)
-        messagebox.showinfo("Copied", f"PIN copied to clipboard:\n{main.current_pin}")
+        self.clipboard_append(main.CURRENT_PIN)
+        messagebox.showinfo("Copied", f"PIN copied to clipboard:\n{main.CURRENT_PIN}")
 
     def toggle_cloudflare_tunnel(self):
         if self.tunnel_switch.get():
             self.tunnel_url_lbl.configure(text="Starting tunnel...", text_color="#f59e0b")
-            main.start_tunnel_async()
+            main.start_tunnel()
         else:
             main.stop_tunnel()
             self.tunnel_url_lbl.configure(text="Disabled (Offline LAN Mode)", text_color="#94a3b8")
@@ -1065,12 +1068,14 @@ class PyShareApp(ctk.CTk):
     def broadcast_host_clipboard(self):
         text = self.host_clipboard_textbox.get("1.0", "end-1c").strip()
         if text:
-            main.clipboard_data = text
-            main.broadcast_sse("clipboard", text)
+            with main.state_lock:
+                main.SHARED_TEXT = text
+                main.TEXT_TIMESTAMP = time.time()
+            main.broadcast_sse("clipboard", {"text": text, "timestamp": main.TEXT_TIMESTAMP})
             messagebox.showinfo("Broadcast", "Clipboard broadcasted to all connected peers!")
 
     def copy_current_host_clipboard(self):
-        text = main.clipboard_data or ""
+        text = getattr(main, "SHARED_TEXT", "")
         self.clipboard_clear()
         self.clipboard_append(text)
         messagebox.showinfo("Copied", "Current clipboard copied to your system clipboard!")
@@ -1485,13 +1490,15 @@ class PyShareApp(ctk.CTk):
 
     def refresh_host_ui(self):
         # Update PIN display & Timer
-        pin = main.current_pin or "----"
+        pin = getattr(main, "CURRENT_PIN", "----")
         if len(pin) == 4:
             self.host_pin_display.configure(text=f"{pin[0]}  {pin[1]}  {pin[2]}  {pin[3]}")
         else:
             self.host_pin_display.configure(text=pin)
 
-        rem = max(0, getattr(main, 'pin_time_remaining', 30))
+        now = time.time()
+        next_change = getattr(main, "NEXT_CHANGE", now + 30)
+        rem = max(0, int(next_change - now))
         self.host_pin_timer.configure(text=f"⏱️ Rotates in {rem}s")
 
         # Update Local IP Label
@@ -1499,13 +1506,14 @@ class PyShareApp(ctk.CTk):
         self.host_url_lbl.configure(text=f"http://{ip}:{main.ACTUAL_PORT}")
 
         # Update Tunnel Status
-        tunnel_url = getattr(main, 'active_tunnel_url', None)
-        if tunnel_url:
+        tunnel_url = getattr(main, 'TUNNEL_URL', None)
+        tunnel_status = getattr(main, 'TUNNEL_STATUS', 'idle')
+        if tunnel_status == 'active' and tunnel_url:
             self.tunnel_url_lbl.configure(text=tunnel_url, text_color="#10b981")
             if not self.tunnel_switch.get():
                 self.tunnel_switch.select()
         else:
-            if self.tunnel_switch.get() and not getattr(main, 'tunnel_proc', None):
+            if self.tunnel_switch.get() and tunnel_status in ('starting', 'downloading'):
                 self.tunnel_url_lbl.configure(text="Connecting tunnel...", text_color="#f59e0b")
             else:
                 self.tunnel_url_lbl.configure(text="Disabled (Offline LAN Mode)", text_color="#94a3b8")
