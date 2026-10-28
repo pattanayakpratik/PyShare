@@ -290,8 +290,15 @@ def pop_events():
         return list(events_queue)
 
 # --- SYSTEM HELPERS ---
+_cached_ip = None
+_cached_ip_time = 0
+
 def get_ip():
     """Detect the physical Wi-Fi / LAN IP, ignoring virtual / bridge adapters (WSL, Docker, VirtualBox)."""
+    global _cached_ip, _cached_ip_time
+    now = time.time()
+    if _cached_ip and (now - _cached_ip_time < 10):
+        return _cached_ip
     try:
         global ifaddr
         if ifaddr is None:
@@ -321,7 +328,9 @@ def get_ip():
         
         if candidates:
             candidates.sort(key=lambda x: x[0])
-            return candidates[0][1]
+            _cached_ip = candidates[0][1]
+            _cached_ip_time = now
+            return _cached_ip
     except Exception:
         pass
 
@@ -333,6 +342,8 @@ def get_ip():
         ip = '127.0.0.1'
     finally:
         s.close()
+    _cached_ip = ip
+    _cached_ip_time = now
     return ip
 
 def open_folder(path):
@@ -501,10 +512,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         safe_download_dir = os.path.abspath(DOWNLOAD_DIR)
         safe_upload_dir = os.path.abspath(UPLOAD_DIR)
         dl_fp = os.path.abspath(os.path.join(safe_download_dir, filename))
-        if dl_fp.startswith(safe_download_dir) and os.path.isfile(dl_fp): 
+        if os.path.commonpath([safe_download_dir, dl_fp]) == safe_download_dir and os.path.isfile(dl_fp): 
             return dl_fp
         up_fp = os.path.abspath(os.path.join(safe_upload_dir, filename))
-        if up_fp.startswith(safe_upload_dir) and os.path.isfile(up_fp): 
+        if os.path.commonpath([safe_upload_dir, up_fp]) == safe_upload_dir and os.path.isfile(up_fp): 
             return up_fp
         return None
 
@@ -546,31 +557,22 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if self.client_address[0] not in ("127.0.0.1", "localhost", "::1", get_ip()):
             return False
 
-        # Protect against Cross-Site Request Forgery (CSRF) & Cross-Origin Intranet Attacks
-        sec_fetch = self.headers.get("Sec-Fetch-Site")
-        if sec_fetch in ("cross-site",):
-            return False
-
-        origin = self.headers.get("Origin")
-        if origin:
-            try:
-                parsed_orig = urllib.parse.urlparse(origin)
-                allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip())
-                if parsed_orig.hostname not in allowed_hosts:
-                    return False
-            except Exception:
+        # Allow top-level browser page navigation (GET /) so the Host is never locked out of host.html
+        is_top_nav = (self.command == "GET" and self.path in ("/", "/index.html") and self.headers.get("Sec-Fetch-Mode") == "navigate")
+        if not is_top_nav:
+            sec_fetch = self.headers.get("Sec-Fetch-Site")
+            if sec_fetch == "cross-site":
                 return False
-
-        referer = self.headers.get("Referer")
-        if referer:
-            try:
-                parsed_ref = urllib.parse.urlparse(referer)
-                allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip())
-                if parsed_ref.hostname not in allowed_hosts:
-                    return False
-            except Exception:
-                return False
-
+            allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip(), socket.gethostname().lower(), f"{socket.gethostname().lower()}.local")
+            for hdr in ("Origin", "Referer"):
+                val = self.headers.get(hdr)
+                if val:
+                    try:
+                        host = urllib.parse.urlparse(val).hostname
+                        if not host or host.lower() not in allowed_hosts:
+                            return False
+                    except Exception:
+                        return False
         return True
 
     def do_GET(self):
@@ -637,7 +639,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 safe_asset_dir = os.path.abspath(ASSET_DIR)
                 fp = os.path.abspath(os.path.join(safe_asset_dir, raw_clean))
                 # Validate the target file resides strictly within ASSET_DIR
-                if fp.startswith(safe_asset_dir) and os.path.exists(fp) and os.path.isfile(fp):
+                if os.path.commonpath([safe_asset_dir, fp]) == safe_asset_dir and os.path.isfile(fp):
                     if raw_clean.endswith('.css'): 
                         ctype = 'text/css; charset=utf-8'
                     elif raw_clean.endswith('.js') or raw_clean == 'sw.js': 
@@ -960,7 +962,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     if not is_view:
                         self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
                     elif is_active_scriptable:
-                        self.send_header("Content-Security-Policy", "default-src 'none'; sandbox")
+                        self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
                     self.end_headers()
                     
@@ -981,7 +983,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     if not is_view:
                         self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
                     elif is_active_scriptable:
-                        self.send_header("Content-Security-Policy", "default-src 'none'; sandbox")
+                        self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
                     self.end_headers()
                     with open(fp, 'rb') as f:
@@ -1062,7 +1064,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain; charset=utf-8")
                 self.send_header("Content-Length", str(len(body_bytes)))
-                cookie_flags = "Path=/; Max-Age=86400; SameSite=Lax"
+                cookie_flags = "Path=/; Max-Age=86400; SameSite=Lax; HttpOnly"
                 if self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-Proto") == "https":
                     cookie_flags += "; Secure"
                 self.send_header("Set-Cookie", f"pyshare_session={token}; {cookie_flags}")
@@ -1145,7 +1147,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 folder = data.get('folder', 'shared')
                 target_dir = UPLOAD_DIR if folder == 'received' else DOWNLOAD_DIR
                 target_fp = os.path.abspath(os.path.join(target_dir, fn))
-                if target_fp.startswith(os.path.abspath(target_dir)) and os.path.isfile(target_fp):
+                safe_target_dir = os.path.abspath(target_dir)
+                if os.path.commonpath([safe_target_dir, target_fp]) == safe_target_dir and os.path.isfile(target_fp):
                     os.remove(target_fp)
                     add_event(f"Deleted: {fn}")
                     broadcast_sse("files", get_files_data())
@@ -1170,6 +1173,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 return
                 
             raw_fn = os.path.basename(urllib.parse.unquote(encoded_fn)).strip()
+            # Sanitize control characters and Windows forbidden characters (< > : " / \ | ? * and ASCII 0x00-0x1f)
+            raw_fn = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', raw_fn).strip(' .')
             # Sanitize filename: prevent empty names or reserved Windows device names
             reserved_names = {'con', 'prn', 'aux', 'nul', 'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9', 'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'}
             base_check = raw_fn.split('.')[0].lower()
