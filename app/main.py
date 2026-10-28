@@ -1048,7 +1048,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # G. API: Shared Clipboard (GET)
-        if self.path == '/api/text':
+        if self.path in ('/api/text', '/api/clipboard'):
             with state_lock:
                 data = {
                     "text": SHARED_TEXT,
@@ -1345,7 +1345,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # 3. HANDLE SHARED CLIPBOARD POST (/api/text)
-        if self.path == '/api/text':
+        if self.path in ('/api/text', '/api/clipboard'):
             global SHARED_TEXT, TEXT_TIMESTAMP
             length = int(self.headers.get('Content-Length', 0))
             if length > 1024 * 64:
@@ -1354,7 +1354,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             try:
                 data = json.loads(body)
-                new_text = str(data.get("text", "")).strip()
+                new_text = str(data.get("text", data.get("clipboard", ""))).strip()
             except Exception:
                 new_text = body.strip()
 

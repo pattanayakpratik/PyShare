@@ -1837,9 +1837,9 @@ class PyShareApp(ctk.CTk):
             return
         def _fetch():
             try:
-                r = self.client_session.get(f"{self.client_host_url}/api/clipboard", timeout=4)
+                r = self.client_session.get(f"{self.client_host_url}/api/text", timeout=4)
                 if r.status_code == 200:
-                    text = r.json().get("clipboard", "")
+                    text = r.json().get("text", "")
                     self.after(0, lambda: self.client_clipboard_entry.delete(0, "end"))
                     self.after(0, lambda: self.client_clipboard_entry.insert(0, text))
             except Exception: pass
@@ -1851,7 +1851,7 @@ class PyShareApp(ctk.CTk):
             return
         def _worker():
             try:
-                self.client_session.post(f"{self.client_host_url}/api/clipboard", json={"text": text}, timeout=4)
+                self.client_session.post(f"{self.client_host_url}/api/text", json={"text": text}, timeout=4)
                 self.after(0, lambda: messagebox.showinfo("Clipboard", "Text sent to host clipboard!"))
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to send text: {e}"))
