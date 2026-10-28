@@ -1,12 +1,44 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files
 
+ctk_datas = collect_data_files('customtkinter')
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('host.html', '.'), ('client.html', '.'), ('login.html', '.'), ('index.html', '.'), ('guide.html', '.'), ('styles.css', '.'), ('host_styles.css', '.'), ('client_styles.css', '.'), ('scripts.js', '.'), ('host_scripts.js', '.'), ('feedback.js', '.'), ('p2p.js', '.'), ('peerjs.min.js', '.'), ('qrcode.min.js', '.'), ('app_icon.ico', '.'), ('app_icon.png', '.'), ('manifest.json', '.'), ('sw.js', '.')],
-    hiddenimports=['ifaddr'],
+    datas=[
+        ('host.html', '.'),
+        ('client.html', '.'),
+        ('login.html', '.'),
+        ('index.html', '.'),
+        ('guide.html', '.'),
+        ('styles.css', '.'),
+        ('host_styles.css', '.'),
+        ('client_styles.css', '.'),
+        ('scripts.js', '.'),
+        ('host_scripts.js', '.'),
+        ('feedback.js', '.'),
+        ('p2p.js', '.'),
+        ('peerjs.min.js', '.'),
+        ('qrcode.min.js', '.'),
+        ('app_icon.ico', '.'),
+        ('app_icon.png', '.'),
+        ('manifest.json', '.'),
+        ('sw.js', '.'),
+        ('app_gui.py', '.')
+    ] + ctk_datas,
+    hiddenimports=[
+        'ifaddr',
+        'customtkinter',
+        'PIL',
+        'requests',
+        'zeroconf',
+        'png',
+        'pyqrcode',
+        'darkdetect',
+        'windnd'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

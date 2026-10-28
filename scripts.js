@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PyShare v4.8.0 - Universal Client & App Logic
+   PyShare v4.9.0 - Universal Client & App Logic
    ========================================================================== */
 
 let pcFiles = [];
@@ -110,8 +110,23 @@ function toggleTheme() {
     localStorage.setItem('pyshare_theme', target);
 }
 
-// Toast Notifications
+// Toast Notifications with Deduplication & Max Limit
+let recentToastHistory = new Map();
+
 function showToast(message, icon = 'ℹ️') {
+    if (!message) return;
+    const now = Date.now();
+    const lastSeen = recentToastHistory.get(message);
+    if (lastSeen && (now - lastSeen) < 2500) {
+        return; // Suppress duplicate notifications within 2.5s
+    }
+    recentToastHistory.set(message, now);
+    if (recentToastHistory.size > 25) {
+        recentToastHistory.forEach((ts, msg) => {
+            if (now - ts > 10000) recentToastHistory.delete(msg);
+        });
+    }
+
     let container = document.getElementById('toastContainer');
     if (!container) {
         container = document.createElement('div');
@@ -119,6 +134,12 @@ function showToast(message, icon = 'ℹ️') {
         container.className = 'toast-container';
         document.body.appendChild(container);
     }
+
+    // Limit maximum visible toast pills to 3
+    while (container.children.length >= 3) {
+        container.removeChild(container.firstChild);
+    }
+
     const toast = document.createElement('div');
     toast.className = 'toast-pill';
     toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
@@ -127,7 +148,11 @@ function showToast(message, icon = 'ℹ️') {
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(8px)';
         toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(() => {
+            if (toast.parentNode === container) {
+                container.removeChild(toast);
+            }
+        }, 300);
     }, 2600);
 }
 

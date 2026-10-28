@@ -21,7 +21,7 @@
 
 <br/>
 
-[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.8.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.8.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
+[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
@@ -52,6 +52,14 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 
 <span id="screenshots"></span>
 ## 📸 Screenshots
+
+### 🖥️ Native Desktop Application (Cyberpunk Neon Liquid Glass — Zero Browser Dependencies)
+The standalone Windows desktop app runs completely natively without launching any browser tabs or web processes. It includes the exact **Cyberpunk Neon Liquid Glass** studio design, **Dual Host & Client Mode**, and the **Quick Share Drag & Drop staging engine**.
+
+<p align="center">
+  <img src="Screenshots/desktop_host.png" alt="PyShare Native Desktop Host Studio" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+  <img src="Screenshots/desktop_client.png" alt="PyShare Native Desktop Client Studio" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+</p>
 
 ### 🖥️ Desktop Host Studio (Cyberpunk Neon Dark & Luxury Liquid Glass Light)
 The complete workstation command center on PC with multi-stop cyan & violet glows, live dynamic QR code, rotating 4-digit PIN, 1-click Cloudflare Internet Tunnel toggle, Windows OS clipboard push, and received files manager.
@@ -93,8 +101,8 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 
 **Windows Users:** Run PyShare directly as a single portable application — **zero Python setup required.**
 
-* **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.8.0/PyShare.exe)**
-* **PyShare (Compressed ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.8.0/PyShare.zip)**
+* **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.0/PyShare.exe)**
+* **PyShare (Compressed ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.0/PyShare.zip)**
 * **GitHub Releases** 👉 **[PyShare Releases](https://github.com/pattanayakpratik/PyShare/releases)**
 
 > [!NOTE]
@@ -103,6 +111,22 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 ---
 
 <span id="whats-new"></span>
+## 🆕 What's New in v4.9.0
+
+- 🖥️ **Native CustomTkinter Desktop Application (Zero Browser Dependencies):**
+  - Standalone Windows executable (`PyShare.exe`) that runs 100% natively without opening any external browser window (no Chromium, Edge, or web tabs).
+  - Pixel-perfect reproduction of the **Cyberpunk Neon Liquid Glass** design system: deep cosmic obsidian backdrop (`#060913`), frosted liquid glass cards (`#0d1424`), glowing neon cyan borders (`#00f0ff`), and pure white rounded QR code card.
+- ⚡ **True Google Quick Share Staging Engine:**
+  - **Share specific files, not whole folders:** Drag and drop files from Windows Explorer or click `Select Files` to choose what to share.
+  - **Zero File Duplication:** Files stream directly from their original disk paths on-the-fly without copy delay.
+  - **Dedicated Download Destination:** Clear separation between file choosing (drag & drop staging without folder clutter) and file downloading (customizable `Received_Files` directory with 1-click `📂 Open Folder` in Windows Explorer).
+- 📱 **Dual Host & Client Mode in Desktop App:**
+  - Easily switch between Host Mode (sharing files, generating QR codes and 4-digit PINs) and Client Mode (auto-discovering local PyShare hosts via mDNS zeroconf, downloading files, and sending uploads).
+- 📋 **Universal Bidirectional Clipboard:**
+  - Real-time cross-platform clipboard synchronization between host and client devices.
+
+---
+
 ## 🆕 What's New in v4.8.0
 
 - 🛡️ **Comprehensive Security Hardening & Vulnerability Remediation:**
