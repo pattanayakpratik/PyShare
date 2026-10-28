@@ -1,8 +1,8 @@
 """
 ==========================================================================
-PyShare v4.8.0 - Native Desktop Application GUI
-Standalone Cross-Platform GUI • Host & Client Dual-Mode • Zero Browser
-Quick Share Drag & Drop Model • Customizable Storage Locations
+PyShare v4.8.0 - Cyberpunk Neon Liquid Glass Native Desktop GUI
+Exact 3-Pillar Studio Layout Matching Web UI (host_dark.png & client_dark.png)
+Zero Browser • Dual Host & Client Mode • Quick Share Drag & Drop Staging
 ==========================================================================
 """
 
@@ -28,6 +28,64 @@ except ImportError:
     DND_SUPPORTED = False
 
 import main
+
+# =========================================================================
+# CYBERPUNK NEON LIQUID GLASS DESIGN SYSTEM (Exact match to styles.css)
+# =========================================================================
+THEME = {
+    "dark": {
+        "bg_root": "#060913",              # Deep cosmic obsidian
+        "card_bg": "#0d1424",              # Translucent liquid glass
+        "card_border": "#1a263c",          # Subtle glass border
+        "card_border_glow": "#00f0ff",     # Cyan glowing border for dropzones
+        "card_hover": "#121c32",           # Hover state
+        "input_bg": "#070c17",             # Deep sunken input
+        "input_border": "#1e2c44",         # Input border
+        "text_main": "#f8fafc",            # Crisp white
+        "text_sub": "#94a3b8",             # Muted slate
+        "text_cyan": "#00f0ff",            # Neon cyan
+        "accent_cyan": "#00f0ff",          # Neon cyan
+        "accent_blue": "#3b82f6",          # Electric blue
+        "accent_violet": "#a855f7",        # Purple
+        "accent_green": "#10b981",         # Emerald
+        "accent_red": "#ef4444",           # Rose red
+        "btn_pill_bg": "#151f33",          # Dark glass pill button
+        "btn_pill_border": "#22324f",      # Button border
+        "btn_pill_hover": "#1e2e4a",       # Button hover
+        "row_bg": "#0b1220",               # List row background
+        "row_border": "#162238",           # List row border
+        "row_hover": "#131d31",            # List row hover
+        "qr_bg": "#ffffff",                # Crisp white for QR code
+        "segmented_bg": "#0a0f1d",
+        "segmented_selected": "#0284c7"
+    },
+    "light": {
+        "bg_root": "#f1f5f9",
+        "card_bg": "#ffffff",
+        "card_border": "#e2e8f0",
+        "card_border_glow": "#0284c7",
+        "card_hover": "#f8fafc",
+        "input_bg": "#f8fafc",
+        "input_border": "#cbd5e1",
+        "text_main": "#0f172a",
+        "text_sub": "#64748b",
+        "text_cyan": "#0284c7",
+        "accent_cyan": "#0284c7",
+        "accent_blue": "#2563eb",
+        "accent_violet": "#7c3aed",
+        "accent_green": "#059669",
+        "accent_red": "#dc2626",
+        "btn_pill_bg": "#e2e8f0",
+        "btn_pill_border": "#cbd5e1",
+        "btn_pill_hover": "#cbd5e1",
+        "row_bg": "#f8fafc",
+        "row_border": "#e2e8f0",
+        "row_hover": "#f1f5f9",
+        "qr_bg": "#ffffff",
+        "segmented_bg": "#e2e8f0",
+        "segmented_selected": "#0284c7"
+    }
+}
 
 # --- HELPER UTILITIES ---
 def format_size(bytes_size):
@@ -57,7 +115,7 @@ def get_file_icon(filename):
         return '💻'
     return '📁'
 
-def truncate_path(path, max_len=36):
+def truncate_path(path, max_len=32):
     if not path:
         return ""
     if len(path) <= max_len:
@@ -85,14 +143,16 @@ class PyShareApp(ctk.CTk):
         self.client_download_dir = self.app_config.get("client_download_dir", self.defaults["client_download_dir"])
         os.makedirs(self.client_download_dir, exist_ok=True)
 
-        # Window Appearance & Configuration
-        theme = self.app_config.get("theme", "dark")
-        ctk.set_appearance_mode(theme)
+        # Active Theme (default Dark)
+        self.active_mode = self.app_config.get("theme", "dark")
+        ctk.set_appearance_mode(self.active_mode)
         ctk.set_default_color_theme("blue")
+        self.colors = THEME[self.active_mode]
 
         self.title("PyShare — Local & P2P Quick Share")
-        self.geometry("1140x740")
-        self.minsize(960, 620)
+        self.geometry("1240x780")
+        self.minsize(1050, 680)
+        self.configure(fg_color=self.colors["bg_root"])
 
         # Set Window Icon
         icon_path = resource_path("app_icon.ico")
@@ -104,6 +164,7 @@ class PyShareApp(ctk.CTk):
 
         # State Variables
         self.current_mode = "host"  # "host" or "client"
+        self.active_hub_tab = "log" # "log" or "clipboard"
         self.client_session = requests.Session()
         self.client_connected = False
         self.client_host_url = ""
@@ -116,9 +177,13 @@ class PyShareApp(ctk.CTk):
         self.cached_qr_path = resource_path("qrcode.png")
         self.qr_ctk_image = None
         self.last_qr_timestamp = 0
+        self.search_shared_query = ""
+        self.search_received_query = ""
+        self.search_client_query = ""
 
-        # Build GUI Layout
+        # Build Full Liquid Glass Layout
         self.build_top_navbar()
+        self.build_status_bar()
         self.build_content_container()
 
         # Initialize Host Server in Background
@@ -136,101 +201,132 @@ class PyShareApp(ctk.CTk):
         self.after(500, self.refresh_ticker)
 
     # =========================================================================
-    # 1. TOP NAVBAR
+    # 1. TOP NAVBAR (Liquid Glass Style with Centered Brand & Action Icons)
     # =========================================================================
     def build_top_navbar(self):
-        self.navbar = ctk.CTkFrame(self, height=58, corner_radius=0, fg_color=("#182234", "#0f172a"))
-        self.navbar.pack(side="top", fill="x")
+        self.navbar = ctk.CTkFrame(self, height=52, corner_radius=0, fg_color=self.colors["bg_root"])
+        self.navbar.pack(side="top", fill="x", padx=16, pady=(10, 0))
 
-        # Brand Logo & Title
-        logo_frame = ctk.CTkFrame(self.navbar, fg_color="transparent")
-        logo_frame.pack(side="left", padx=16, pady=10)
+        # Left: Theme Toggle Circular Icon Button
+        left_actions = ctk.CTkFrame(self.navbar, fg_color="transparent")
+        left_actions.pack(side="left")
+
+        self.theme_btn = ctk.CTkButton(
+            left_actions,
+            text="🌓",
+            width=36,
+            height=36,
+            corner_radius=18,
+            font=ctk.CTkFont(size=14),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.toggle_theme
+        )
+        self.theme_btn.pack(side="left")
+
+        # Center Brand Logo with Neon Cyan Gradient Feel
+        brand_frame = ctk.CTkFrame(self.navbar, fg_color="transparent")
+        brand_frame.pack(side="left", expand=True)
 
         logo_img_path = resource_path("app_icon.png")
         if os.path.isfile(logo_img_path):
             try:
-                pil_logo = Image.open(logo_img_path).resize((30, 30))
-                ctk_logo = ctk.CTkImage(light_image=pil_logo, dark_image=pil_logo, size=(30, 30))
-                logo_lbl = ctk.CTkLabel(logo_frame, image=ctk_logo, text="")
-                logo_lbl.pack(side="left", padx=(0, 10))
+                pil_logo = Image.open(logo_img_path).resize((28, 28))
+                ctk_logo = ctk.CTkImage(light_image=pil_logo, dark_image=pil_logo, size=(28, 28))
+                logo_lbl = ctk.CTkLabel(brand_frame, image=ctk_logo, text="")
+                logo_lbl.pack(side="left", padx=(0, 8))
             except Exception:
                 pass
 
         brand_lbl = ctk.CTkLabel(
-            logo_frame,
+            brand_frame,
             text="PyShare",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            text_color=("#0284c7", "#00f0ff")
+            font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
+            text_color=self.colors["accent_cyan"]
         )
         brand_lbl.pack(side="left")
 
-        version_pill = ctk.CTkLabel(
-            logo_frame,
-            text="v4.8.0",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color="#94a3b8",
-            fg_color=("#1e293b", "#1e293b"),
-            corner_radius=8,
-            padx=8,
-            pady=2
-        )
-        version_pill.pack(side="left", padx=8)
-
-        # Center Mode Switcher (Host Server vs Connect as Client)
+        # Mode Switcher (Host vs Client)
         self.mode_switcher = ctk.CTkSegmentedButton(
-            self.navbar,
+            brand_frame,
             values=["📡 Host Mode", "📱 Client Mode"],
             command=self.on_mode_change,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            selected_color="#0284c7",
-            selected_hover_color="#0369a1",
-            height=34
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            selected_color=self.colors["segmented_selected"],
+            selected_hover_color=self.colors["accent_blue"],
+            height=32
         )
         self.mode_switcher.set("📡 Host Mode")
-        self.mode_switcher.pack(side="left", expand=True)
+        self.mode_switcher.pack(side="left", padx=16)
 
         # Right Action Buttons
-        actions_frame = ctk.CTkFrame(self.navbar, fg_color="transparent")
-        actions_frame.pack(side="right", padx=16)
+        right_actions = ctk.CTkFrame(self.navbar, fg_color="transparent")
+        right_actions.pack(side="right")
 
-        # Base Storage Folder Button
         self.storage_btn = ctk.CTkButton(
-            actions_frame,
+            right_actions,
             text="📂 Base Folder",
-            width=110,
             height=32,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=("#334155", "#1e293b"),
-            hover_color=("#475569", "#334155"),
+            corner_radius=10,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
             command=self.open_base_storage_dir
         )
-        self.storage_btn.pack(side="left", padx=6)
-
-        # Dark/Light Theme Toggle
-        self.theme_btn = ctk.CTkButton(
-            actions_frame,
-            text="🌓",
-            width=36,
-            height=32,
-            font=ctk.CTkFont(size=14),
-            fg_color=("#334155", "#1e293b"),
-            hover_color=("#475569", "#334155"),
-            command=self.toggle_theme
-        )
-        self.theme_btn.pack(side="left", padx=4)
+        self.storage_btn.pack(side="left", padx=4)
 
     # =========================================================================
-    # 2. CONTENT CONTAINER (SWITCHES BETWEEN HOST & CLIENT FRAMES)
+    # 2. STATUS BAR (Centered Status Pill with Glowing Dot & IP)
+    # =========================================================================
+    def build_status_bar(self):
+        self.status_bar = ctk.CTkFrame(self, fg_color="transparent", height=32)
+        self.status_bar.pack(fill="x", padx=16, pady=(4, 8))
+
+        self.status_pill = ctk.CTkFrame(
+            self.status_bar,
+            corner_radius=20,
+            fg_color=self.colors["card_bg"],
+            border_width=1,
+            border_color=self.colors["card_border"],
+            height=28
+        )
+        self.status_pill.pack(side="top")
+
+        pill_inner = ctk.CTkFrame(self.status_pill, fg_color="transparent")
+        pill_inner.pack(padx=14, pady=4)
+
+        self.status_dot = ctk.CTkLabel(
+            pill_inner,
+            text="●",
+            text_color=self.colors["accent_green"],
+            font=ctk.CTkFont(size=13)
+        )
+        self.status_dot.pack(side="left", padx=(0, 6))
+
+        self.status_text_lbl = ctk.CTkLabel(
+            pill_inner,
+            text=f"Server IP: {main.get_ip()}:{main.ACTUAL_PORT}",
+            font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
+            text_color=self.colors["text_main"]
+        )
+        self.status_text_lbl.pack(side="left")
+
+    # =========================================================================
+    # 3. CONTENT CONTAINER (Switches Between Host & Client Frames)
     # =========================================================================
     def build_content_container(self):
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_container.pack(fill="both", expand=True, padx=14, pady=14)
+        self.main_container.pack(fill="both", expand=True, padx=16, pady=(0, 12))
 
-        # Host View Frame
+        # Host View Frame (3-Pillar Studio Layout)
         self.host_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
-        self.build_host_view()
+        self.build_host_3_pillar_view()
 
-        # Client View Frame
+        # Client View Frame (Clean Mobile/Desktop Client Layout)
         self.client_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.build_client_view()
 
@@ -242,397 +338,898 @@ class PyShareApp(ctk.CTk):
             self.current_mode = "host"
             self.client_frame.pack_forget()
             self.host_frame.pack(fill="both", expand=True)
+            self.status_dot.configure(text_color=self.colors["accent_green"])
+            self.status_text_lbl.configure(text=f"Server IP: {main.get_ip()}:{main.ACTUAL_PORT}")
             self.refresh_host_ui()
         else:
             self.current_mode = "client"
             self.host_frame.pack_forget()
             self.client_frame.pack(fill="both", expand=True)
+            if self.client_connected:
+                self.status_dot.configure(text_color=self.colors["accent_green"])
+                self.status_text_lbl.configure(text=f"Connected to Host ({self.client_host_url.replace('http://', '')})")
+            else:
+                self.status_dot.configure(text_color=self.colors["text_sub"])
+                self.status_text_lbl.configure(text="Disconnected from Host")
             self.refresh_client_ui()
 
     def toggle_theme(self):
-        current = ctk.get_appearance_mode()
-        new_theme = "light" if current.lower() == "dark" else "dark"
-        ctk.set_appearance_mode(new_theme)
-        self.app_config["theme"] = new_theme
+        new_mode = "light" if self.active_mode == "dark" else "dark"
+        self.active_mode = new_mode
+        self.colors = THEME[new_mode]
+        ctk.set_appearance_mode(new_mode)
+        self.app_config["theme"] = new_mode
         main.save_app_config(self.app_config)
 
     # =========================================================================
-    # 3. HOST MODE VIEW (SERVER CONTROLS, PIN, QR CODE, QUICK SHARE)
+    # 4. HOST MODE: EXACT 3-PILLAR STUDIO LAYOUT (Matching host_dark.png)
     # =========================================================================
-    def build_host_view(self):
-        # 2-Column Grid Layout
-        self.host_left_col = ctk.CTkFrame(self.host_frame, width=350, corner_radius=14, fg_color=("#182234", "#0f172a"))
-        self.host_left_col.pack(side="left", fill="y", padx=(0, 10))
-        self.host_left_col.pack_propagate(False)
-
-        self.host_right_col = ctk.CTkFrame(self.host_frame, corner_radius=14, fg_color=("#182234", "#0f172a"))
-        self.host_right_col.pack(side="right", fill="both", expand=True)
-
-        # --- LEFT PANEL: Status, PIN, QR Code, Folder Customization, Tunnel ---
-        left_scroll = ctk.CTkScrollableFrame(self.host_left_col, fg_color="transparent")
-        left_scroll.pack(fill="both", expand=True, padx=6, pady=6)
-
-        # Server Live Status Card
-        status_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        status_card.pack(fill="x", pady=5, padx=4)
-
-        status_top = ctk.CTkFrame(status_card, fg_color="transparent")
-        status_top.pack(fill="x", padx=10, pady=(8, 2))
-        
-        self.host_status_dot = ctk.CTkLabel(status_top, text="●", text_color="#10b981", font=ctk.CTkFont(size=14))
-        self.host_status_dot.pack(side="left")
-        self.host_status_text = ctk.CTkLabel(status_top, text="Server Active", font=ctk.CTkFont(size=13, weight="bold"))
-        self.host_status_text.pack(side="left", padx=6)
-
-        self.host_url_lbl = ctk.CTkLabel(
-            status_card,
-            text=f"http://{main.get_ip()}:{main.ACTUAL_PORT}",
-            font=ctk.CTkFont(family="monospace", size=12, weight="bold"),
-            text_color=("#0284c7", "#38bdf8")
+    def build_host_3_pillar_view(self):
+        # Pillar 1: "Add to Shared" Dropzone Card (Left, fixed width)
+        self.col_send = ctk.CTkFrame(
+            self.host_frame,
+            width=280,
+            corner_radius=22,
+            fg_color=self.colors["card_bg"],
+            border_width=2,
+            border_color=self.colors["card_border_glow"]
         )
-        self.host_url_lbl.pack(fill="x", padx=10, pady=(0, 6))
+        self.col_send.pack(side="left", fill="y", padx=(0, 12))
+        self.col_send.pack_propagate(False)
+        self.build_pillar_1_dropzone()
 
-        btn_copy_url = ctk.CTkButton(
-            status_card,
-            text="📋 Copy Local IP Link",
+        # Pillar 2: "Connect Device & Live Hub" (Center, fixed width)
+        self.col_connect = ctk.CTkFrame(
+            self.host_frame,
+            width=350,
+            corner_radius=22,
+            fg_color=self.colors["card_bg"],
+            border_width=1,
+            border_color=self.colors["card_border"]
+        )
+        self.col_connect.pack(side="left", fill="y", padx=(0, 12))
+        self.col_connect.pack_propagate(False)
+        self.build_pillar_2_connect_hub()
+
+        # Pillar 3: Dual File Managers (Right, expands to fill remaining width)
+        self.col_files = ctk.CTkFrame(self.host_frame, fg_color="transparent")
+        self.col_files.pack(side="right", fill="both", expand=True)
+        self.build_pillar_3_file_managers()
+
+    # --- PILLAR 1: ADD TO SHARED DROPZONE ---
+    def build_pillar_1_dropzone(self):
+        drop_inner = ctk.CTkFrame(self.col_send, fg_color="transparent")
+        drop_inner.pack(fill="both", expand=True, padx=14, pady=16)
+
+        # Glowing Tray Upload Icon
+        icon_frame = ctk.CTkFrame(drop_inner, width=72, height=72, corner_radius=18, fg_color=self.colors["btn_pill_bg"])
+        icon_frame.pack(pady=(12, 10))
+        icon_frame.pack_propagate(False)
+        ctk.CTkLabel(icon_frame, text="📤", font=ctk.CTkFont(size=34)).pack(expand=True)
+
+        ctk.CTkLabel(
+            drop_inner,
+            text="Add to Shared",
+            font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+            text_color=self.colors["text_main"]
+        ).pack(pady=(0, 2))
+
+        ctk.CTkLabel(
+            drop_inner,
+            text="Drag & Drop files here\nor click below",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=self.colors["text_sub"],
+            justify="center"
+        ).pack(pady=(0, 14))
+
+        # Vibrant Gradient Select Files Button
+        ctk.CTkButton(
+            drop_inner,
+            text="Select Files",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            height=38,
+            corner_radius=12,
+            fg_color=self.colors["accent_blue"],
+            hover_color="#2563eb",
+            command=self.add_files_to_host_share
+        ).pack(fill="x", pady=4)
+
+        # Add Folder Button
+        ctk.CTkButton(
+            drop_inner,
+            text="📁 Add Folder...",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            height=34,
+            corner_radius=10,
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.add_folder_to_host_share
+        ).pack(fill="x", pady=3)
+
+        # Clear All Button
+        ctk.CTkButton(
+            drop_inner,
+            text="🗑️ Clear All Staged",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
             height=28,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self.copy_host_url
+            corner_radius=8,
+            fg_color="transparent",
+            text_color=self.colors["accent_red"],
+            hover_color=self.colors["btn_pill_bg"],
+            command=self.clear_all_staged_files
+        ).pack(fill="x", pady=(6, 0))
+
+        # Bottom Quick Share Explainer
+        hint_card = ctk.CTkFrame(drop_inner, corner_radius=10, fg_color=self.colors["input_bg"], border_width=1, border_color=self.colors["input_border"])
+        hint_card.pack(fill="x", side="bottom", pady=(8, 0))
+        ctk.CTkLabel(
+            hint_card,
+            text="⚡ Quick Share Model\nOnly files you drop or select are shared.",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=self.colors["text_sub"],
+            justify="center"
+        ).pack(padx=8, pady=8)
+
+    # --- PILLAR 2: CONNECT DEVICE & LIVE HUB ---
+    def build_pillar_2_connect_hub(self):
+        hub_frame = ctk.CTkFrame(self.col_connect, fg_color="transparent")
+        hub_frame.pack(fill="both", expand=True, padx=12, pady=10)
+
+        # Title
+        ctk.CTkLabel(
+            hub_frame,
+            text="📱 Connect Device",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            text_color=self.colors["text_main"]
+        ).pack(pady=(2, 6))
+
+        # Network Mode Pill (Local Wi-Fi vs Internet Mode)
+        net_pill = ctk.CTkFrame(hub_frame, corner_radius=12, fg_color=self.colors["input_bg"], border_width=1, border_color=self.colors["input_border"])
+        net_pill.pack(fill="x", pady=(0, 6))
+
+        net_inner = ctk.CTkFrame(net_pill, fg_color="transparent")
+        net_inner.pack(fill="x", padx=8, pady=6)
+
+        net_info = ctk.CTkFrame(net_inner, fg_color="transparent")
+        net_info.pack(side="left")
+
+        ctk.CTkLabel(
+            net_info,
+            text="🏠 Local Wi-Fi",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color=self.colors["text_main"]
+        ).pack(anchor="w")
+
+        self.tunnel_sub_lbl = ctk.CTkLabel(
+            net_info,
+            text="Same Wi-Fi / Hotspot",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=self.colors["text_sub"]
         )
-        btn_copy_url.pack(fill="x", padx=10, pady=(0, 8))
+        self.tunnel_sub_lbl.pack(anchor="w")
 
-        # Room PIN Card
-        pin_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        pin_card.pack(fill="x", pady=5, padx=4)
+        self.btn_toggle_tunnel = ctk.CTkButton(
+            net_inner,
+            text="🌐 Enable Internet",
+            height=26,
+            corner_radius=8,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.toggle_cloudflare_tunnel
+        )
+        self.btn_toggle_tunnel.pack(side="right")
 
-        ctk.CTkLabel(pin_card, text="ROOM PIN", font=ctk.CTkFont(size=11, weight="bold"), text_color="#94a3b8").pack(pady=(8, 0))
+        # QR White Card (Matching exact web look: Pure white rounded square)
+        qr_white_card = ctk.CTkFrame(hub_frame, corner_radius=16, fg_color=self.colors["qr_bg"], width=144, height=144)
+        qr_white_card.pack(pady=2)
+        qr_white_card.pack_propagate(False)
 
-        self.host_pin_display = ctk.CTkLabel(
-            pin_card,
+        self.qr_wrapper = ctk.CTkLabel(qr_white_card, text="[QR Code]")
+        self.qr_wrapper.pack(expand=True)
+
+        ctk.CTkLabel(
+            hub_frame,
+            text="Scan to connect",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=self.colors["text_sub"]
+        ).pack(pady=(2, 4))
+
+        # PIN Code Display Box (Cyan Neon Numbers + Progress Line)
+        pin_box = ctk.CTkFrame(
+            hub_frame,
+            corner_radius=14,
+            fg_color=self.colors["input_bg"],
+            border_width=1,
+            border_color=self.colors["input_border"]
+        )
+        pin_box.pack(fill="x", pady=4)
+
+        pin_meta = ctk.CTkFrame(pin_box, fg_color="transparent")
+        pin_meta.pack(fill="x", padx=10, pady=(6, 2))
+
+        ctk.CTkLabel(
+            pin_meta,
+            text="PIN CODE",
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color=self.colors["text_sub"]
+        ).pack(side="left")
+
+        self.pin_timer_lbl = ctk.CTkLabel(
+            pin_meta,
+            text="30s",
+            font=ctk.CTkFont(family="Consolas", size=11, weight="bold"),
+            text_color=self.colors["accent_cyan"]
+        )
+        self.pin_timer_lbl.pack(side="right")
+
+        # Big Glowing Digital PIN with space between digits
+        self.live_pin_lbl = ctk.CTkLabel(
+            pin_box,
             text="----",
-            font=ctk.CTkFont(family="monospace", size=32, weight="bold"),
-            text_color=("#0284c7", "#00f0ff")
+            font=ctk.CTkFont(family="Consolas", size=28, weight="bold"),
+            text_color=self.colors["accent_cyan"]
         )
-        self.host_pin_display.pack(pady=2)
+        self.live_pin_lbl.pack(pady=2)
 
-        self.host_pin_timer = ctk.CTkLabel(pin_card, text="⏱️ Rotates in 30s", font=ctk.CTkFont(size=11), text_color="#94a3b8")
-        self.host_pin_timer.pack(pady=(0, 6))
+        # Neon Cyan / Purple Accent Bar
+        self.pin_timer_bar = ctk.CTkProgressBar(pin_box, height=3, corner_radius=0)
+        self.pin_timer_bar.pack(fill="x", padx=10, pady=(2, 6))
+        self.pin_timer_bar.set(1.0)
+        self.pin_timer_bar.configure(progress_color=self.colors["accent_cyan"], fg_color=self.colors["btn_pill_bg"])
 
-        pin_btns_row = ctk.CTkFrame(pin_card, fg_color="transparent")
-        pin_btns_row.pack(fill="x", padx=10, pady=(0, 8))
+        # PIN Action Buttons Row
+        pin_actions = ctk.CTkFrame(pin_box, fg_color="transparent")
+        pin_actions.pack(fill="x", padx=8, pady=(0, 6))
 
         ctk.CTkButton(
-            pin_btns_row,
-            text="🔄 Rotate PIN",
-            width=110,
-            height=28,
-            font=ctk.CTkFont(size=11, weight="bold"),
+            pin_actions,
+            text="🔄 Rotate",
+            height=24,
+            corner_radius=8,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            hover_color=self.colors["btn_pill_hover"],
             command=self.force_rotate_host_pin
         ).pack(side="left", expand=True, padx=2)
 
         ctk.CTkButton(
-            pin_btns_row,
+            pin_actions,
             text="📋 Copy PIN",
-            width=110,
-            height=28,
-            font=ctk.CTkFont(size=11, weight="bold"),
+            height=24,
+            corner_radius=8,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            hover_color=self.colors["btn_pill_hover"],
             command=self.copy_host_pin
         ).pack(side="right", expand=True, padx=2)
 
-        # QR Code Card
-        qr_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        qr_card.pack(fill="x", pady=5, padx=4)
+        # Tabbed Live Hub (Activity Log & Quick Clipboard)
+        hub_tab_container = ctk.CTkFrame(hub_frame, corner_radius=14, fg_color=self.colors["input_bg"], border_width=1, border_color=self.colors["input_border"])
+        hub_tab_container.pack(fill="x", pady=(6, 2))
 
-        ctk.CTkLabel(qr_card, text="SCAN WITH PHONE TO CONNECT", font=ctk.CTkFont(size=11, weight="bold"), text_color="#94a3b8").pack(pady=(8, 6))
-
-        self.qr_wrapper = ctk.CTkLabel(qr_card, text="[QR Code Loading...]")
-        self.qr_wrapper.pack(pady=4)
-
-        # =====================================================================
-        # FOLDER STORAGE LOCATIONS CARD
-        # =====================================================================
-        paths_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        paths_card.pack(fill="x", pady=5, padx=4)
-
-        ctk.CTkLabel(
-            paths_card,
-            text="📁 FOLDER LOCATIONS",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color="#94a3b8"
-        ).pack(anchor="w", padx=10, pady=(8, 4))
-
-        # --- Received Folder Path ---
-        ctk.CTkLabel(
-            paths_card,
-            text="📥 Save Received Uploads To:",
-            font=ctk.CTkFont(size=11, weight="bold")
-        ).pack(anchor="w", padx=10, pady=(2, 0))
-
-        self.received_folder_path_lbl = ctk.CTkLabel(
-            paths_card,
-            text=truncate_path(main.UPLOAD_DIR),
-            font=ctk.CTkFont(family="monospace", size=10),
-            text_color=("#0284c7", "#38bdf8"),
-            anchor="w"
+        # Hub Segmented Switcher
+        self.hub_switcher = ctk.CTkSegmentedButton(
+            hub_tab_container,
+            values=["⚡ Live Log", "📋 Quick Clipboard"],
+            command=self.on_hub_tab_change,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            selected_color=self.colors["btn_pill_bg"],
+            selected_hover_color=self.colors["btn_pill_hover"],
+            height=26
         )
-        self.received_folder_path_lbl.pack(fill="x", padx=10, pady=(0, 4))
+        self.hub_switcher.set("⚡ Live Log")
+        self.hub_switcher.pack(fill="x", padx=6, pady=6)
 
-        received_btns_row = ctk.CTkFrame(paths_card, fg_color="transparent")
-        received_btns_row.pack(fill="x", padx=10, pady=(0, 8))
+        # Pane 1: Activity Log
+        self.hub_log_pane = ctk.CTkTextbox(
+            hub_tab_container,
+            height=85,
+            font=ctk.CTkFont(family="Consolas", size=10),
+            fg_color=self.colors["card_bg"],
+            text_color=self.colors["text_main"],
+            border_width=1,
+            border_color=self.colors["card_border"]
+        )
+        self.hub_log_pane.pack(fill="x", padx=6, pady=(0, 6))
+        self.hub_log_pane.insert("1.0", "[00:00:00] Server started. Ready for connections.\n")
+        self.hub_log_pane.configure(state="disabled")
+
+        # Pane 2: Clipboard Pane (hidden by default)
+        self.hub_clip_pane = ctk.CTkFrame(hub_tab_container, fg_color="transparent")
+        self.hub_clip_input = ctk.CTkEntry(
+            self.hub_clip_pane,
+            placeholder_text="Type text or paste URL...",
+            height=26,
+            font=ctk.CTkFont(size=10),
+            fg_color=self.colors["card_bg"],
+            border_color=self.colors["card_border"]
+        )
+        self.hub_clip_input.pack(fill="x", padx=6, pady=(0, 4))
+
+        clip_btn_row = ctk.CTkFrame(self.hub_clip_pane, fg_color="transparent")
+        clip_btn_row.pack(fill="x", padx=6, pady=(0, 6))
 
         ctk.CTkButton(
-            received_btns_row,
-            text="📁 Change...",
-            height=26,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self.change_host_received_folder
-        ).pack(side="left", expand=True, padx=(0, 2))
+            clip_btn_row,
+            text="Send",
+            height=24,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["accent_blue"],
+            command=self.broadcast_host_clipboard
+        ).pack(side="left", expand=True, padx=(0, 4))
 
         ctk.CTkButton(
-            received_btns_row,
-            text="📂 Open",
+            clip_btn_row,
+            text="Copy Current",
+            height=24,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10),
+            fg_color=self.colors["btn_pill_bg"],
+            command=self.copy_current_host_clipboard
+        ).pack(side="right", expand=True)
+
+    def on_hub_tab_change(self, tab):
+        if "Log" in tab:
+            self.active_hub_tab = "log"
+            self.hub_clip_pane.pack_forget()
+            self.hub_log_pane.pack(fill="x", padx=8, pady=(0, 8))
+        else:
+            self.active_hub_tab = "clip"
+            self.hub_log_pane.pack_forget()
+            self.hub_clip_pane.pack(fill="x", padx=0, pady=(0, 8))
+
+    # --- PILLAR 3: DUAL FILE MANAGERS (Received Files on Top, Shared Files on Bottom) ---
+    def build_pillar_3_file_managers(self):
+        # Card 1 (Top Half): Received Files
+        self.card_received = ctk.CTkFrame(
+            self.col_files,
+            corner_radius=22,
+            fg_color=self.colors["card_bg"],
+            border_width=1,
+            border_color=self.colors["card_border"]
+        )
+        self.card_received.pack(fill="both", expand=True, pady=(0, 10))
+        self.build_received_files_card()
+
+        # Card 2 (Bottom Half): Shared Files (Quick Share Staged)
+        self.card_shared = ctk.CTkFrame(
+            self.col_files,
+            corner_radius=22,
+            fg_color=self.colors["card_bg"],
+            border_width=1,
+            border_color=self.colors["card_border"]
+        )
+        self.card_shared.pack(fill="both", expand=True)
+        self.build_shared_files_card()
+
+    # --- RECEIVED FILES CARD ---
+    def build_received_files_card(self):
+        # Header
+        header = ctk.CTkFrame(self.card_received, fg_color="transparent")
+        header.pack(fill="x", padx=14, pady=(10, 4))
+
+        title_col = ctk.CTkFrame(header, fg_color="transparent")
+        title_col.pack(side="left")
+
+        ctk.CTkLabel(
+            title_col,
+            text="📥 Received Files",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            text_color=self.colors["text_main"]
+        ).pack(side="left")
+
+        self.rx_count_lbl = ctk.CTkLabel(
+            title_col,
+            text="0 files",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=self.colors["text_sub"]
+        )
+        self.rx_count_lbl.pack(side="left", padx=6)
+
+        # Action Pills Row
+        actions = ctk.CTkFrame(header, fg_color="transparent")
+        actions.pack(side="right")
+
+        ctk.CTkButton(
+            actions,
+            text="📦 ZIP All",
+            width=68,
             height=26,
-            width=50,
-            font=ctk.CTkFont(size=11),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=lambda: os.startfile(f"http://127.0.0.1:{main.ACTUAL_PORT}/api/zip?folder=received")
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            actions,
+            text="📂 Open Folder",
+            width=88,
+            height=26,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
             command=lambda: os.startfile(main.UPLOAD_DIR)
         ).pack(side="left", padx=2)
 
         ctk.CTkButton(
-            received_btns_row,
-            text="🔄 Reset",
+            actions,
+            text="📁 Change",
+            width=66,
             height=26,
-            width=50,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.change_host_received_folder
+        ).pack(side="left", padx=2)
+
+        # Search Bar
+        search_frame = ctk.CTkFrame(self.card_received, fg_color="transparent")
+        search_frame.pack(fill="x", padx=14, pady=(0, 4))
+
+        self.search_received_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="🔍 Search received...",
+            height=28,
+            corner_radius=8,
             font=ctk.CTkFont(size=11),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
-            command=self.reset_host_received_folder
-        ).pack(side="left", padx=(2, 0))
-
-        # --- Shared Folder Path (Fallback) ---
-        ctk.CTkLabel(
-            paths_card,
-            text="📤 Default Shared Directory:",
-            font=ctk.CTkFont(size=11, weight="bold")
-        ).pack(anchor="w", padx=10, pady=(4, 0))
-
-        self.shared_folder_path_lbl = ctk.CTkLabel(
-            paths_card,
-            text=truncate_path(main.DOWNLOAD_DIR),
-            font=ctk.CTkFont(family="monospace", size=10),
-            text_color=("#0284c7", "#38bdf8"),
-            anchor="w"
+            fg_color=self.colors["input_bg"],
+            border_color=self.colors["input_border"]
         )
-        self.shared_folder_path_lbl.pack(fill="x", padx=10, pady=(0, 4))
+        self.search_received_entry.pack(fill="x")
+        self.search_received_entry.bind("<KeyRelease>", self.on_search_received)
 
-        shared_btns_row = ctk.CTkFrame(paths_card, fg_color="transparent")
-        shared_btns_row.pack(fill="x", padx=10, pady=(0, 8))
+        # Scroll Area for Received Files
+        self.received_scroll = ctk.CTkScrollableFrame(self.card_received, fg_color="transparent")
+        self.received_scroll.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+
+    def on_search_received(self, event=None):
+        self.search_received_query = self.search_received_entry.get().strip().lower()
+        self.refresh_host_received_files_list()
+
+    # --- SHARED FILES CARD ---
+    def build_shared_files_card(self):
+        header = ctk.CTkFrame(self.card_shared, fg_color="transparent")
+        header.pack(fill="x", padx=14, pady=(10, 4))
+
+        title_col = ctk.CTkFrame(header, fg_color="transparent")
+        title_col.pack(side="left")
+
+        ctk.CTkLabel(
+            title_col,
+            text="📤 Shared Files",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            text_color=self.colors["text_main"]
+        ).pack(side="left")
+
+        self.tx_count_lbl = ctk.CTkLabel(
+            title_col,
+            text="0 files staged",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=self.colors["text_sub"]
+        )
+        self.tx_count_lbl.pack(side="left", padx=6)
+
+        actions = ctk.CTkFrame(header, fg_color="transparent")
+        actions.pack(side="right")
 
         ctk.CTkButton(
-            shared_btns_row,
-            text="📁 Change...",
+            actions,
+            text="📦 ZIP All",
+            width=68,
             height=26,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self.change_host_shared_folder
-        ).pack(side="left", expand=True, padx=(0, 2))
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=lambda: os.startfile(f"http://127.0.0.1:{main.ACTUAL_PORT}/api/zip?folder=shared")
+        ).pack(side="left", padx=2)
 
         ctk.CTkButton(
-            shared_btns_row,
-            text="📂 Open",
+            actions,
+            text="📂 Open Folder",
+            width=88,
             height=26,
-            width=50,
-            font=ctk.CTkFont(size=11),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
             command=lambda: os.startfile(main.DOWNLOAD_DIR)
         ).pack(side="left", padx=2)
 
         ctk.CTkButton(
-            shared_btns_row,
-            text="🔄 Reset",
+            actions,
+            text="📁 Change",
+            width=66,
             height=26,
-            width=50,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.change_host_shared_folder
+        ).pack(side="left", padx=2)
+
+        search_frame = ctk.CTkFrame(self.card_shared, fg_color="transparent")
+        search_frame.pack(fill="x", padx=14, pady=(0, 4))
+
+        self.search_shared_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="🔍 Search shared...",
+            height=28,
+            corner_radius=8,
             font=ctk.CTkFont(size=11),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
-            command=self.reset_host_shared_folder
-        ).pack(side="left", padx=(2, 0))
-
-        # Cloudflare Tunnel Toggle Card
-        tunnel_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        tunnel_card.pack(fill="x", pady=5, padx=4)
-
-        tunnel_top = ctk.CTkFrame(tunnel_card, fg_color="transparent")
-        tunnel_top.pack(fill="x", padx=10, pady=(8, 4))
-
-        ctk.CTkLabel(tunnel_top, text="☁️ Cloudflare Public Link", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
-        self.tunnel_switch = ctk.CTkSwitch(tunnel_top, text="", command=self.toggle_cloudflare_tunnel, width=40)
-        self.tunnel_switch.pack(side="right")
-
-        self.tunnel_url_lbl = ctk.CTkLabel(
-            tunnel_card,
-            text="Disabled (Offline LAN Mode)",
-            font=ctk.CTkFont(family="monospace", size=10),
-            text_color="#94a3b8"
+            fg_color=self.colors["input_bg"],
+            border_color=self.colors["input_border"]
         )
-        self.tunnel_url_lbl.pack(fill="x", padx=10, pady=(0, 8))
+        self.search_shared_entry.pack(fill="x")
+        self.search_shared_entry.bind("<KeyRelease>", self.on_search_shared)
 
-        # --- RIGHT PANEL: Tabview (Quick Share, Received Files, Shared Clipboard) ---
-        self.host_tabs = ctk.CTkTabview(self.host_right_col, fg_color="transparent")
-        self.host_tabs.pack(fill="both", expand=True, padx=10, pady=10)
+        self.shared_scroll = ctk.CTkScrollableFrame(self.card_shared, fg_color="transparent")
+        self.shared_scroll.pack(fill="both", expand=True, padx=12, pady=(0, 8))
 
-        self.tab_shared = self.host_tabs.add("📤 Quick Share (Send)")
-        self.tab_received = self.host_tabs.add("📥 Received Files")
-        self.tab_clipboard = self.host_tabs.add("📋 Shared Clipboard")
-
-        self.build_host_shared_tab()
-        self.build_host_received_tab()
-        self.build_host_clipboard_tab()
-
-    # --- HOST TAB 1: Quick Share (Send) ---
-    def build_host_shared_tab(self):
-        # Quick Share Drag & Drop Card
-        drop_card = ctk.CTkFrame(self.tab_shared, corner_radius=10, fg_color=("#1e293b", "#161f30"), border_width=1, border_color=("#334155", "#1e293b"))
-        drop_card.pack(fill="x", pady=(0, 8), padx=2)
-
-        drop_inner = ctk.CTkFrame(drop_card, fg_color="transparent")
-        drop_inner.pack(fill="x", padx=12, pady=10)
-
-        ctk.CTkLabel(
-            drop_inner,
-            text="☁️ Quick Share: Drag & Drop Files or Folders Here",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=("#0284c7", "#38bdf8")
-        ).pack(anchor="w")
-
-        ctk.CTkLabel(
-            drop_inner,
-            text="Files stream directly from your PC without duplicate copying. Only staged items are exposed to peers.",
-            font=ctk.CTkFont(size=11),
-            text_color="#94a3b8"
-        ).pack(anchor="w", pady=(2, 8))
-
-        btns_row = ctk.CTkFrame(drop_inner, fg_color="transparent")
-        btns_row.pack(fill="x")
-
-        ctk.CTkButton(
-            btns_row,
-            text="➕ Add File(s)...",
-            height=30,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            command=self.add_files_to_host_share
-        ).pack(side="left", padx=(0, 6))
-
-        ctk.CTkButton(
-            btns_row,
-            text="📁 Add Folder...",
-            height=30,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=("#334155", "#1e293b"),
-            hover_color=("#475569", "#334155"),
-            command=self.add_folder_to_host_share
-        ).pack(side="left", padx=4)
-
-        ctk.CTkButton(
-            btns_row,
-            text="🗑️ Clear All",
-            height=30,
-            width=80,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color=("#334155", "#1e293b"),
-            hover_color=("#ef4444", "#dc2626"),
-            command=self.clear_all_staged_files
-        ).pack(side="left", padx=4)
-
-        self.shared_count_lbl = ctk.CTkLabel(btns_row, text="0 files staged", font=ctk.CTkFont(size=12), text_color="#94a3b8")
-        self.shared_count_lbl.pack(side="right", padx=8)
-
-        # Status notice bar
-        self.shared_banner = ctk.CTkLabel(
-            self.tab_shared,
-            text="☁️ Quick Share Ready: Drag & drop files here or click '+ Add File(s)'",
-            font=ctk.CTkFont(size=11),
-            text_color="#94a3b8",
-            anchor="w"
-        )
-        self.shared_banner.pack(fill="x", pady=(0, 6))
-
-        # Scrollable list for shared files
-        self.shared_files_scroll = ctk.CTkScrollableFrame(self.tab_shared, fg_color=("#1e293b", "#090d16"), corner_radius=10)
-        self.shared_files_scroll.pack(fill="both", expand=True)
-
-    # --- HOST TAB 2: Received Files ---
-    def build_host_received_tab(self):
-        action_bar = ctk.CTkFrame(self.tab_received, height=44, fg_color="transparent")
-        action_bar.pack(fill="x", pady=(0, 6))
-
-        ctk.CTkButton(
-            action_bar,
-            text="📂 Open Received Folder",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            command=lambda: os.startfile(main.UPLOAD_DIR)
-        ).pack(side="left", padx=(0, 6))
-
-        ctk.CTkButton(
-            action_bar,
-            text="📁 Change Folder...",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color=("#0284c7", "#0369a1"),
-            hover_color="#0284c7",
-            command=self.change_host_received_folder
-        ).pack(side="left", padx=4)
-
-        self.received_count_lbl = ctk.CTkLabel(action_bar, text="0 files received", font=ctk.CTkFont(size=12), text_color="#94a3b8")
-        self.received_count_lbl.pack(side="right", padx=8)
-
-        # Folder location notice bar
-        self.received_banner = ctk.CTkLabel(
-            self.tab_received,
-            text=f"📥 Saving files to: {main.UPLOAD_DIR}",
-            font=ctk.CTkFont(size=11),
-            text_color="#94a3b8",
-            anchor="w"
-        )
-        self.received_banner.pack(fill="x", pady=(0, 6))
-
-        self.received_files_scroll = ctk.CTkScrollableFrame(self.tab_received, fg_color=("#1e293b", "#090d16"), corner_radius=10)
-        self.received_files_scroll.pack(fill="both", expand=True)
-
-    # --- HOST TAB 3: Shared Clipboard ---
-    def build_host_clipboard_tab(self):
-        desc = ctk.CTkLabel(
-            self.tab_clipboard,
-            text="Universal clipboard synchronizes instantly across Host PC and connected peer devices.",
-            font=ctk.CTkFont(size=12),
-            text_color="#94a3b8"
-        )
-        desc.pack(anchor="w", pady=(0, 8))
-
-        self.host_clipboard_textbox = ctk.CTkTextbox(self.tab_clipboard, height=180, font=ctk.CTkFont(size=13))
-        self.host_clipboard_textbox.pack(fill="x", pady=4)
-
-        btn_row = ctk.CTkFrame(self.tab_clipboard, fg_color="transparent")
-        btn_row.pack(fill="x", pady=10)
-
-        ctk.CTkButton(
-            btn_row,
-            text="🚀 Broadcast Text to Peers",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            command=self.broadcast_host_clipboard
-        ).pack(side="left", padx=(0, 8))
-
-        ctk.CTkButton(
-            btn_row,
-            text="📋 Copy Current Clipboard",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=("#334155", "#1e293b"),
-            hover_color=("#475569", "#334155"),
-            command=self.copy_current_host_clipboard
-        ).pack(side="left")
+    def on_search_shared(self, event=None):
+        self.search_shared_query = self.search_shared_entry.get().strip().lower()
+        self.refresh_host_shared_files_list()
 
     # =========================================================================
-    # DRAG & DROP AND STAGING METHODS
+    # 5. CLIENT MODE: MATCHING client_dark.png LAYOUT
+    # =========================================================================
+    def build_client_view(self):
+        # Header Connection Card
+        conn_card = ctk.CTkFrame(
+            self.client_frame,
+            corner_radius=20,
+            fg_color=self.colors["card_bg"],
+            border_width=1,
+            border_color=self.colors["card_border"]
+        )
+        conn_card.pack(fill="x", pady=(0, 10))
+
+        title_row = ctk.CTkFrame(conn_card, fg_color="transparent")
+        title_row.pack(fill="x", padx=16, pady=(12, 6))
+
+        ctk.CTkLabel(
+            title_row,
+            text="Connect to a PyShare Host (Phone, PC, or Mac)",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            text_color=self.colors["accent_cyan"]
+        ).pack(side="left")
+
+        self.client_status_pill = ctk.CTkLabel(
+            title_row,
+            text="⚪ Not Connected",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=self.colors["text_sub"],
+            fg_color=self.colors["input_bg"],
+            corner_radius=10,
+            padx=10,
+            pady=4
+        )
+        self.client_status_pill.pack(side="right")
+
+        # Inputs Row (Host IP, PIN, Connect Button, Auto-Discover Button)
+        inputs_row = ctk.CTkFrame(conn_card, fg_color="transparent")
+        inputs_row.pack(fill="x", padx=16, pady=(4, 6))
+
+        ctk.CTkLabel(inputs_row, text="Host Address:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(0, 6))
+        self.client_host_entry = ctk.CTkEntry(
+            inputs_row,
+            placeholder_text="192.168.1.5:8010",
+            width=180,
+            font=ctk.CTkFont(size=12),
+            fg_color=self.colors["input_bg"],
+            border_color=self.colors["input_border"]
+        )
+        self.client_host_entry.pack(side="left", padx=(0, 12))
+
+        ctk.CTkLabel(inputs_row, text="Room PIN:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(0, 6))
+        self.client_pin_entry = ctk.CTkEntry(
+            inputs_row,
+            placeholder_text="4-digit PIN",
+            width=95,
+            font=ctk.CTkFont(size=12),
+            fg_color=self.colors["input_bg"],
+            border_color=self.colors["input_border"]
+        )
+        self.client_pin_entry.pack(side="left", padx=(0, 12))
+
+        self.client_connect_btn = ctk.CTkButton(
+            inputs_row,
+            text="⚡ Connect",
+            width=100,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=self.colors["accent_blue"],
+            hover_color="#2563eb",
+            command=self.toggle_client_connection
+        )
+        self.client_connect_btn.pack(side="left", padx=(0, 8))
+
+        self.client_discover_btn = ctk.CTkButton(
+            inputs_row,
+            text="🔍 Auto-Discover",
+            width=120,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.auto_discover_hosts_network
+        )
+        self.client_discover_btn.pack(side="left")
+
+        # Download Destination Settings Row
+        dl_dest_row = ctk.CTkFrame(conn_card, fg_color="transparent")
+        dl_dest_row.pack(fill="x", padx=16, pady=(2, 10))
+
+        ctk.CTkLabel(
+            dl_dest_row,
+            text="📥 Save Downloaded Files To:",
+            font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(side="left", padx=(0, 6))
+
+        self.client_dl_path_lbl = ctk.CTkLabel(
+            dl_dest_row,
+            text=truncate_path(self.client_download_dir, max_len=45),
+            font=ctk.CTkFont(family="Consolas", size=11),
+            text_color=self.colors["accent_cyan"]
+        )
+        self.client_dl_path_lbl.pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            dl_dest_row,
+            text="📁 Change...",
+            height=24,
+            width=80,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.change_client_download_folder
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            dl_dest_row,
+            text="📂 Open",
+            height=24,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=lambda: os.startfile(self.client_download_dir)
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            dl_dest_row,
+            text="🔄 Reset",
+            height=24,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.reset_client_download_folder
+        ).pack(side="left", padx=2)
+
+        # Body Split (Left: Download from Host, Right: Send to Host)
+        client_body = ctk.CTkFrame(self.client_frame, fg_color="transparent")
+        client_body.pack(fill="both", expand=True)
+
+        self.client_download_col = ctk.CTkFrame(
+            client_body,
+            corner_radius=20,
+            fg_color=self.colors["card_bg"],
+            border_width=1,
+            border_color=self.colors["card_border"]
+        )
+        self.client_download_col.pack(side="left", fill="both", expand=True, padx=(0, 10))
+
+        self.client_upload_col = ctk.CTkFrame(
+            client_body,
+            width=420,
+            corner_radius=20,
+            fg_color=self.colors["card_bg"],
+            border_width=1,
+            border_color=self.colors["card_border"]
+        )
+        self.client_upload_col.pack(side="right", fill="both")
+        self.client_upload_col.pack_propagate(False)
+
+        # Left: Download Files from Host
+        dl_header = ctk.CTkFrame(self.client_download_col, fg_color="transparent")
+        dl_header.pack(fill="x", padx=14, pady=(10, 4))
+
+        ctk.CTkLabel(dl_header, text="💾 Download from Host", font=ctk.CTkFont(size=14, weight="bold")).pack(side="left")
+
+        self.client_dl_all_btn = ctk.CTkButton(
+            dl_header,
+            text="📦 ZIP All",
+            width=70,
+            height=26,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.client_download_all_zip,
+            state="disabled"
+        )
+        self.client_dl_all_btn.pack(side="right", padx=2)
+
+        self.client_refresh_btn = ctk.CTkButton(
+            dl_header,
+            text="🔄 Refresh",
+            width=70,
+            height=26,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.fetch_client_host_files,
+            state="disabled"
+        )
+        self.client_refresh_btn.pack(side="right", padx=2)
+
+        # Search Bar for Host Files (Matching client_dark.png)
+        client_search_frame = ctk.CTkFrame(self.client_download_col, fg_color="transparent")
+        client_search_frame.pack(fill="x", padx=14, pady=(0, 4))
+
+        self.client_search_entry = ctk.CTkEntry(
+            client_search_frame,
+            placeholder_text="🔍 Search host files...",
+            height=28,
+            corner_radius=8,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["input_bg"],
+            border_color=self.colors["input_border"]
+        )
+        self.client_search_entry.pack(fill="x")
+        self.client_search_entry.bind("<KeyRelease>", self.on_client_search)
+
+        self.client_files_scroll = ctk.CTkScrollableFrame(self.client_download_col, fg_color="transparent")
+        self.client_files_scroll.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+
+        # Right: Send to Host Card (Matching client_dark.png!)
+        ul_card = ctk.CTkFrame(
+            self.client_upload_col,
+            corner_radius=18,
+            fg_color=self.colors["input_bg"],
+            border_width=2,
+            border_color=self.colors["card_border_glow"]
+        )
+        ul_card.pack(fill="x", padx=12, pady=(10, 6))
+
+        ul_inner = ctk.CTkFrame(ul_card, fg_color="transparent")
+        ul_inner.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkLabel(ul_inner, text="☁️", font=ctk.CTkFont(size=30)).pack()
+        ctk.CTkLabel(ul_inner, text="Send to Host", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=1)
+        ctk.CTkLabel(ul_inner, text="Tap here to upload files", font=ctk.CTkFont(size=10), text_color=self.colors["text_sub"]).pack(pady=(0, 6))
+
+        self.client_select_files_btn = ctk.CTkButton(
+            ul_inner,
+            text="Browse Files",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            height=32,
+            corner_radius=10,
+            fg_color=self.colors["accent_blue"],
+            command=self.client_select_files_for_upload,
+            state="disabled"
+        )
+        self.client_select_files_btn.pack(fill="x")
+
+        # Queued Files Box
+        self.client_upload_queue_box = ctk.CTkTextbox(
+            self.client_upload_col,
+            height=75,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["input_bg"],
+            border_width=1,
+            border_color=self.colors["input_border"]
+        )
+        self.client_upload_queue_box.pack(fill="x", padx=12, pady=3)
+        self.client_upload_queue_box.insert("1.0", "No files queued for upload.")
+        self.client_upload_queue_box.configure(state="disabled")
+
+        self.client_send_btn = ctk.CTkButton(
+            self.client_upload_col,
+            text="🚀 Upload Queued Files to Host",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            height=34,
+            corner_radius=10,
+            fg_color=self.colors["accent_green"],
+            hover_color="#059669",
+            command=self.client_execute_upload,
+            state="disabled"
+        )
+        self.client_send_btn.pack(fill="x", padx=12, pady=3)
+
+        # Client Progress Bar
+        self.client_progress_bar = ctk.CTkProgressBar(self.client_upload_col, height=5)
+        self.client_progress_bar.pack(fill="x", padx=12, pady=(4, 2))
+        self.client_progress_bar.set(0)
+        self.client_progress_bar.configure(progress_color=self.colors["accent_cyan"], fg_color=self.colors["btn_pill_bg"])
+
+        self.client_progress_lbl = ctk.CTkLabel(self.client_upload_col, text="Ready", font=ctk.CTkFont(size=10), text_color=self.colors["text_sub"])
+        self.client_progress_lbl.pack(padx=12, pady=(0, 4))
+
+        # Client Clipboard Card
+        clip_card = ctk.CTkFrame(self.client_upload_col, corner_radius=14, fg_color=self.colors["input_bg"], border_width=1, border_color=self.colors["input_border"])
+        clip_card.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+
+        ctk.CTkLabel(clip_card, text="📋 Host Clipboard", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=10, pady=(6, 2))
+
+        self.client_clipboard_entry = ctk.CTkEntry(
+            clip_card,
+            placeholder_text="Send text to host clipboard...",
+            height=26,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["card_bg"],
+            border_color=self.colors["card_border"]
+        )
+        self.client_clipboard_entry.pack(fill="x", padx=10, pady=3)
+
+        clip_btn_row = ctk.CTkFrame(clip_card, fg_color="transparent")
+        clip_btn_row.pack(fill="x", padx=10, pady=(0, 6))
+
+        self.client_clip_send_btn = ctk.CTkButton(
+            clip_btn_row,
+            text="Send Text",
+            width=80,
+            height=24,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["accent_blue"],
+            command=self.client_send_clipboard_to_host,
+            state="disabled"
+        )
+        self.client_clip_send_btn.pack(side="left", padx=(0, 4))
+
+        self.client_clip_copy_btn = ctk.CTkButton(
+            clip_btn_row,
+            text="Copy Host Text",
+            width=100,
+            height=24,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.client_copy_host_clipboard,
+            state="disabled"
+        )
+        self.client_clip_copy_btn.pack(side="left")
+
+    # =========================================================================
+    # 6. QUICK SHARE STAGING & DRAG-AND-DROP ACTIONS
     # =========================================================================
     def on_drop_files(self, file_paths):
         if not file_paths:
@@ -640,7 +1237,7 @@ class PyShareApp(ctk.CTk):
         if self.current_mode == "host":
             count = main.stage_files(file_paths)
             self.refresh_host_shared_files_list()
-            self.host_tabs.set("📤 Quick Share (Send)")
+            self.add_log_entry(f"Added {count} file(s) to Quick Share")
             messagebox.showinfo("Quick Share", f"Added {count} file{'s' if count != 1 else ''} to Quick Share!\nPeers can now download them.")
         else:
             valid_files = [p for p in file_paths if os.path.isfile(p)]
@@ -657,6 +1254,7 @@ class PyShareApp(ctk.CTk):
             return
         count = main.stage_files(paths)
         self.refresh_host_shared_files_list()
+        self.add_log_entry(f"Added {count} file(s) to Quick Share")
         messagebox.showinfo("Quick Share", f"Added {count} file{'s' if count != 1 else ''} to Quick Share!")
 
     def add_folder_to_host_share(self):
@@ -665,303 +1263,47 @@ class PyShareApp(ctk.CTk):
             return
         count = main.stage_files([folder])
         self.refresh_host_shared_files_list()
+        self.add_log_entry(f"Added {count} file(s) from folder to Quick Share")
         messagebox.showinfo("Quick Share", f"Added {count} file{'s' if count != 1 else ''} from folder to Quick Share!")
 
     def clear_all_staged_files(self):
         if messagebox.askyesno("Clear All", "Unstage all files from Quick Share?\n(Original files on your disk will NOT be deleted)."):
             main.clear_staged_files()
             self.refresh_host_shared_files_list()
+            self.add_log_entry("Cleared all staged files")
 
     def unstage_host_file(self, filename):
         main.unstage_file(filename)
         self.refresh_host_shared_files_list()
+        self.add_log_entry(f"Unstaged: {filename}")
+
+    def add_log_entry(self, msg):
+        t = time.strftime("%H:%M:%S")
+        self.hub_log_pane.configure(state="normal")
+        self.hub_log_pane.insert("1.0", f"[{t}] {msg}\n")
+        self.hub_log_pane.configure(state="disabled")
 
     # =========================================================================
-    # FOLDER PATH CUSTOMIZATION METHODS (HOST MODE)
+    # 7. FOLDER STORAGE PATH CUSTOMIZATION
     # =========================================================================
     def change_host_shared_folder(self):
-        new_dir = filedialog.askdirectory(
-            title="Select Default Shared Directory",
-            initialdir=main.DOWNLOAD_DIR
-        )
+        new_dir = filedialog.askdirectory(title="Select Default Shared Directory", initialdir=main.DOWNLOAD_DIR)
         if new_dir and os.path.isdir(new_dir):
             if main.set_custom_shared_dir(new_dir):
-                self.shared_folder_path_lbl.configure(text=truncate_path(new_dir))
                 self.refresh_host_shared_files_list()
+                self.add_log_entry(f"Shared folder: {new_dir}")
                 messagebox.showinfo("Folder Updated", f"Default shared folder set to:\n{new_dir}")
 
-    def reset_host_shared_folder(self):
-        default_dir = self.defaults["shared_dir"]
-        os.makedirs(default_dir, exist_ok=True)
-        if main.set_custom_shared_dir(default_dir):
-            self.shared_folder_path_lbl.configure(text=truncate_path(default_dir))
-            self.refresh_host_shared_files_list()
-            messagebox.showinfo("Reset to Default", f"Shared folder reset to default:\n{default_dir}")
-
     def change_host_received_folder(self):
-        new_dir = filedialog.askdirectory(
-            title="Select Folder to Store Incoming Uploads",
-            initialdir=main.UPLOAD_DIR
-        )
+        new_dir = filedialog.askdirectory(title="Select Folder to Store Incoming Uploads", initialdir=main.UPLOAD_DIR)
         if new_dir and os.path.isdir(new_dir):
             if main.set_custom_received_dir(new_dir):
-                self.received_folder_path_lbl.configure(text=truncate_path(new_dir))
-                self.received_banner.configure(text=f"📥 Saving files to: {new_dir}")
                 self.refresh_host_received_files_list()
+                self.add_log_entry(f"Received folder: {new_dir}")
                 messagebox.showinfo("Folder Updated", f"Incoming uploads will now be saved in:\n{new_dir}")
 
-    def reset_host_received_folder(self):
-        default_dir = self.defaults["received_dir"]
-        os.makedirs(default_dir, exist_ok=True)
-        if main.set_custom_received_dir(default_dir):
-            self.received_folder_path_lbl.configure(text=truncate_path(default_dir))
-            self.received_banner.configure(text=f"📥 Saving files to: {default_dir}")
-            self.refresh_host_received_files_list()
-            messagebox.showinfo("Reset to Default", f"Received folder reset to default:\n{default_dir}")
-
-    # =========================================================================
-    # 4. CLIENT MODE VIEW (CONNECT TO ANY HOST, DOWNLOAD & UPLOAD FILES)
-    # =========================================================================
-    def build_client_view(self):
-        # Header Connection Card
-        conn_card = ctk.CTkFrame(self.client_frame, corner_radius=14, fg_color=("#182234", "#0f172a"))
-        conn_card.pack(fill="x", pady=(0, 10))
-
-        title_row = ctk.CTkFrame(conn_card, fg_color="transparent")
-        title_row.pack(fill="x", padx=16, pady=(12, 6))
-
-        ctk.CTkLabel(
-            title_row,
-            text="Connect to a PyShare Host (Phone, PC, or Mac)",
-            font=ctk.CTkFont(size=15, weight="bold"),
-            text_color=("#0284c7", "#38bdf8")
-        ).pack(side="left")
-
-        self.client_status_pill = ctk.CTkLabel(
-            title_row,
-            text="⚪ Not Connected",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#94a3b8",
-            fg_color=("#1e293b", "#1e293b"),
-            corner_radius=10,
-            padx=10,
-            pady=4
-        )
-        self.client_status_pill.pack(side="right")
-
-        # Inputs Row (Host IP, PIN, Connect Button, Auto-Discover Button)
-        inputs_row = ctk.CTkFrame(conn_card, fg_color="transparent")
-        inputs_row.pack(fill="x", padx=16, pady=(4, 6))
-
-        ctk.CTkLabel(inputs_row, text="Host Address:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(0, 6))
-        self.client_host_entry = ctk.CTkEntry(inputs_row, placeholder_text="192.168.1.5:8010", width=180, font=ctk.CTkFont(size=12))
-        self.client_host_entry.pack(side="left", padx=(0, 12))
-
-        ctk.CTkLabel(inputs_row, text="Room PIN:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(0, 6))
-        self.client_pin_entry = ctk.CTkEntry(inputs_row, placeholder_text="4-digit PIN", width=95, font=ctk.CTkFont(size=12))
-        self.client_pin_entry.pack(side="left", padx=(0, 12))
-
-        self.client_connect_btn = ctk.CTkButton(
-            inputs_row,
-            text="⚡ Connect",
-            width=100,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            command=self.toggle_client_connection
-        )
-        self.client_connect_btn.pack(side="left", padx=(0, 8))
-
-        self.client_discover_btn = ctk.CTkButton(
-            inputs_row,
-            text="🔍 Auto-Discover",
-            width=120,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=("#334155", "#1e293b"),
-            hover_color=("#475569", "#334155"),
-            command=self.auto_discover_hosts_network
-        )
-        self.client_discover_btn.pack(side="left")
-
-        # Client Download Destination Settings Row
-        dl_dest_row = ctk.CTkFrame(conn_card, fg_color="transparent")
-        dl_dest_row.pack(fill="x", padx=16, pady=(2, 10))
-
-        ctk.CTkLabel(
-            dl_dest_row,
-            text="📥 Save Downloaded Files To:",
-            font=ctk.CTkFont(size=11, weight="bold")
-        ).pack(side="left", padx=(0, 6))
-
-        self.client_dl_path_lbl = ctk.CTkLabel(
-            dl_dest_row,
-            text=truncate_path(self.client_download_dir, max_len=45),
-            font=ctk.CTkFont(family="monospace", size=11),
-            text_color=("#0284c7", "#38bdf8")
-        )
-        self.client_dl_path_lbl.pack(side="left", padx=(0, 10))
-
-        ctk.CTkButton(
-            dl_dest_row,
-            text="📁 Change...",
-            height=24,
-            width=80,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self.change_client_download_folder
-        ).pack(side="left", padx=2)
-
-        ctk.CTkButton(
-            dl_dest_row,
-            text="📂 Open",
-            height=24,
-            width=50,
-            font=ctk.CTkFont(size=11),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
-            command=lambda: os.startfile(self.client_download_dir)
-        ).pack(side="left", padx=2)
-
-        ctk.CTkButton(
-            dl_dest_row,
-            text="🔄 Reset",
-            height=24,
-            width=50,
-            font=ctk.CTkFont(size=11),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
-            command=self.reset_client_download_folder
-        ).pack(side="left", padx=2)
-
-        # Body: 2-Column Split (Left: Download Host's Files, Right: Send Files to Host & Clipboard)
-        client_body = ctk.CTkFrame(self.client_frame, fg_color="transparent")
-        client_body.pack(fill="both", expand=True)
-
-        self.client_download_col = ctk.CTkFrame(client_body, corner_radius=14, fg_color=("#182234", "#0f172a"))
-        self.client_download_col.pack(side="left", fill="both", expand=True, padx=(0, 10))
-
-        self.client_upload_col = ctk.CTkFrame(client_body, width=420, corner_radius=14, fg_color=("#182234", "#0f172a"))
-        self.client_upload_col.pack(side="right", fill="both")
-        self.client_upload_col.pack_propagate(False)
-
-        # --- LEFT: Available Files on Host ---
-        dl_header = ctk.CTkFrame(self.client_download_col, fg_color="transparent")
-        dl_header.pack(fill="x", padx=14, pady=12)
-
-        ctk.CTkLabel(dl_header, text="📂 Files Shared by Host", font=ctk.CTkFont(size=14, weight="bold")).pack(side="left")
-
-        self.client_dl_all_btn = ctk.CTkButton(
-            dl_header,
-            text="📦 Download All (ZIP)",
-            height=28,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color=("#334155", "#1e293b"),
-            hover_color=("#475569", "#334155"),
-            command=self.client_download_all_zip,
-            state="disabled"
-        )
-        self.client_dl_all_btn.pack(side="right", padx=4)
-
-        self.client_refresh_btn = ctk.CTkButton(
-            dl_header,
-            text="🔄 Refresh",
-            width=70,
-            height=28,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self.fetch_client_host_files,
-            state="disabled"
-        )
-        self.client_refresh_btn.pack(side="right", padx=4)
-
-        self.client_files_scroll = ctk.CTkScrollableFrame(self.client_download_col, fg_color=("#1e293b", "#090d16"), corner_radius=10)
-        self.client_files_scroll.pack(fill="both", expand=True, padx=14, pady=(0, 14))
-
-        # --- RIGHT: Send Files to Host & Host Clipboard ---
-        ul_header = ctk.CTkFrame(self.client_upload_col, fg_color="transparent")
-        ul_header.pack(fill="x", padx=14, pady=(12, 6))
-
-        ctk.CTkLabel(ul_header, text="📤 Send Files to Host", font=ctk.CTkFont(size=14, weight="bold")).pack(side="left")
-
-        # Drag & Drop Zone Hint for Upload
-        drop_hint_lbl = ctk.CTkLabel(
-            self.client_upload_col,
-            text="☁️ Drag & drop files anywhere to queue for upload",
-            font=ctk.CTkFont(size=11),
-            text_color="#94a3b8"
-        )
-        drop_hint_lbl.pack(fill="x", padx=14, pady=(0, 4))
-
-        self.client_select_files_btn = ctk.CTkButton(
-            self.client_upload_col,
-            text="➕ Select Files to Upload...",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            command=self.client_select_files_for_upload,
-            state="disabled"
-        )
-        self.client_select_files_btn.pack(fill="x", padx=14, pady=4)
-
-        self.client_upload_queue_box = ctk.CTkTextbox(self.client_upload_col, height=130, font=ctk.CTkFont(size=12))
-        self.client_upload_queue_box.pack(fill="x", padx=14, pady=4)
-        self.client_upload_queue_box.insert("1.0", "No files queued for upload.")
-        self.client_upload_queue_box.configure(state="disabled")
-
-        self.client_send_btn = ctk.CTkButton(
-            self.client_upload_col,
-            text="🚀 Upload Queued Files to Host",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color="#10b981",
-            hover_color="#059669",
-            command=self.client_execute_upload,
-            state="disabled"
-        )
-        self.client_send_btn.pack(fill="x", padx=14, pady=4)
-
-        # Client Progress Bar
-        self.client_progress_bar = ctk.CTkProgressBar(self.client_upload_col, height=8)
-        self.client_progress_bar.pack(fill="x", padx=14, pady=(8, 2))
-        self.client_progress_bar.set(0)
-
-        self.client_progress_lbl = ctk.CTkLabel(self.client_upload_col, text="Ready", font=ctk.CTkFont(size=11), text_color="#94a3b8")
-        self.client_progress_lbl.pack(padx=14, pady=(0, 10))
-
-        # Host Clipboard Sync Card
-        clip_card = ctk.CTkFrame(self.client_upload_col, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        clip_card.pack(fill="both", expand=True, padx=14, pady=(0, 14))
-
-        ctk.CTkLabel(clip_card, text="📋 Host Clipboard", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", padx=10, pady=(8, 2))
-
-        self.client_clipboard_entry = ctk.CTkEntry(clip_card, placeholder_text="Send text to host clipboard...", font=ctk.CTkFont(size=11))
-        self.client_clipboard_entry.pack(fill="x", padx=10, pady=4)
-
-        clip_btn_row = ctk.CTkFrame(clip_card, fg_color="transparent")
-        clip_btn_row.pack(fill="x", padx=10, pady=(0, 8))
-
-        self.client_clip_send_btn = ctk.CTkButton(
-            clip_btn_row,
-            text="Send Text",
-            width=90,
-            height=26,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self.client_send_clipboard_to_host,
-            state="disabled"
-        )
-        self.client_clip_send_btn.pack(side="left", padx=(0, 4))
-
-        self.client_clip_copy_btn = ctk.CTkButton(
-            clip_btn_row,
-            text="Copy Host Text",
-            width=110,
-            height=26,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
-            command=self.client_copy_host_clipboard,
-            state="disabled"
-        )
-        self.client_clip_copy_btn.pack(side="left")
-
     def change_client_download_folder(self):
-        new_dir = filedialog.askdirectory(
-            title="Select Destination Folder for Downloaded Files",
-            initialdir=self.client_download_dir
-        )
+        new_dir = filedialog.askdirectory(title="Select Destination Folder for Downloaded Files", initialdir=self.client_download_dir)
         if new_dir and os.path.isdir(new_dir):
             self.client_download_dir = os.path.abspath(new_dir)
             self.client_dl_path_lbl.configure(text=truncate_path(self.client_download_dir, max_len=45))
@@ -978,20 +1320,22 @@ class PyShareApp(ctk.CTk):
         main.save_app_config(self.app_config)
         messagebox.showinfo("Reset to Default", f"Download destination reset to:\n{default_dir}")
 
+    def open_base_storage_dir(self):
+        if os.path.exists(main.BASE_DIR):
+            os.startfile(main.BASE_DIR)
+
     # =========================================================================
-    # 5. HOST SERVER ENGINE & CONTROLS
+    # 8. HOST CONTROLS & SERVER ENGINE
     # =========================================================================
     def start_host_server(self):
         def _run():
             try:
-                # Load persistent folders
                 main.DOWNLOAD_DIR = os.path.abspath(self.app_config.get("shared_dir", self.defaults["shared_dir"]))
                 main.UPLOAD_DIR = os.path.abspath(self.app_config.get("received_dir", self.defaults["received_dir"]))
                 os.makedirs(main.UPLOAD_DIR, exist_ok=True)
                 os.makedirs(main.DOWNLOAD_DIR, exist_ok=True)
                 main.BASE_DIR = os.path.dirname(main.DOWNLOAD_DIR)
 
-                # Bind Port
                 main.socketserver.TCPServer.allow_reuse_address = True
                 for port in range(main.START_PORT, main.START_PORT + 10):
                     try:
@@ -1002,14 +1346,12 @@ class PyShareApp(ctk.CTk):
                     except OSError:
                         continue
 
-                # Start PIN rotation ticker
                 main.start_pin_rotator()
 
                 ip = main.get_ip()
                 url = f"http://{ip}:{main.ACTUAL_PORT}"
                 main.generate_qr(url)
 
-                # mDNS Service Broadcast
                 try:
                     main.zc = main.Zeroconf()
                     desc = {'app': 'PyShare', 'device': socket.gethostname(), 'url': url}
@@ -1025,7 +1367,6 @@ class PyShareApp(ctk.CTk):
                 except Exception as e:
                     print(f"[*] mDNS Notice: {e}")
 
-                # Start Server loop on daemon thread
                 main.httpd.serve_forever()
             except Exception as e:
                 print(f"[!] Server Startup Error: {e}")
@@ -1038,9 +1379,15 @@ class PyShareApp(ctk.CTk):
             main.PREVIOUS_PIN = main.CURRENT_PIN
             main.CURRENT_PIN = f"{main.random.randint(1000, 9999)}"
             main.NEXT_CHANGE = time.time() + 30
-        main.pin_time_remaining = 30
-        self.host_pin_display.configure(text=f"{main.CURRENT_PIN[0]} {main.CURRENT_PIN[1]} {main.CURRENT_PIN[2]} {main.CURRENT_PIN[3]}")
+        pin = main.CURRENT_PIN
+        self.live_pin_lbl.configure(text=f"{pin[0]}  {pin[1]}  {pin[2]}  {pin[3]}")
         self.update_qr_image()
+        self.add_log_entry(f"PIN rotated: {pin}")
+
+    def copy_host_pin(self):
+        self.clipboard_clear()
+        self.clipboard_append(main.CURRENT_PIN)
+        messagebox.showinfo("Copied", f"PIN copied to clipboard:\n{main.CURRENT_PIN}")
 
     def copy_host_url(self):
         url = f"http://{main.get_ip()}:{main.ACTUAL_PORT}"
@@ -1048,40 +1395,38 @@ class PyShareApp(ctk.CTk):
         self.clipboard_append(url)
         messagebox.showinfo("Copied", f"Host URL copied to clipboard:\n{url}")
 
-    def copy_host_pin(self):
-        self.clipboard_clear()
-        self.clipboard_append(main.CURRENT_PIN)
-        messagebox.showinfo("Copied", f"PIN copied to clipboard:\n{main.CURRENT_PIN}")
-
     def toggle_cloudflare_tunnel(self):
-        if self.tunnel_switch.get():
-            self.tunnel_url_lbl.configure(text="Starting tunnel...", text_color="#f59e0b")
-            main.start_tunnel()
-        else:
+        status = getattr(main, 'TUNNEL_STATUS', 'idle')
+        if status in ('starting', 'active', 'downloading'):
             main.stop_tunnel()
-            self.tunnel_url_lbl.configure(text="Disabled (Offline LAN Mode)", text_color="#94a3b8")
-
-    def open_base_storage_dir(self):
-        if os.path.exists(main.BASE_DIR):
-            os.startfile(main.BASE_DIR)
+            self.btn_toggle_tunnel.configure(text="🌐 Enable Internet")
+            self.tunnel_sub_lbl.configure(text="Same Wi-Fi / Hotspot")
+            self.add_log_entry("Reverted to Local Wi-Fi Mode")
+        else:
+            main.start_tunnel()
+            self.btn_toggle_tunnel.configure(text="⏳ Connecting...")
+            self.tunnel_sub_lbl.configure(text="Connecting Cloudflare...")
+            self.add_log_entry("Starting Public Internet Mode...")
 
     def broadcast_host_clipboard(self):
-        text = self.host_clipboard_textbox.get("1.0", "end-1c").strip()
+        text = self.hub_clip_input.get().strip()
         if text:
             with main.state_lock:
                 main.SHARED_TEXT = text
                 main.TEXT_TIMESTAMP = time.time()
             main.broadcast_sse("clipboard", {"text": text, "timestamp": main.TEXT_TIMESTAMP})
+            self.add_log_entry(f"Clipboard broadcasted: {text[:25]}...")
             messagebox.showinfo("Broadcast", "Clipboard broadcasted to all connected peers!")
 
     def copy_current_host_clipboard(self):
-        text = getattr(main, "SHARED_TEXT", "")
-        self.clipboard_clear()
-        self.clipboard_append(text)
-        messagebox.showinfo("Copied", "Current clipboard copied to your system clipboard!")
+        text = getattr(main, 'SHARED_TEXT', '')
+        if text:
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            messagebox.showinfo("Copied", "Current clipboard copied to your clipboard!")
 
     # =========================================================================
-    # 6. CLIENT MODE ENGINE (CONNECT, UPLOAD, DOWNLOAD, DISCOVER)
+    # 9. CLIENT ENGINE (CONNECT, DISCOVER, UPLOAD, DOWNLOAD)
     # =========================================================================
     def toggle_client_connection(self):
         if self.client_connected:
@@ -1126,12 +1471,11 @@ class PyShareApp(ctk.CTk):
     def on_client_connect_success(self, base_url):
         self.client_connected = True
         self.client_host_url = base_url
-        self.client_status_pill.configure(text=f"🟢 Connected ({base_url.replace('http://', '')})", text_color="#10b981")
-        self.client_connect_btn.configure(text="Disconnect", state="normal", fg_color="#ef4444", hover_color="#dc2626")
+        self.client_status_pill.configure(text=f"🟢 Connected ({base_url.replace('http://', '')})", text_color=self.colors["accent_green"])
+        self.client_connect_btn.configure(text="Disconnect", state="normal", fg_color=self.colors["accent_red"], hover_color="#dc2626")
         self.client_host_entry.configure(state="disabled")
         self.client_pin_entry.configure(state="disabled")
 
-        # Enable client action buttons
         self.client_refresh_btn.configure(state="normal")
         self.client_dl_all_btn.configure(state="normal")
         self.client_select_files_btn.configure(state="normal")
@@ -1140,12 +1484,14 @@ class PyShareApp(ctk.CTk):
         self.client_clip_send_btn.configure(state="normal")
         self.client_clip_copy_btn.configure(state="normal")
 
-        # Fetch files & clipboard from host
+        self.status_dot.configure(text_color=self.colors["accent_green"])
+        self.status_text_lbl.configure(text=f"Connected to Host ({base_url.replace('http://', '')})")
+
         self.fetch_client_host_files()
         self.fetch_client_host_clipboard()
 
     def on_client_connect_error(self, err_msg):
-        self.client_status_pill.configure(text="⚪ Disconnected", text_color="#94a3b8")
+        self.client_status_pill.configure(text="⚪ Disconnected", text_color=self.colors["text_sub"])
         self.client_connect_btn.configure(state="normal")
         messagebox.showerror("Connection Failed", err_msg)
 
@@ -1153,12 +1499,11 @@ class PyShareApp(ctk.CTk):
         self.client_connected = False
         self.client_host_url = ""
         self.client_session = requests.Session()
-        self.client_status_pill.configure(text="⚪ Not Connected", text_color="#94a3b8")
-        self.client_connect_btn.configure(text="⚡ Connect", state="normal", fg_color="#0284c7", hover_color="#0369a1")
+        self.client_status_pill.configure(text="⚪ Not Connected", text_color=self.colors["text_sub"])
+        self.client_connect_btn.configure(text="⚡ Connect", state="normal", fg_color=self.colors["accent_blue"], hover_color="#2563eb")
         self.client_host_entry.configure(state="normal")
         self.client_pin_entry.configure(state="normal")
 
-        # Disable client buttons
         self.client_refresh_btn.configure(state="disabled")
         self.client_dl_all_btn.configure(state="disabled")
         self.client_select_files_btn.configure(state="disabled")
@@ -1166,12 +1511,14 @@ class PyShareApp(ctk.CTk):
         self.client_clip_send_btn.configure(state="disabled")
         self.client_clip_copy_btn.configure(state="disabled")
 
-        # Clear file scroll
+        self.status_dot.configure(text_color=self.colors["text_sub"])
+        self.status_text_lbl.configure(text="Disconnected from Host")
+
         for widget in self.client_files_scroll.winfo_children():
             widget.destroy()
 
     def auto_discover_hosts_network(self):
-        self.client_status_pill.configure(text="🔍 Scanning Wi-Fi...", text_color="#38bdf8")
+        self.client_status_pill.configure(text="🔍 Scanning Wi-Fi...", text_color=self.colors["accent_cyan"])
         self.client_discover_btn.configure(state="disabled")
 
         def _scan():
@@ -1201,7 +1548,7 @@ class PyShareApp(ctk.CTk):
 
     def on_auto_discovery_done(self, discovered):
         self.client_discover_btn.configure(state="normal")
-        self.client_status_pill.configure(text="⚪ Not Connected" if not self.client_connected else "🟢 Connected", text_color="#94a3b8" if not self.client_connected else "#10b981")
+        self.client_status_pill.configure(text="⚪ Not Connected" if not self.client_connected else "🟢 Connected", text_color=self.colors["text_sub"] if not self.client_connected else self.colors["accent_green"])
         if not discovered:
             messagebox.showinfo("Auto-Discovery", "No PyShare devices found on this Wi-Fi network.\n\nTip: Enter the host IP and PIN manually.")
             return
@@ -1220,7 +1567,6 @@ class PyShareApp(ctk.CTk):
                 r = self.client_session.get(f"{self.client_host_url}/api/files", timeout=6)
                 if r.status_code == 200:
                     data = r.json()
-                    # Parse dictionary response {"host": [...], "client": [...]} or raw list
                     if isinstance(data, dict):
                         files = data.get("host") or data.get("pc") or []
                     elif isinstance(data, list):
@@ -1233,49 +1579,81 @@ class PyShareApp(ctk.CTk):
 
         threading.Thread(target=_fetch, daemon=True).start()
 
+    def on_client_search(self, event=None):
+        self.search_client_query = self.client_search_entry.get().strip().lower()
+        self.render_client_host_files_list(self.client_files)
+
     def render_client_host_files_list(self, files):
         self.client_files = files or []
         for widget in self.client_files_scroll.winfo_children():
             widget.destroy()
 
-        if not files:
+        display_files = self.client_files
+        if getattr(self, 'search_client_query', ''):
+            display_files = [f for f in display_files if self.search_client_query in f.get('name', '').lower()]
+
+        if not display_files:
             ctk.CTkLabel(
                 self.client_files_scroll,
-                text="Host has not shared any files yet.",
-                font=ctk.CTkFont(size=12),
-                text_color="#94a3b8"
+                text="Host has not shared any files yet." if not self.client_files else "No matching files found.",
+                font=ctk.CTkFont(size=11),
+                text_color=self.colors["text_sub"]
             ).pack(pady=20)
             return
 
-        for f in files:
+        for f in display_files:
             fn = f.get("name", "Unknown")
             sz = f.get("size", 0)
             icon = get_file_icon(fn)
 
-            row = ctk.CTkFrame(self.client_files_scroll, fg_color=("#182234", "#111827"), corner_radius=8)
-            row.pack(fill="x", pady=3, padx=4)
+            row = ctk.CTkFrame(
+                self.client_files_scroll,
+                fg_color=self.colors["row_bg"],
+                border_width=1,
+                border_color=self.colors["row_border"],
+                corner_radius=10
+            )
+            row.pack(fill="x", pady=2, padx=2)
 
-            icon_lbl = ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=16), width=32)
-            icon_lbl.pack(side="left", padx=(8, 4), pady=6)
+            ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=15), width=28).pack(side="left", padx=(8, 4), pady=5)
 
             info_col = ctk.CTkFrame(row, fg_color="transparent")
             info_col.pack(side="left", fill="x", expand=True, padx=4)
 
-            name_lbl = ctk.CTkLabel(info_col, text=fn, font=ctk.CTkFont(size=12, weight="bold"), anchor="w")
-            name_lbl.pack(fill="x")
+            ctk.CTkLabel(info_col, text=fn, font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_main"], anchor="w").pack(fill="x")
+            ctk.CTkLabel(info_col, text=format_size(sz), font=ctk.CTkFont(size=10), text_color=self.colors["text_sub"], anchor="w").pack(fill="x")
 
-            size_lbl = ctk.CTkLabel(info_col, text=format_size(sz), font=ctk.CTkFont(size=10), text_color="#94a3b8", anchor="w")
-            size_lbl.pack(fill="x")
+            # Circular Action Buttons (Matching client_dark.png: 👁️ Preview, ⬇️ Download)
+            btn_col = ctk.CTkFrame(row, fg_color="transparent")
+            btn_col.pack(side="right", padx=6, pady=4)
 
-            dl_btn = ctk.CTkButton(
-                row,
-                text="⬇️ Download",
-                width=90,
-                height=26,
-                font=ctk.CTkFont(size=11, weight="bold"),
+            ctk.CTkButton(
+                btn_col,
+                text="👁️",
+                width=28,
+                height=28,
+                corner_radius=14,
+                font=ctk.CTkFont(size=11),
+                fg_color=self.colors["btn_pill_bg"],
+                border_width=1,
+                border_color=self.colors["btn_pill_border"],
+                hover_color=self.colors["btn_pill_hover"],
+                command=lambda filename=fn: os.startfile(f"{self.client_host_url}/download/{requests.utils.quote(filename)}")
+            ).pack(side="left", padx=2)
+
+            ctk.CTkButton(
+                btn_col,
+                text="⬇️",
+                width=28,
+                height=28,
+                corner_radius=14,
+                font=ctk.CTkFont(size=11),
+                fg_color=self.colors["btn_pill_bg"],
+                border_width=1,
+                border_color=self.colors["btn_pill_border"],
+                hover_color=self.colors["btn_pill_hover"],
                 command=lambda filename=fn: self.client_download_file(filename)
-            )
-            dl_btn.pack(side="right", padx=8, pady=6)
+            ).pack(side="left", padx=2)
 
     def client_download_file(self, filename):
         if not self.client_connected or self.is_client_downloading:
@@ -1377,7 +1755,7 @@ class PyShareApp(ctk.CTk):
         self.client_upload_queue_box.configure(state="normal")
         self.client_upload_queue_box.delete("1.0", "end")
         if not self.client_selected_upload_files:
-            self.client_upload_queue_box.insert("1.0", "No files queued. Drag & drop files here or click 'Select Files'.")
+            self.client_upload_queue_box.insert("1.0", "No files queued. Drag & drop files here or click 'Browse Files'.")
             self.client_send_btn.configure(state="disabled")
             self.client_progress_lbl.configure(text="Ready")
         else:
@@ -1476,7 +1854,7 @@ class PyShareApp(ctk.CTk):
             messagebox.showinfo("Copied", "Host clipboard text copied to your clipboard!")
 
     # =========================================================================
-    # 7. REAL-TIME REFRESH TICKER & LIST UPDATERS
+    # 10. REAL-TIME REFRESH TICKER & LIST UPDATERS
     # =========================================================================
     def refresh_ticker(self):
         try:
@@ -1490,33 +1868,34 @@ class PyShareApp(ctk.CTk):
 
     def refresh_host_ui(self):
         # Update PIN display & Timer
-        pin = getattr(main, "CURRENT_PIN", "----")
+        pin = getattr(main, 'CURRENT_PIN', '----')
         if len(pin) == 4:
-            self.host_pin_display.configure(text=f"{pin[0]}  {pin[1]}  {pin[2]}  {pin[3]}")
+            self.live_pin_lbl.configure(text=f"{pin[0]}  {pin[1]}  {pin[2]}  {pin[3]}")
         else:
-            self.host_pin_display.configure(text=pin)
+            self.live_pin_lbl.configure(text=pin)
 
         now = time.time()
-        next_change = getattr(main, "NEXT_CHANGE", now + 30)
+        next_change = getattr(main, 'NEXT_CHANGE', now + 30)
         rem = max(0, int(next_change - now))
-        self.host_pin_timer.configure(text=f"⏱️ Rotates in {rem}s")
+        self.pin_timer_lbl.configure(text=f"{rem}s")
+        self.pin_timer_bar.set(rem / 30.0)
 
         # Update Local IP Label
         ip = main.get_ip()
-        self.host_url_lbl.configure(text=f"http://{ip}:{main.ACTUAL_PORT}")
+        self.status_text_lbl.configure(text=f"Server IP: {ip}:{main.ACTUAL_PORT}")
 
         # Update Tunnel Status
         tunnel_url = getattr(main, 'TUNNEL_URL', None)
         tunnel_status = getattr(main, 'TUNNEL_STATUS', 'idle')
-        if tunnel_status == 'active' and tunnel_url:
-            self.tunnel_url_lbl.configure(text=tunnel_url, text_color="#10b981")
-            if not self.tunnel_switch.get():
-                self.tunnel_switch.select()
+        if tunnel_status == "active" and tunnel_url:
+            self.tunnel_sub_lbl.configure(text=truncate_path(tunnel_url, max_len=24))
+            self.btn_toggle_tunnel.configure(text="🛑 Stop Internet")
+        elif tunnel_status in ("starting", "downloading"):
+            self.tunnel_sub_lbl.configure(text=f"{tunnel_status.capitalize()}...")
+            self.btn_toggle_tunnel.configure(text="⏳ Connecting...")
         else:
-            if self.tunnel_switch.get() and tunnel_status in ('starting', 'downloading'):
-                self.tunnel_url_lbl.configure(text="Connecting tunnel...", text_color="#f59e0b")
-            else:
-                self.tunnel_url_lbl.configure(text="Disabled (Offline LAN Mode)", text_color="#94a3b8")
+            self.tunnel_sub_lbl.configure(text="Same Wi-Fi / Hotspot")
+            self.btn_toggle_tunnel.configure(text="🌐 Enable Internet")
 
         # Update QR image if needed
         self.update_qr_image()
@@ -1532,124 +1911,145 @@ class PyShareApp(ctk.CTk):
             if mtime > self.last_qr_timestamp:
                 self.last_qr_timestamp = mtime
                 try:
-                    pil_img = Image.open(qr_file).resize((150, 150))
-                    self.qr_ctk_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(150, 150))
+                    pil_img = Image.open(qr_file).resize((132, 132))
+                    self.qr_ctk_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(132, 132))
                     self.qr_wrapper.configure(image=self.qr_ctk_image, text="")
                 except Exception:
                     pass
 
+    # --- REFRESH SHARED FILES LIST ---
     def refresh_host_shared_files_list(self):
         staged = main.get_staged_files()
         total_size = sum(item.get("size", 0) for item in staged)
         count = len(staged)
 
         if count > 0:
-            self.shared_count_lbl.configure(text=f"{count} file{'s' if count != 1 else ''} staged ({format_size(total_size)})")
-            self.shared_banner.configure(text=f"⚡ Quick Share Active • {count} item{'s' if count != 1 else ''} exposed to peers")
+            self.tx_count_lbl.configure(text=f"{count} staged ({format_size(total_size)})")
+            display_files = staged
         else:
             disk_files = main.list_dir(main.DOWNLOAD_DIR)
-            if disk_files:
-                self.shared_count_lbl.configure(text=f"{len(disk_files)} file{'s' if len(disk_files) != 1 else ''} in folder")
-                self.shared_banner.configure(text=f"📂 Sharing all files from default directory: {main.DOWNLOAD_DIR}")
-            else:
-                self.shared_count_lbl.configure(text="0 files staged")
-                self.shared_banner.configure(text="☁️ Quick Share Ready: Drag & drop files here or click '+ Add File(s)'")
+            self.tx_count_lbl.configure(text=f"{len(disk_files)} in folder")
+            display_files = disk_files
 
-        # Clear existing rows
-        for widget in self.shared_files_scroll.winfo_children():
+        # Apply search query if present
+        if self.search_shared_query:
+            display_files = [f for f in display_files if self.search_shared_query in f.get("name", "").lower()]
+
+        for widget in self.shared_scroll.winfo_children():
             widget.destroy()
 
-        if count == 0:
-            disk_files = main.list_dir(main.DOWNLOAD_DIR)
-            if not disk_files:
-                empty_card = ctk.CTkFrame(self.shared_files_scroll, fg_color="transparent")
-                empty_card.pack(fill="both", expand=True, pady=40)
-                ctk.CTkLabel(
-                    empty_card,
-                    text="☁️",
-                    font=ctk.CTkFont(size=42)
-                ).pack()
-                ctk.CTkLabel(
-                    empty_card,
-                    text="No files shared yet",
-                    font=ctk.CTkFont(size=14, weight="bold"),
-                    text_color="#94a3b8"
-                ).pack(pady=(4, 2))
-                ctk.CTkLabel(
-                    empty_card,
-                    text="Drag & drop any files or folders from Windows Explorer here,\nor click '+ Add File(s)...' above to choose specific files to share.",
-                    font=ctk.CTkFont(size=11),
-                    text_color="#64748b"
-                ).pack()
-                return
-            else:
-                for f in disk_files:
-                    self._create_shared_file_row(f.get("name"), f.get("size", 0), f.get("path"), is_staged=False)
-                return
+        if not display_files:
+            empty_lbl = ctk.CTkLabel(
+                self.shared_scroll,
+                text="No files staged. Drag & drop files into 'Add to Shared' card.",
+                font=ctk.CTkFont(size=11),
+                text_color=self.colors["text_sub"]
+            )
+            empty_lbl.pack(pady=16)
+            return
 
-        for item in staged:
-            self._create_shared_file_row(item.get("name"), item.get("size", 0), item.get("path"), is_staged=True)
+        for f in display_files:
+            fn = f.get("name", "Unknown")
+            sz = f.get("size", 0)
+            fp = f.get("path")
+            is_staged = (count > 0)
+            self._render_shared_row(fn, sz, fp, is_staged)
 
-    def _create_shared_file_row(self, fn, sz, fp, is_staged=True):
-        row = ctk.CTkFrame(self.shared_files_scroll, fg_color=("#182234", "#111827"), corner_radius=8)
-        row.pack(fill="x", pady=3, padx=4)
+    def _render_shared_row(self, fn, sz, fp, is_staged):
+        row = ctk.CTkFrame(
+            self.shared_scroll,
+            fg_color=self.colors["row_bg"],
+            border_width=1,
+            border_color=self.colors["row_border"],
+            corner_radius=10
+        )
+        row.pack(fill="x", pady=2, padx=2)
 
         icon = get_file_icon(fn)
-        ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=16), width=32).pack(side="left", padx=(8, 4), pady=6)
+        ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=15), width=28).pack(side="left", padx=(8, 4), pady=5)
 
-        info_col = ctk.CTkFrame(row, fg_color="transparent")
-        info_col.pack(side="left", fill="x", expand=True, padx=4)
+        info = ctk.CTkFrame(row, fg_color="transparent")
+        info.pack(side="left", fill="x", expand=True, padx=4)
 
-        ctk.CTkLabel(info_col, text=fn, font=ctk.CTkFont(size=12, weight="bold"), anchor="w").pack(fill="x")
-        path_hint = truncate_path(fp, max_len=40) if fp else ""
+        ctk.CTkLabel(info, text=fn, font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_main"], anchor="w").pack(fill="x")
+        path_hint = truncate_path(fp, max_len=36) if fp else ""
         sub_text = f"{format_size(sz)} • {path_hint}" if path_hint else format_size(sz)
-        ctk.CTkLabel(info_col, text=sub_text, font=ctk.CTkFont(size=10), text_color="#94a3b8", anchor="w").pack(fill="x")
+        ctk.CTkLabel(info, text=sub_text, font=ctk.CTkFont(size=10), text_color=self.colors["text_sub"], anchor="w").pack(fill="x")
 
-        if is_staged:
-            btn_remove = ctk.CTkButton(
-                row,
-                text="✕ Remove",
-                width=76,
-                height=26,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                fg_color=("#ef4444", "#dc2626"),
-                hover_color="#b91c1c",
-                command=lambda filename=fn: self.unstage_host_file(filename)
-            )
-            btn_remove.pack(side="right", padx=(4, 8), pady=6)
-        else:
-            btn_del = ctk.CTkButton(
-                row,
-                text="🗑️",
-                width=32,
-                height=26,
-                fg_color=("#ef4444", "#dc2626"),
-                hover_color="#b91c1c",
-                command=lambda path=fp: self.delete_shared_file(path)
-            )
-            btn_del.pack(side="right", padx=(4, 8), pady=6)
+        # Action Buttons (Matching Web UI Action Circle Icons: 3 circles)
+        btns = ctk.CTkFrame(row, fg_color="transparent")
+        btns.pack(side="right", padx=6, pady=4)
 
         if fp and os.path.exists(fp):
-            btn_open = ctk.CTkButton(
-                row,
-                text="👁️ Open",
-                width=70,
-                height=26,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                fg_color=("#334155", "#1e293b"),
-                hover_color=("#475569", "#334155"),
+            ctk.CTkButton(
+                btns,
+                text="👁️",
+                width=28,
+                height=28,
+                corner_radius=14,
+                font=ctk.CTkFont(size=11),
+                fg_color=self.colors["btn_pill_bg"],
+                border_width=1,
+                border_color=self.colors["btn_pill_border"],
+                hover_color=self.colors["btn_pill_hover"],
                 command=lambda path=fp: os.startfile(path)
-            )
-            btn_open.pack(side="right", padx=4, pady=6)
+            ).pack(side="left", padx=2)
+
+            ctk.CTkButton(
+                btns,
+                text="📂",
+                width=28,
+                height=28,
+                corner_radius=14,
+                font=ctk.CTkFont(size=11),
+                fg_color=self.colors["btn_pill_bg"],
+                border_width=1,
+                border_color=self.colors["btn_pill_border"],
+                hover_color=self.colors["btn_pill_hover"],
+                command=lambda path=fp: os.system(f'explorer /select,"{os.path.abspath(path)}"')
+            ).pack(side="left", padx=2)
+
+        if is_staged:
+            ctk.CTkButton(
+                btns,
+                text="✕",
+                width=28,
+                height=28,
+                corner_radius=14,
+                font=ctk.CTkFont(size=11, weight="bold"),
+                fg_color=self.colors["btn_pill_bg"],
+                border_width=1,
+                border_color=self.colors["btn_pill_border"],
+                text_color=self.colors["accent_red"],
+                hover_color=self.colors["btn_pill_hover"],
+                command=lambda filename=fn: self.unstage_host_file(filename)
+            ).pack(side="left", padx=2)
+        else:
+            ctk.CTkButton(
+                btns,
+                text="🗑️",
+                width=28,
+                height=28,
+                corner_radius=14,
+                font=ctk.CTkFont(size=11),
+                fg_color=self.colors["btn_pill_bg"],
+                border_width=1,
+                border_color=self.colors["btn_pill_border"],
+                text_color=self.colors["accent_red"],
+                hover_color=self.colors["btn_pill_hover"],
+                command=lambda path=fp: self.delete_shared_file(path)
+            ).pack(side="left", padx=2)
 
     def delete_shared_file(self, path):
         if messagebox.askyesno("Confirm Delete", f"Remove this file from disk?\n{os.path.basename(path)}"):
             try:
                 os.remove(path)
                 self.refresh_host_shared_files_list()
+                self.add_log_entry(f"Deleted file: {os.path.basename(path)}")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not remove file:\n{e}")
 
+    # --- REFRESH RECEIVED FILES LIST ---
     def refresh_host_received_files_list(self):
         if not os.path.exists(main.UPLOAD_DIR):
             return
@@ -1664,60 +2064,97 @@ class PyShareApp(ctk.CTk):
         except Exception:
             return
 
-        self.received_count_lbl.configure(text=f"{len(files)} file{'s' if len(files) != 1 else ''} received")
-        self.received_banner.configure(text=f"📥 Saving files to: {main.UPLOAD_DIR}")
+        self.rx_count_lbl.configure(text=f"{len(files)} files")
 
-        for widget in self.received_files_scroll.winfo_children():
+        if self.search_received_query:
+            files = [f for f in files if self.search_received_query in f[0].lower()]
+
+        for widget in self.received_scroll.winfo_children():
             widget.destroy()
 
         if not files:
             ctk.CTkLabel(
-                self.received_files_scroll,
-                text="No files received yet. Files uploaded by peers will appear here automatically.",
-                font=ctk.CTkFont(size=12),
-                text_color="#94a3b8"
-            ).pack(pady=20)
+                self.received_scroll,
+                text="No client uploads yet",
+                font=ctk.CTkFont(size=11),
+                text_color=self.colors["text_sub"]
+            ).pack(pady=16)
             return
 
         for fn, sz, fp in files:
-            row = ctk.CTkFrame(self.received_files_scroll, fg_color=("#182234", "#111827"), corner_radius=8)
-            row.pack(fill="x", pady=3, padx=4)
+            self._render_received_row(fn, sz, fp)
 
-            icon = get_file_icon(fn)
-            ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=16), width=32).pack(side="left", padx=(8, 4), pady=6)
+    def _render_received_row(self, fn, sz, fp):
+        row = ctk.CTkFrame(
+            self.received_scroll,
+            fg_color=self.colors["row_bg"],
+            border_width=1,
+            border_color=self.colors["row_border"],
+            corner_radius=10
+        )
+        row.pack(fill="x", pady=2, padx=2)
 
-            info_col = ctk.CTkFrame(row, fg_color="transparent")
-            info_col.pack(side="left", fill="x", expand=True, padx=4)
+        icon = get_file_icon(fn)
+        ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=15), width=28).pack(side="left", padx=(8, 4), pady=5)
 
-            ctk.CTkLabel(info_col, text=fn, font=ctk.CTkFont(size=12, weight="bold"), anchor="w").pack(fill="x")
-            ctk.CTkLabel(info_col, text=format_size(sz), font=ctk.CTkFont(size=10), text_color="#94a3b8", anchor="w").pack(fill="x")
+        info = ctk.CTkFrame(row, fg_color="transparent")
+        info.pack(side="left", fill="x", expand=True, padx=4)
 
-            btn_del = ctk.CTkButton(
-                row,
-                text="🗑️",
-                width=32,
-                height=26,
-                fg_color=("#ef4444", "#dc2626"),
-                hover_color="#b91c1c",
-                command=lambda path=fp: self.delete_received_file(path)
-            )
-            btn_del.pack(side="right", padx=(4, 8), pady=6)
+        ctk.CTkLabel(info, text=fn, font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_main"], anchor="w").pack(fill="x")
+        ctk.CTkLabel(info, text=format_size(sz), font=ctk.CTkFont(size=10), text_color=self.colors["text_sub"], anchor="w").pack(fill="x")
 
-            btn_open = ctk.CTkButton(
-                row,
-                text="👁️ Open",
-                width=70,
-                height=26,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                command=lambda path=fp: os.startfile(path)
-            )
-            btn_open.pack(side="right", padx=4, pady=6)
+        btns = ctk.CTkFrame(row, fg_color="transparent")
+        btns.pack(side="right", padx=6, pady=4)
+
+        ctk.CTkButton(
+            btns,
+            text="👁️",
+            width=28,
+            height=28,
+            corner_radius=14,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=lambda path=fp: os.startfile(path)
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            btns,
+            text="📂",
+            width=28,
+            height=28,
+            corner_radius=14,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=lambda path=fp: os.system(f'explorer /select,"{os.path.abspath(path)}"')
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            btns,
+            text="🗑️",
+            width=28,
+            height=28,
+            corner_radius=14,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            text_color=self.colors["accent_red"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=lambda path=fp: self.delete_received_file(path)
+        ).pack(side="left", padx=2)
 
     def delete_received_file(self, path):
         if messagebox.askyesno("Confirm Delete", f"Delete this received file from disk?\n{os.path.basename(path)}"):
             try:
                 os.remove(path)
                 self.refresh_host_received_files_list()
+                self.add_log_entry(f"Deleted received file: {os.path.basename(path)}")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not delete file:\n{e}")
 
@@ -1726,7 +2163,6 @@ class PyShareApp(ctk.CTk):
             self.fetch_client_host_files()
 
     def on_close(self):
-        # Stop background host server and tunnel
         try:
             main.stop_tunnel()
             if main.zc:
