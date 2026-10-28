@@ -1386,7 +1386,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 fn = os.path.basename(data.get('filename', ''))
                 folder = data.get('folder', 'shared')
                 if folder == 'shared' and fn in STAGED_FILES:
+                    staged_info = STAGED_FILES.get(fn, {})
+                    staged_path = staged_info.get("path", "")
                     unstage_file(fn)
+                    if staged_path and os.path.isfile(staged_path) and os.path.commonpath([os.path.abspath(DOWNLOAD_DIR), os.path.abspath(staged_path)]) == os.path.abspath(DOWNLOAD_DIR):
+                        try:
+                            os.remove(staged_path)
+                        except Exception:
+                            pass
                     add_event(f"Unshared: {fn}")
                     broadcast_sse("files", get_files_data())
                     self.send_json({"status": "ok", "deleted": fn})
@@ -1467,6 +1474,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     if os.path.exists(out_path):
                         os.remove(out_path)
                     os.rename(part_path, out_path)
+                    if is_host_upload:
+                        stage_file(out_path)
                 else:
                     if os.path.exists(part_path):
                         os.remove(part_path)
