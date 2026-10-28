@@ -14,8 +14,10 @@ let receivedFilesList = [];
 let activeTransfers = {}; // fileId -> state
 let activeFileStreams = {}; // fileId -> FileSystemWritableFileStream
 let peerCatalogFiles = [];
+let pendingFileRequests = new Set(); // fileId Set to prevent duplicate requests
 let lastSpeedCheck = Date.now();
 let lastSpeedLoaded = 0;
+let recentToastHistory = new Map(); // msg -> timestamp for deduplication
 
 // Theme Initialization
 (function initTheme() {
@@ -34,8 +36,24 @@ function toggleTheme() {
     localStorage.setItem('pyshare_theme', target);
 }
 
-// Toast Notifications
+// Toast Notifications with Deduplication & Max Limit
 function showToast(message, icon = 'ℹ️') {
+    if (!message) return;
+    const now = Date.now();
+    const lastSeen = recentToastHistory.get(message);
+    // Suppress exact duplicate toast within 2.5 seconds
+    if (lastSeen && (now - lastSeen) < 2500) {
+        return;
+    }
+    recentToastHistory.set(message, now);
+
+    // Prune old history entries
+    if (recentToastHistory.size > 25) {
+        recentToastHistory.forEach((ts, msg) => {
+            if (now - ts > 10000) recentToastHistory.delete(msg);
+        });
+    }
+
     let container = document.getElementById('toastContainer');
     if (!container) {
         container = document.createElement('div');
@@ -43,15 +61,26 @@ function showToast(message, icon = 'ℹ️') {
         container.className = 'toast-container';
         document.body.appendChild(container);
     }
+
+    // Limit maximum visible toast pills to 3
+    while (container.children.length >= 3) {
+        container.removeChild(container.firstChild);
+    }
+
     const toast = document.createElement('div');
     toast.className = 'toast-pill';
     toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
     container.appendChild(toast);
+
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(8px)';
         toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(() => {
+            if (toast.parentNode === container) {
+                container.removeChild(toast);
+            }
+        }, 300);
     }, 2800);
 }
 
@@ -71,7 +100,7 @@ function formatSize(bytes) {
 }
 
 function getCategory(ext) {
-    ext = (ext || '').toLowerCase().lstrip ? ext.toLowerCase().lstrip('.') : (ext || '').toLowerCase().replace(/^\./, '');
+    ext = (ext || '').toLowerCase().replace(/^\./, '');
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(ext)) return 'image';
     if (['mp4', 'mkv', 'mov', 'webm', 'avi', 'wmv', 'm4v'].includes(ext)) return 'video';
     if (['mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a', 'wma'].includes(ext)) return 'audio';
@@ -250,6 +279,10 @@ function setupConnectionHandlers(conn) {
 
     conn.on('close', () => {
         activeConnections = activeConnections.filter(c => c !== conn);
+        if (conn._sendQueue) conn._sendQueue = [];
+        conn._isSending = false;
+        conn._currentSendingId = null;
+
         if (isHost) {
             if (activeConnections.length === 0) {
                 updateConnectionStatus('Ready! Waiting for device to scan...', 'blue');
@@ -259,11 +292,13 @@ function setupConnectionHandlers(conn) {
         } else {
             updateClientStatus('Disconnected from Host', 'red');
             showToast('Disconnected from Host', '⚠️');
+            pendingFileRequests.clear();
         }
     });
 
     conn.on('error', (err) => {
-        showToast(`P2P Transfer Notice: ${err}`, '⚠️');
+        console.warn('P2P connection error:', err);
+        showToast(`P2P Transfer Notice: ${err?.message || err}`, '⚠️');
     });
 }
 
@@ -287,19 +322,27 @@ async function handleIncomingData(msg, conn) {
 
     // 1. File Metadata Arrival
     if (msg.type === 'file_start') {
+        // Prevent duplicate file_start resetting an active transfer
+        if (activeTransfers[msg.id]) {
+            console.warn('Ignoring duplicate file_start for', msg.id);
+            return;
+        }
+
         activeTransfers[msg.id] = {
             meta: msg,
             chunks: [],
             receivedBytes: 0,
             startTime: Date.now()
         };
+        pendingFileRequests.delete(msg.id);
         showFloatingQueue();
         renderQueueItem(msg.id, msg.name, msg.size, 'download');
+        updateCatalogButtonState(msg.id, 'downloading', 0);
 
         if (msg.size > 500 * 1024 * 1024) {
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             if (isMobile) {
-                showToast(`Receiving large file (${formatSize(msg.size)}). Keep browser tab active. For multi-GB files, Desktop App mode is recommended.`, 'ℹ️');
+                showToast(`Receiving large file (${formatSize(msg.size)}). Keep browser tab active.`, 'ℹ️');
             }
         }
     }
@@ -323,12 +366,16 @@ async function handleIncomingData(msg, conn) {
 
         transfer.receivedBytes += msg.chunk.byteLength;
         updateQueueProgress(msg.id, transfer.receivedBytes, transfer.meta.size);
+        const pct = Math.min(100, Math.round((transfer.receivedBytes / (transfer.meta.size || 1)) * 100));
+        updateCatalogButtonState(msg.id, 'downloading', pct);
     }
 
     // 3. File Transfer Complete
     else if (msg.type === 'file_end') {
         const transfer = activeTransfers[msg.id];
         if (!transfer) return;
+
+        pendingFileRequests.delete(msg.id);
 
         const stream = activeFileStreams[msg.id];
         if (stream) {
@@ -339,6 +386,7 @@ async function handleIncomingData(msg, conn) {
             delete activeFileStreams[msg.id];
             delete activeTransfers[msg.id];
             markQueueDone(msg.id);
+            updateCatalogButtonState(msg.id, 'downloaded');
             showToast(`Saved to disk: ${transfer.meta.name}`, '💾');
             return;
         }
@@ -358,20 +406,47 @@ async function handleIncomingData(msg, conn) {
                 blob: blob
             };
 
-            receivedFilesList.push(fileRecord);
+            // Deduplicate record in receivedFilesList
+            const existingIdx = receivedFilesList.findIndex(f => f.id === fileRecord.id);
+            if (existingIdx >= 0) {
+                receivedFilesList[existingIdx] = fileRecord;
+            } else {
+                receivedFilesList.push(fileRecord);
+            }
+
             delete activeTransfers[msg.id];
 
             markQueueDone(msg.id);
             renderReceivedFilesUI();
+            updateCatalogButtonState(msg.id, 'downloaded');
+
+            // Trigger standard browser download prompt directly to user device
+            try {
+                const a = document.createElement('a');
+                a.href = objectUrl;
+                a.download = fileRecord.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (e) {
+                console.warn('Browser auto-download trigger notice:', e);
+            }
+
             showToast(`Saved: ${fileRecord.name}`, '📥');
         } catch (err) {
             delete activeTransfers[msg.id];
+            updateCatalogButtonState(msg.id, 'idle');
             showToast('Memory limit reached. For large multi-GB transfers, use PyShare Desktop App.', '⚠️');
         }
     }
 
     // 4. File Catalog Sync (From Host to Client)
     else if (msg.type === 'files_catalog') {
+        const newCount = (msg.files || []).length;
+        const oldCount = peerCatalogFiles.length;
+        if (newCount > oldCount && oldCount > 0) {
+            showToast(`Host shared ${newCount - oldCount} new file${newCount - oldCount > 1 ? 's' : ''}`, '📂');
+        }
         renderPeerCatalog(msg.files);
     }
 
@@ -379,7 +454,7 @@ async function handleIncomingData(msg, conn) {
     else if (msg.type === 'request_file') {
         const target = sharedFilesList.find(f => f.id === msg.id);
         if (target && target.file) {
-            streamFileToConnection(target.file, conn, target.id);
+            queueFileSend(target.file, conn, target.id);
         }
     }
 
@@ -405,10 +480,6 @@ function sendFiles(files) {
         showToast('Large file (>500MB) queued. For multi-GB files, PyShare Desktop App provides unlimited offline transfer with zero browser RAM limits.', '💡');
     }
 
-    if (activeConnections.length > 0) {
-        showFloatingQueue();
-    }
-
     Array.from(files).forEach(file => {
         const ext = file.name.split('.').pop().toLowerCase();
         const category = getCategory(ext);
@@ -424,29 +495,108 @@ function sendFiles(files) {
                 file: file
             });
             renderHostSharedFilesUI();
-        }
 
-        if (activeConnections.length > 0) {
-            renderQueueItem(fileId, file.name, file.size, 'upload');
-            activeConnections.forEach(conn => {
-                if (isHost) syncSharedFilesToPeer(conn);
-                streamFileToConnection(file, conn, fileId);
-            });
+            // Sync updated catalog to all connected peers
+            if (activeConnections.length > 0) {
+                activeConnections.forEach(conn => {
+                    syncSharedFilesToPeer(conn);
+                });
+            }
+        } else {
+            // Client drops files: directly send to connected Host
+            if (activeConnections.length > 0) {
+                activeConnections.forEach(conn => {
+                    queueFileSend(file, conn, fileId);
+                });
+            }
         }
     });
 
-    if (activeConnections.length === 0 && isHost) {
-        showToast('Files staged! They will sync as soon as a peer connects.', '✅');
+    if (isHost) {
+        if (activeConnections.length === 0) {
+            showToast('Files staged! They will sync as soon as a peer connects.', '✅');
+        } else {
+            showToast(`Shared ${files.length} file${files.length > 1 ? 's' : ''} with peer!`, '✅');
+        }
     }
 }
 
-// Stream File using FileReader and Backpressure Control
-function streamFileToConnection(file, conn, existingId = null) {
-    const fileId = existingId || ('f_' + Math.random().toString(36).substr(2, 9));
+// Wait for RTCDataChannel buffer to drain below threshold
+function waitForBufferDrain(dc, maxBuffered = 512 * 1024) {
+    if (!dc || dc.bufferedAmount <= maxBuffered) {
+        return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+        let timer = null;
+        const handler = () => {
+            if (!dc || dc.bufferedAmount <= maxBuffered) {
+                cleanup();
+                resolve();
+            }
+        };
+        const cleanup = () => {
+            if (timer) clearTimeout(timer);
+            try {
+                dc.removeEventListener('bufferedamountlow', handler);
+            } catch (e) {}
+        };
+        try {
+            dc.addEventListener('bufferedamountlow', handler);
+        } catch (e) {
+            resolve();
+            return;
+        }
+        // Safety fallback timer to prevent infinite hang if event is dropped by browser
+        timer = setTimeout(() => {
+            cleanup();
+            resolve();
+        }, 350);
+    });
+}
+
+// Sequential Outgoing Transfer Queue per Peer Connection
+function queueFileSend(file, conn, fileId) {
+    if (!conn) return;
+    if (!conn._sendQueue) {
+        conn._sendQueue = [];
+    }
+    // Prevent duplicate enqueue if already sending or in queue
+    if (conn._currentSendingId === fileId || conn._sendQueue.some(item => item.fileId === fileId)) {
+        return;
+    }
+    conn._sendQueue.push({ file, fileId });
+    processSendQueue(conn);
+}
+
+async function processSendQueue(conn) {
+    if (!conn || conn._isSending || !conn._sendQueue || conn._sendQueue.length === 0) {
+        return;
+    }
+    conn._isSending = true;
+    const { file, fileId } = conn._sendQueue.shift();
+    conn._currentSendingId = fileId;
+
+    try {
+        await streamFileToConnectionAsync(file, conn, fileId);
+    } catch (err) {
+        console.error('P2P send error:', err);
+        showToast(`Transfer interrupted: ${file.name}`, '❌');
+    } finally {
+        conn._currentSendingId = null;
+        conn._isSending = false;
+        // Process next queued file sequentially
+        processSendQueue(conn);
+    }
+}
+
+// Stream File using Modern ArrayBuffer Slices and Backpressure Control
+async function streamFileToConnectionAsync(file, conn, fileId) {
     const ext = file.name.split('.').pop().toLowerCase();
     const category = getCategory(ext);
 
-    // 1. Send Header
+    if (!conn.open) return;
+
+    // 1. Send File Header Metadata
     conn.send({
         type: 'file_start',
         id: fileId,
@@ -457,50 +607,57 @@ function streamFileToConnection(file, conn, existingId = null) {
         mime: file.type || 'application/octet-stream'
     });
 
-    let offset = 0;
-    const reader = new FileReader();
+    showFloatingQueue();
+    renderQueueItem(fileId, file.name, file.size, 'upload');
 
-    function readNextSlice() {
-        const slice = file.slice(offset, offset + CHUNK_SIZE);
-        reader.readAsArrayBuffer(slice);
+    let offset = 0;
+    const totalSize = file.size;
+
+    // Handle 0-byte empty file edge case
+    if (totalSize === 0) {
+        conn.send({ type: 'file_end', id: fileId });
+        markQueueDone(fileId);
+        showToast(`Sent: ${file.name}`, '✅');
+        return;
     }
 
-    reader.onload = (e) => {
-        const buffer = e.target.result;
-        try {
-            conn.send({
-                type: 'file_chunk',
-                id: fileId,
-                chunk: buffer
-            });
-            offset += buffer.byteLength;
-
-            updateQueueProgress(fileId, offset, file.size);
-
-            if (offset < file.size) {
-                // Backpressure Check: wait if buffer exceeds 1MB
-                if (conn.dataChannel && conn.dataChannel.bufferedAmount > 1024 * 1024) {
-                    conn.dataChannel.onbufferedamountlow = () => {
-                        conn.dataChannel.onbufferedamountlow = null;
-                        readNextSlice();
-                    };
-                } else {
-                    readNextSlice();
-                }
-            } else {
-                conn.send({
-                    type: 'file_end',
-                    id: fileId
-                });
-                markQueueDone(fileId);
-                showToast(`Sent: ${file.name}`, '✅');
-            }
-        } catch (err) {
-            showToast('Transfer interrupted', '❌');
+    // 2. Stream Binary Chunks with Backpressure Control
+    while (offset < totalSize) {
+        if (!conn.open) {
+            throw new Error('Connection closed during transfer');
         }
-    };
 
-    readNextSlice();
+        // Backpressure Check: wait if RTCDataChannel buffer exceeds 1MB
+        if (conn.dataChannel && conn.dataChannel.bufferedAmount > 1024 * 1024) {
+            await waitForBufferDrain(conn.dataChannel, 512 * 1024);
+        }
+
+        const slice = file.slice(offset, offset + CHUNK_SIZE);
+        const buffer = await slice.arrayBuffer();
+
+        conn.send({
+            type: 'file_chunk',
+            id: fileId,
+            chunk: buffer
+        });
+
+        offset += buffer.byteLength;
+        updateQueueProgress(fileId, offset, totalSize);
+    }
+
+    // 3. Send File Completion Signal
+    conn.send({
+        type: 'file_end',
+        id: fileId
+    });
+    markQueueDone(fileId);
+    showToast(`Sent: ${file.name}`, '✅');
+}
+
+// Backward-compatible alias
+function streamFileToConnection(file, conn, existingId = null) {
+    const fileId = existingId || ('f_' + Math.random().toString(36).substr(2, 9));
+    queueFileSend(file, conn, fileId);
 }
 
 function syncSharedFilesToPeer(conn) {
@@ -518,11 +675,41 @@ function syncSharedFilesToPeer(conn) {
 }
 
 async function requestFileFromHost(fileId) {
-    if (activeConnections.length === 0) return;
+    if (activeConnections.length === 0) {
+        showToast('No active peer connection', '⚠️');
+        return;
+    }
+
+    // Check 1: Already downloaded? Save immediately from memory without network transfer
+    const existing = receivedFilesList.find(f => f.id === fileId);
+    if (existing && existing.url) {
+        showToast(`Downloading ${existing.name}...`, '💾');
+        const a = document.createElement('a');
+        a.href = existing.url;
+        a.download = existing.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+    }
+
+    // Check 2: Already currently downloading or requested?
+    if (activeTransfers[fileId]) {
+        showToast('File is currently downloading!', '⏳');
+        return;
+    }
+    if (pendingFileRequests.has(fileId)) {
+        return; // Ignore duplicate clicks
+    }
+
     const target = peerCatalogFiles.find(f => f.id === fileId);
+    if (!target) return;
+
+    pendingFileRequests.add(fileId);
+    updateCatalogButtonState(fileId, 'pending');
 
     // Stream large files directly to disk using File System Access API if supported
-    if (window.showSaveFilePicker && target && target.size > 50 * 1024 * 1024) {
+    if (window.showSaveFilePicker && target.size > 50 * 1024 * 1024) {
         try {
             const handle = await window.showSaveFilePicker({
                 suggestedName: target.name
@@ -531,19 +718,30 @@ async function requestFileFromHost(fileId) {
             activeFileStreams[fileId] = writable;
             showToast(`Streaming ${target.name} directly to disk...`, '💾');
         } catch (e) {
-            if (e.name !== 'AbortError') {
-                console.warn('File System Access API fallback:', e);
+            if (e.name === 'AbortError') {
+                pendingFileRequests.delete(fileId);
+                updateCatalogButtonState(fileId, 'idle');
+                return; // User intentionally cancelled save picker
             }
+            console.warn('File System Access API fallback:', e);
         }
-    } else if (target && target.size > 500 * 1024 * 1024) {
+    } else if (target.size > 500 * 1024 * 1024) {
         showToast('Large file (>500MB). Keep browser tab active until complete.', 'ℹ️');
     }
 
-    showToast('Requesting file download...', '⏳');
+    showToast(`Requesting ${target.name}...`, '⏳');
     activeConnections[0].send({
         type: 'request_file',
         id: fileId
     });
+
+    // Timeout safety: if host doesn't respond within 10s, restore button state
+    setTimeout(() => {
+        if (pendingFileRequests.has(fileId) && !activeTransfers[fileId]) {
+            pendingFileRequests.delete(fileId);
+            updateCatalogButtonState(fileId, 'idle');
+        }
+    }, 10000);
 }
 
 // --- FLOATING QUEUE & PROGRESS UI ---
@@ -558,9 +756,14 @@ function renderQueueItem(id, filename, totalSize, direction) {
     const list = document.getElementById('queueItemsList');
     if (!list) return;
 
-    const el = document.createElement('div');
-    el.id = 'q_' + id;
-    el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; gap:6px;";
+    // Reuse existing queue DOM element if present to avoid duplicate elements
+    let el = document.getElementById('q_' + id);
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'q_' + id;
+        el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; gap:6px;";
+        list.appendChild(el);
+    }
     el.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
             <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(filename)}">${direction === 'upload' ? '📤' : '📥'} ${escapeHtml(filename)}</span>
@@ -570,7 +773,6 @@ function renderQueueItem(id, filename, totalSize, direction) {
             <div id="q_bar_${id}" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition:width 0.15s ease; border-radius:99px;"></div>
         </div>
     `;
-    list.appendChild(el);
 }
 
 function updateQueueProgress(id, current, total) {
@@ -683,18 +885,83 @@ function renderPeerCatalog(files) {
         return;
     }
 
-    list.innerHTML = files.map(f => `
-        <li class="file-row">
-            <div class="file-icon">${getSmartIcon(f.category, f.ext)}</div>
-            <div class="file-details">
-                <span class="file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
-                <div class="file-size">${formatSize(f.size)}</div>
-            </div>
-            <div class="file-actions">
-                <button class="btn-primary" onclick="requestFileFromHost('${f.id}')" style="padding:4px 10px; font-size:11px; border-radius:8px;">⬇ Download</button>
-            </div>
-        </li>
-    `).join('');
+    list.innerHTML = files.map(f => {
+        const isDownloaded = receivedFilesList.some(rf => rf.id === f.id);
+        const isTransferring = !!activeTransfers[f.id];
+        const isPending = pendingFileRequests.has(f.id);
+
+        let btnContent = '⬇ Download';
+        let btnClass = 'btn-primary';
+        let btnDisabled = '';
+        let btnStyle = 'padding:4px 10px; font-size:11px; border-radius:8px;';
+
+        if (isDownloaded) {
+            btnContent = '✅ Downloaded';
+            btnClass = 'btn-secondary';
+            btnStyle += ' color:var(--accent-green); border-color:var(--accent-green);';
+        } else if (isTransferring) {
+            const tr = activeTransfers[f.id];
+            const pct = tr ? Math.min(100, Math.round((tr.receivedBytes / (tr.meta?.size || 1)) * 100)) : 0;
+            btnContent = `⏳ ${pct}%`;
+            btnClass = 'btn-secondary';
+            btnDisabled = 'disabled';
+            btnStyle += ' opacity:0.7; cursor:not-allowed;';
+        } else if (isPending) {
+            btnContent = '⏳ Requesting...';
+            btnClass = 'btn-secondary';
+            btnDisabled = 'disabled';
+            btnStyle += ' opacity:0.7; cursor:not-allowed;';
+        }
+
+        return `
+            <li class="file-row">
+                <div class="file-icon">${getSmartIcon(f.category, f.ext)}</div>
+                <div class="file-details">
+                    <span class="file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+                    <div class="file-size">${formatSize(f.size)}</div>
+                </div>
+                <div class="file-actions">
+                    <button id="btn_dl_${f.id}" class="${btnClass}" ${btnDisabled} onclick="requestFileFromHost('${f.id}')" style="${btnStyle}">${btnContent}</button>
+                </div>
+            </li>
+        `;
+    }).join('');
+}
+
+// Update catalog download button state in real time
+function updateCatalogButtonState(fileId, state, pct = 0) {
+    const btn = document.getElementById('btn_dl_' + fileId);
+    if (!btn) return;
+
+    if (state === 'pending') {
+        btn.disabled = true;
+        btn.className = 'btn-secondary';
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'not-allowed';
+        btn.innerHTML = '⏳ Requesting...';
+    } else if (state === 'downloading') {
+        btn.disabled = true;
+        btn.className = 'btn-secondary';
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'not-allowed';
+        btn.innerHTML = `⏳ ${pct}%`;
+    } else if (state === 'downloaded') {
+        btn.disabled = false;
+        btn.className = 'btn-secondary';
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.style.color = 'var(--accent-green)';
+        btn.style.borderColor = 'var(--accent-green)';
+        btn.innerHTML = '✅ Downloaded';
+    } else {
+        btn.disabled = false;
+        btn.className = 'btn-primary';
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+        btn.innerHTML = '⬇ Download';
+    }
 }
 
 // --- LIGHTBOX PREVIEW MODAL ---
