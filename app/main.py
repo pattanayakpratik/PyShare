@@ -639,6 +639,24 @@ def get_files_data():
     }
 
 # --- REQUEST HANDLER ---
+def get_asset_dir():
+    """Returns the directory containing static web templates and assets."""
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS
+        web_sub = os.path.join(base, "web")
+        if os.path.isdir(web_sub):
+            return web_sub
+        return base
+    here = os.path.dirname(os.path.abspath(__file__))
+    sibling_web = os.path.abspath(os.path.join(here, "..", "web"))
+    if os.path.isdir(sibling_web):
+        return sibling_web
+    child_web = os.path.abspath(os.path.join(here, "web"))
+    if os.path.isdir(child_web):
+        return child_web
+    return here
+
+
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     
     def log_message(self, format, *args):
@@ -751,10 +769,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         global SHARED_TEXT, TEXT_TIMESTAMP
-        if getattr(sys, 'frozen', False):
-            ASSET_DIR = sys._MEIPASS
-        else:
-            ASSET_DIR = os.path.dirname(os.path.abspath(__file__))
+        ASSET_DIR = get_asset_dir()
 
         # 1. SERVE QR CODE (Must precede static assets)
         if self.path == '/qrcode.png' or self.path.startswith('/qrcode.png?'):

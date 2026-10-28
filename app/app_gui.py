@@ -27,6 +27,10 @@ try:
 except ImportError:
     DND_SUPPORTED = False
 
+_app_dir = os.path.dirname(os.path.abspath(__file__))
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
+
 import main
 
 # =========================================================================
@@ -129,8 +133,21 @@ def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    cand = os.path.join(base_path, relative_path)
+    if os.path.exists(cand):
+        return cand
+    
+    web_cand = os.path.abspath(os.path.join(base_path, "..", "web", relative_path))
+    if os.path.exists(web_cand):
+        return web_cand
+        
+    parent_cand = os.path.abspath(os.path.join(base_path, "..", relative_path))
+    if os.path.exists(parent_cand):
+        return parent_cand
+
+    return cand
 
 
 class PyShareApp(ctk.CTk):
