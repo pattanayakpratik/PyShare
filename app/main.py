@@ -90,7 +90,7 @@ def set_custom_shared_dir(path):
         cfg = load_app_config()
         cfg["shared_dir"] = DOWNLOAD_DIR
         save_app_config(cfg)
-        broadcast_sse("files", None)
+        broadcast_sse("files", get_files_data())
         return True
     return False
 
@@ -101,7 +101,7 @@ def set_custom_received_dir(path):
         cfg = load_app_config()
         cfg["received_dir"] = UPLOAD_DIR
         save_app_config(cfg)
-        broadcast_sse("history", None)
+        broadcast_sse("files", get_files_data())
         return True
     return False
 
