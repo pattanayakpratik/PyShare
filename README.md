@@ -40,7 +40,7 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 | **Internet / Mobile Data** | Brief handshake (~50 KB) • **0 MB for files on same Wi-Fi** | ❌ **0% Internet needed (Works with Mobile Data OFF)** |
 | **Network** | Any Wi-Fi, Hotspot, 4G/5G | 100% Offline Wi-Fi LAN / Hotspot + Cloudflare Tunnel |
 | **Transfer Speed** | Peer-to-Peer WebRTC DataChannels | Ultra-fast Local Stream (**50–100 MB/s**) |
-| **File Storage** | Direct in-browser download & Lightbox | Auto-saved to `Desktop/PyShare_Files` |
+| **File Storage** | Direct in-browser download & Lightbox | Auto-saved to customizable `Received_Files`; shared files staged via Quick Share |
 | **Clipboard** | Synced Web Clipboard modal | Native 1-click Windows OS Clipboard Push |
 
 > [!TIP]
@@ -202,7 +202,7 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 ## ⚡ Key Features
 
 - **🎨 Modern Dark Navy Studio Aesthetic:** Clean, balanced interface matching desktop workstation standards and touch-friendly mobile conventions.
-- **📂 Automatic Desktop Integration:** Automatically creates and organizes `PyShare_Files/Shared_Files` and `Received_Files` on your Windows Desktop.
+- **⚡ True Quick Share Engine:** Drag & drop or select files and folders from anywhere on your PC without copying or duplicating them into a shared folder, plus customizable `Received_Files` storage for incoming downloads.
 - **⚡ Zero Configuration:** Auto-detects your primary physical network adapter (skips virtual/WSL bridges), finds open ports (8010–8020), and launches your browser on startup.
 - **🔒 Rotating PIN Security:** Dual-grace 30-second PIN rollover prevents unauthorized access while ensuring no accidental lockouts during typing.
 - **🛡️ 100% Private:** In local mode, all data travels straight across your Wi-Fi or phone hotspot without touching any external cloud servers.
@@ -215,6 +215,7 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 
 ```text
 PyShare/
+├── app_gui.py           # Native CustomTkinter GUI Desktop Studio (Cyberpunk Glass & Quick Share Engine)
 ├── main.py              # HTTP Server, SSE Push Engine, Range Streaming, Cloudflare Tunnel & mDNS
 ├── host.html            # Host 3-column studio dashboard with Internet mode & clipboard sync
 ├── host_styles.css      # Host desktop layout styling
@@ -238,6 +239,8 @@ PyShare/
 ├── app_icon.png         # Cross-platform web icon for desktop and mobile browsers
 └── Screenshots/         # High-resolution dashboard captures
     ├── banner.png
+    ├── desktop_host.png
+    ├── desktop_client.png
     ├── host_dark.png
     ├── host_white.png
     ├── mobile_host_dark.png
@@ -250,28 +253,28 @@ PyShare/
 ```
 
 ```mermaid
-graph TD
-    subgraph "Mode 1: Local Wi-Fi (Desktop App)"
+flowchart TD
+    subgraph M1 ["Mode 1: Local Wi-Fi Desktop App"]
         A["PC Host: PyShare.exe"] -->|"Port 8010-8020"| B["Threading HTTP Server"]
         B -->|"Dynamic QR Code"| C["pyqrcode / pypng"]
         B -->|"Local Discovery"| D["Zeroconf mDNS: _pyshare._tcp.local"]
         B -->|"Security"| E["Dual-Grace PIN Rotator: 30s TTL"]
         B -->|"Real-time Push"| F["Server-Sent Events: /api/events"]
-        B -->|"Storage Manager"| G["Desktop/PyShare_Files"]
+        B -->|"Storage Manager"| G["Customizable Received_Files Storage"]
         H["Mobile Device"] -->|"Scan QR & PIN"| B
     end
 
-    subgraph "Mode 2: Public Internet Mode"
+    subgraph M2 ["Mode 2: Public Internet Mode"]
         A -->|"1-Click Toggle"| I["Cloudflare Tunnel daemon"]
         I -->|"Secure HTTPS Proxy"| J["Ephemeral trycloudflare.com URL"]
         K["Remote Device: 4G/5G"] -->|"Connect via Internet"| J
         J -->|"Proxied Client Route"| B
     end
 
-    subgraph "Mode 3: Instant Web Transfer (Zero Install)"
+    subgraph M3 ["Mode 3: Instant Web Transfer Zero Install"]
         L["Device A: PC / Phone"] -->|"WebRTC DataChannel"| M["PeerJS Broker"]
         N["Device B: PC / Phone"] -->|"WebRTC DataChannel"| M
-        L <==>|"Direct P2P File Chunks & Clipboard"| N
+        L <-->|"Direct P2P File Chunks & Clipboard"| N
     end
 ```
 
@@ -291,9 +294,10 @@ graph TD
 3. Enter the **4-digit PIN** displayed on the Host screen.
 
 ### 3. Share Files &amp; Clipboard
-* **Send to Host:** Tap **Browse Files** or drag files to upload. Files are automatically saved into `Desktop/PyShare_Files/Received_Files` on the Host.
-* **Download from Host:** Tap any file to preview, download individually, or tap **📦 ZIP All** to stream the whole folder.
-* **Universal Clipboard:** Tap **📋** in the top navigation bar to view, copy, or beam text. On Host, click **"📋 Push Host Clipboard"** to send your clipboard instantly!
+* **Quick Share from Host:** In the Host Studio (Desktop App or Web), drag & drop any files or folders from anywhere on your PC directly into the dropzone (or click **Select Files / Folders**). PyShare stages your files instantly without copying or duplicating them on disk!
+* **Send to Host (Client):** On the Client device, tap **Browse Files** or drag files into the upload zone. Files are saved directly into the Host's configured **Received_Files** folder (default: `Desktop/PyShare_Files/Received_Files`, customizable anytime via **📁 Change** in the Desktop App).
+* **Download from Host:** Tap any staged file to preview, download individually, or tap **📦 ZIP All** to stream all shared files as a compressed archive.
+* **Universal Clipboard:** Tap **📋** in the top navigation bar to view, copy, or beam text. On Host, click **"📋 Push Host Clipboard"** to send your Windows clipboard instantly!
 * **Need Internet Sharing?** Click **"🌐 Enable Internet"** on the Host to generate an instant Cloudflare tunnel for clients on cellular/mobile data.
 * **Help &amp; Feedback:** Tap **💬** in the top navigation bar across any interface to report bugs, request features, or ask questions.
 
@@ -318,9 +322,10 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # 4. Run PyShare
-python main.py
+python app_gui.py     # Native Cyberpunk Glass Desktop GUI Studio
+# or: python main.py  # Headless / Web Server Mode
 
-# 5. Build standalone Windows executable
+# 5. Build standalone Windows executable (PyShare.exe)
 pyinstaller --noconfirm --clean --onefile --windowed `
   --add-data "host.html;." --add-data "client.html;." --add-data "login.html;." `
   --add-data "guide.html;." --add-data "index.html;." --add-data "p2p.js;." `
@@ -329,8 +334,8 @@ pyinstaller --noconfirm --clean --onefile --windowed `
   --add-data "scripts.js;." --add-data "host_scripts.js;." --add-data "feedback.js;." `
   --add-data "app_icon.ico;." --add-data "app_icon.png;." `
   --add-data "manifest.json;." --add-data "sw.js;." `
-  --hidden-import ifaddr `
-  --icon app_icon.ico --name "PyShare" main.py
+  --hidden-import ifaddr --hidden-import tkinterdnd2 `
+  --icon app_icon.ico --name "PyShare" app_gui.py
 ```
 
 ---
