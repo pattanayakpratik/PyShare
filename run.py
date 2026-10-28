@@ -18,13 +18,13 @@ if APP_DIR not in sys.path:
 if __name__ == "__main__":
     if "--server" in sys.argv or "--headless" in sys.argv:
         import main
-        main.main()
+        main.start_server()
     else:
         try:
             import app_gui
-            app_gui.main()
+            app_gui.start_native_app()
         except ImportError as e:
             print(f"[*] Native GUI dependencies not available ({e}).")
             print("[*] Starting PyShare in Web Server mode...")
             import main
-            main.main()
+            main.start_server()

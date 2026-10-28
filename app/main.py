@@ -1606,6 +1606,8 @@ def start_server():
             except Exception: pass
         print("[-] PyShare Stopped.")
 
+main = start_server
+
 if __name__ == "__main__":
     if "--no-gui" in sys.argv:
         start_server()
