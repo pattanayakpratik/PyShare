@@ -105,6 +105,21 @@ def set_custom_received_dir(path):
         return True
     return False
 
+def init_directories():
+    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR
+    cfg = load_app_config()
+    defs = get_default_directories()
+    DOWNLOAD_DIR = os.path.abspath(cfg.get("shared_dir", defs["shared_dir"]))
+    UPLOAD_DIR = os.path.abspath(cfg.get("received_dir", defs["received_dir"]))
+    BASE_DIR = os.path.dirname(DOWNLOAD_DIR)
+    try:
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+init_directories()
+
 # --- SECURITY & STATE ---
 CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
@@ -451,6 +466,17 @@ def get_unique_filepath(directory, filename):
         counter += 1
     return candidate
 
+def get_qr_path():
+    """Returns the dynamic QR code image path, creating parent directory or falling back to temp dir."""
+    target_dir = BASE_DIR if (BASE_DIR and os.path.isdir(BASE_DIR)) else tempfile.gettempdir()
+    if BASE_DIR and not os.path.exists(BASE_DIR):
+        try:
+            os.makedirs(BASE_DIR, exist_ok=True)
+            target_dir = BASE_DIR
+        except Exception:
+            target_dir = tempfile.gettempdir()
+    return os.path.join(target_dir, "qrcode.png")
+
 def generate_qr(url=None):
     """Generates a dynamic QR Code pointing to the current server URL or tunnel URL."""
     try:
@@ -460,7 +486,8 @@ def generate_qr(url=None):
             else:
                 ip = get_ip()
                 url = f"http://{ip}:{ACTUAL_PORT}"
-        qr_path = os.path.join(BASE_DIR, "qrcode.png")
+        qr_path = get_qr_path()
+
         qr = pyqrcode.create(url)
         qr.png(qr_path, scale=6)
         return qr_path
@@ -773,7 +800,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
         # 1. SERVE QR CODE (Must precede static assets)
         if self.path == '/qrcode.png' or self.path.startswith('/qrcode.png?'):
-            qr_path = os.path.join(BASE_DIR, "qrcode.png")
+            qr_path = get_qr_path()
+
             if not os.path.exists(qr_path):
                 generate_qr()
             if os.path.exists(qr_path):

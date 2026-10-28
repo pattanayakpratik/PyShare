@@ -7,6 +7,7 @@ Zero Browser • Dual Host & Client Mode • Quick Share Drag & Drop Staging
 """
 
 import os
+import io
 import sys
 import time
 import socket
@@ -191,7 +192,7 @@ class PyShareApp(ctk.CTk):
         self.is_client_downloading = False
 
         # Host State Cache
-        self.cached_qr_path = resource_path("qrcode.png")
+        self.cached_qr_path = os.path.join(main.BASE_DIR, "qrcode.png") if getattr(main, 'BASE_DIR', '') else resource_path("qrcode.png")
         self.qr_ctk_image = None
         self.last_qr_timestamp = 0
         self.search_shared_query = ""
@@ -1909,13 +1910,18 @@ class PyShareApp(ctk.CTk):
         self.refresh_host_received_files_list()
 
     def update_qr_image(self):
-        qr_file = resource_path("qrcode.png")
+        qr_file = main.get_qr_path() if hasattr(main, 'get_qr_path') else (os.path.join(main.BASE_DIR, "qrcode.png") if getattr(main, 'BASE_DIR', '') else "")
+        if not qr_file or not os.path.isfile(qr_file):
+            qr_file = resource_path("qrcode.png")
         if os.path.isfile(qr_file):
             mtime = os.path.getmtime(qr_file)
-            if mtime > self.last_qr_timestamp:
+            if mtime > self.last_qr_timestamp or self.qr_ctk_image is None:
                 self.last_qr_timestamp = mtime
                 try:
-                    pil_img = Image.open(qr_file).resize((132, 132))
+                    with open(qr_file, "rb") as f:
+                        img_bytes = io.BytesIO(f.read())
+                    with Image.open(img_bytes) as pil_raw:
+                        pil_img = pil_raw.copy().resize((132, 132))
                     self.qr_ctk_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(132, 132))
                     self.qr_wrapper.configure(image=self.qr_ctk_image, text="")
                 except Exception:
