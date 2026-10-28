@@ -4,6 +4,7 @@ dist
 *.exe
 *.zip
 *.spec
-main.py
-requirements.txt
+app
 Screenshots
+run.py
+requirements.txt

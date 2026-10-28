@@ -1,4 +1,5 @@
 {
+  "outputDirectory": "web",
   "cleanUrls": true,
   "rewrites": [
     { "source": "/p2p", "destination": "/" },

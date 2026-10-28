@@ -4,4 +4,7 @@ zeroconf
 pyinstaller
 pyperclip
 ifaddr
-
+customtkinter
+Pillow
+requests
+windnd

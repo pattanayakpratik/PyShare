@@ -67,6 +67,7 @@ function initSSE() {
             clearDisconnect();
             try {
                 const data = JSON.parse(e.data);
+                if (!data) return;
                 pcFiles = data.host || data.pc || [];
                 mobileFiles = data.client || data.mobile || [];
                 renderPCFiles();
@@ -78,6 +79,7 @@ function initSSE() {
             clearDisconnect();
             try {
                 const data = JSON.parse(e.data);
+                if (!data) return;
                 if (data.timestamp > lastClipboardTs) {
                     renderClipboard(data.text);
                     lastClipboardTs = data.timestamp;

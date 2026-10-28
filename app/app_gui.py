@@ -7,6 +7,7 @@ Zero Browser • Dual Host & Client Mode • Quick Share Drag & Drop Staging
 """
 
 import os
+import io
 import sys
 import time
 import socket
@@ -26,6 +27,10 @@ try:
     DND_SUPPORTED = True
 except ImportError:
     DND_SUPPORTED = False
+
+_app_dir = os.path.dirname(os.path.abspath(__file__))
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
 
 import main
 
@@ -126,11 +131,23 @@ def truncate_path(path, max_len=32):
     return "..." + path[-(max_len - 3):]
 
 def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS
+        candidate = os.path.join(base, relative_path)
+        if os.path.exists(candidate):
+            return candidate
+        web_cand = os.path.join(base, 'web', relative_path)
+        if os.path.exists(web_cand):
+            return web_cand
+        return candidate
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    candidate = os.path.join(app_dir, relative_path)
+    if os.path.exists(candidate):
+        return candidate
+    web_cand = os.path.abspath(os.path.join(app_dir, '..', 'web', relative_path))
+    if os.path.exists(web_cand):
+        return web_cand
+    return candidate
 
 
 class PyShareApp(ctk.CTk):
@@ -174,12 +191,14 @@ class PyShareApp(ctk.CTk):
         self.is_client_downloading = False
 
         # Host State Cache
-        self.cached_qr_path = resource_path("qrcode.png")
+        self.cached_qr_path = os.path.join(main.BASE_DIR, "qrcode.png") if getattr(main, 'BASE_DIR', '') else resource_path("qrcode.png")
         self.qr_ctk_image = None
         self.last_qr_timestamp = 0
         self.search_shared_query = ""
         self.search_received_query = ""
         self.search_client_query = ""
+        self._last_shared_snapshot = None
+        self._last_received_snapshot = None
 
         # Build Full Liquid Glass Layout
         self.build_top_navbar()
@@ -1256,27 +1275,52 @@ class PyShareApp(ctk.CTk):
     def clear_all_staged_files(self):
         if messagebox.askyesno("Clear All", "Unstage all files from Quick Share?\n(Original files on your disk will NOT be deleted)."):
             main.clear_staged_files()
+            self._last_shared_snapshot = None
             self.refresh_host_shared_files_list()
             self.add_log_entry("Cleared all staged files")
 
     def unstage_host_file(self, filename):
         main.unstage_file(filename)
+        self._last_shared_snapshot = None
         self.refresh_host_shared_files_list()
         self.add_log_entry(f"Unstaged: {filename}")
 
     def add_log_entry(self, msg):
         t = time.strftime("%H:%M:%S")
         self.hub_log_pane.configure(state="normal")
+        try:
+            main.add_event(msg)
+            self.sync_host_events()
+            return
+        except Exception:
+            pass
         self.hub_log_pane.insert("1.0", f"[{t}] {msg}\n")
         self.hub_log_pane.configure(state="disabled")
 
     # =========================================================================
+    def sync_host_events(self):
+        if not hasattr(self, 'hub_log_pane') or not hasattr(main, 'pop_events'):
+            return
+        try:
+            events = main.pop_events()
+            if len(events) != getattr(self, "_last_event_count", 0) or (events and events[-1] != getattr(self, "_last_event_item", None)):
+                self._last_event_count = len(events)
+                self._last_event_item = events[-1] if events else None
+                self.hub_log_pane.configure(state="normal")
+                self.hub_log_pane.delete("1.0", "end")
+                for ev in reversed(events):
+                    self.hub_log_pane.insert("end", f"[{ev.get('time', '00:00:00')}] {ev.get('msg', '')}\n")
+                self.hub_log_pane.configure(state="disabled")
+        except Exception:
+            pass
+
     # 7. FOLDER STORAGE PATH CUSTOMIZATION
     # =========================================================================
     def change_host_shared_folder(self):
         new_dir = filedialog.askdirectory(title="Select Default Shared Directory", initialdir=main.DOWNLOAD_DIR)
         if new_dir and os.path.isdir(new_dir):
             if main.set_custom_shared_dir(new_dir):
+                self._last_shared_snapshot = None
                 self.refresh_host_shared_files_list()
                 self.add_log_entry(f"Shared folder: {new_dir}")
                 messagebox.showinfo("Folder Updated", f"Default shared folder set to:\n{new_dir}")
@@ -1285,6 +1329,7 @@ class PyShareApp(ctk.CTk):
         new_dir = filedialog.askdirectory(title="Select Folder to Store Incoming Uploads", initialdir=main.UPLOAD_DIR)
         if new_dir and os.path.isdir(new_dir):
             if main.set_custom_received_dir(new_dir):
+                self._last_received_snapshot = None
                 self.refresh_host_received_files_list()
                 self.add_log_entry(f"Received folder: {new_dir}")
                 messagebox.showinfo("Folder Updated", f"Incoming uploads will now be saved in:\n{new_dir}")
@@ -1813,9 +1858,9 @@ class PyShareApp(ctk.CTk):
             return
         def _fetch():
             try:
-                r = self.client_session.get(f"{self.client_host_url}/api/clipboard", timeout=4)
+                r = self.client_session.get(f"{self.client_host_url}/api/text", timeout=4)
                 if r.status_code == 200:
-                    text = r.json().get("clipboard", "")
+                    text = r.json().get("text", "")
                     self.after(0, lambda: self.client_clipboard_entry.delete(0, "end"))
                     self.after(0, lambda: self.client_clipboard_entry.insert(0, text))
             except Exception: pass
@@ -1827,7 +1872,7 @@ class PyShareApp(ctk.CTk):
             return
         def _worker():
             try:
-                self.client_session.post(f"{self.client_host_url}/api/clipboard", json={"text": text}, timeout=4)
+                self.client_session.post(f"{self.client_host_url}/api/text", json={"text": text}, timeout=4)
                 self.after(0, lambda: messagebox.showinfo("Clipboard", "Text sent to host clipboard!"))
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to send text: {e}"))
@@ -1887,18 +1932,26 @@ class PyShareApp(ctk.CTk):
         # Update QR image if needed
         self.update_qr_image()
 
+        # Update Live Server Events Log
+        self.sync_host_events()
+
         # Update File Lists
         self.refresh_host_shared_files_list()
         self.refresh_host_received_files_list()
 
     def update_qr_image(self):
-        qr_file = resource_path("qrcode.png")
+        qr_file = main.get_qr_path() if hasattr(main, 'get_qr_path') else (os.path.join(main.BASE_DIR, "qrcode.png") if getattr(main, 'BASE_DIR', '') else "")
+        if not qr_file or not os.path.isfile(qr_file):
+            qr_file = resource_path("qrcode.png")
         if os.path.isfile(qr_file):
             mtime = os.path.getmtime(qr_file)
-            if mtime > self.last_qr_timestamp:
+            if mtime > self.last_qr_timestamp or self.qr_ctk_image is None:
                 self.last_qr_timestamp = mtime
                 try:
-                    pil_img = Image.open(qr_file).resize((132, 132))
+                    with open(qr_file, "rb") as f:
+                        img_bytes = io.BytesIO(f.read())
+                    with Image.open(img_bytes) as pil_raw:
+                        pil_img = pil_raw.copy().resize((132, 132))
                     self.qr_ctk_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(132, 132))
                     self.qr_wrapper.configure(image=self.qr_ctk_image, text="")
                 except Exception:
@@ -1919,6 +1972,12 @@ class PyShareApp(ctk.CTk):
         # Apply search query if present
         if self.search_shared_query:
             display_files = [f for f in display_files if self.search_shared_query in f.get("name", "").lower()]
+
+        # Only rebuild scroll frame if files or search query actually changed
+        snapshot = (self.search_shared_query, tuple((f.get("name"), f.get("size"), f.get("path")) for f in display_files))
+        if getattr(self, "_last_shared_snapshot", None) == snapshot:
+            return
+        self._last_shared_snapshot = snapshot
 
         for widget in self.shared_scroll.winfo_children():
             widget.destroy()
@@ -2029,6 +2088,7 @@ class PyShareApp(ctk.CTk):
         if messagebox.askyesno("Confirm Delete", f"Remove this file from disk?\n{os.path.basename(path)}"):
             try:
                 os.remove(path)
+                self._last_shared_snapshot = None
                 self.refresh_host_shared_files_list()
                 self.add_log_entry(f"Deleted file: {os.path.basename(path)}")
             except Exception as e:
@@ -2053,6 +2113,12 @@ class PyShareApp(ctk.CTk):
 
         if self.search_received_query:
             files = [f for f in files if self.search_received_query in f[0].lower()]
+
+        # Only rebuild scroll frame if files or search query actually changed
+        snapshot = (self.search_received_query, tuple(files))
+        if getattr(self, "_last_received_snapshot", None) == snapshot:
+            return
+        self._last_received_snapshot = snapshot
 
         for widget in self.received_scroll.winfo_children():
             widget.destroy()
@@ -2138,6 +2204,7 @@ class PyShareApp(ctk.CTk):
         if messagebox.askyesno("Confirm Delete", f"Delete this received file from disk?\n{os.path.basename(path)}"):
             try:
                 os.remove(path)
+                self._last_received_snapshot = None
                 self.refresh_host_received_files_list()
                 self.add_log_entry(f"Deleted received file: {os.path.basename(path)}")
             except Exception as e:
@@ -2169,6 +2236,8 @@ class PyShareApp(ctk.CTk):
 def start_native_app():
     app = PyShareApp()
     app.mainloop()
+
+main = start_native_app
 
 if __name__ == "__main__":
     start_native_app()

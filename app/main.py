@@ -1,4 +1,4 @@
-from zeroconf import ServiceInfo, Zeroconf
+from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
 import os
 import http.server
 import socketserver
@@ -90,7 +90,7 @@ def set_custom_shared_dir(path):
         cfg = load_app_config()
         cfg["shared_dir"] = DOWNLOAD_DIR
         save_app_config(cfg)
-        broadcast_sse("files", None)
+        broadcast_sse("files", get_files_data())
         return True
     return False
 
@@ -101,9 +101,24 @@ def set_custom_received_dir(path):
         cfg = load_app_config()
         cfg["received_dir"] = UPLOAD_DIR
         save_app_config(cfg)
-        broadcast_sse("history", None)
+        broadcast_sse("files", get_files_data())
         return True
     return False
+
+def init_directories():
+    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR
+    cfg = load_app_config()
+    defs = get_default_directories()
+    DOWNLOAD_DIR = os.path.abspath(cfg.get("shared_dir", defs["shared_dir"]))
+    UPLOAD_DIR = os.path.abspath(cfg.get("received_dir", defs["received_dir"]))
+    BASE_DIR = os.path.dirname(DOWNLOAD_DIR)
+    try:
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+init_directories()
 
 # --- SECURITY & STATE ---
 CURRENT_PIN = "0000"
@@ -162,6 +177,9 @@ def get_cloudflared_path():
     if os.path.exists(desktop_bin):
         return desktop_bin
     local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "cloudflared.exe")
+    root_bin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "cloudflared.exe")
+    if os.path.exists(root_bin):
+        return root_bin
     if os.path.exists(local_bin):
         return local_bin
     return desktop_bin
@@ -451,6 +469,17 @@ def get_unique_filepath(directory, filename):
         counter += 1
     return candidate
 
+def get_qr_path():
+    """Returns the dynamic QR code image path, creating parent directory or falling back to temp dir."""
+    target_dir = BASE_DIR if (BASE_DIR and os.path.isdir(BASE_DIR)) else tempfile.gettempdir()
+    if BASE_DIR and not os.path.exists(BASE_DIR):
+        try:
+            os.makedirs(BASE_DIR, exist_ok=True)
+            target_dir = BASE_DIR
+        except Exception:
+            target_dir = tempfile.gettempdir()
+    return os.path.join(target_dir, "qrcode.png")
+
 def generate_qr(url=None):
     """Generates a dynamic QR Code pointing to the current server URL or tunnel URL."""
     try:
@@ -460,7 +489,8 @@ def generate_qr(url=None):
             else:
                 ip = get_ip()
                 url = f"http://{ip}:{ACTUAL_PORT}"
-        qr_path = os.path.join(BASE_DIR, "qrcode.png")
+        qr_path = get_qr_path()
+
         qr = pyqrcode.create(url)
         qr.png(qr_path, scale=6)
         return qr_path
@@ -639,6 +669,26 @@ def get_files_data():
     }
 
 # --- REQUEST HANDLER ---
+def get_asset_dir():
+    """Returns the directory containing static web templates and assets."""
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS
+        web_sub = os.path.join(base, "web")
+        if os.path.isdir(web_sub):
+            return web_sub
+        return base
+    here = os.path.dirname(os.path.abspath(__file__))
+    sibling_web = os.path.abspath(os.path.join(here, "..", "web"))
+    if os.path.isdir(sibling_web):
+        return sibling_web
+    child_web = os.path.abspath(os.path.join(here, "web"))
+    if os.path.isdir(child_web):
+        return child_web
+    return here
+
+ASSET_DIR = get_asset_dir()
+
+
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     
     def log_message(self, format, *args):
@@ -751,14 +801,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         global SHARED_TEXT, TEXT_TIMESTAMP
-        if getattr(sys, 'frozen', False):
-            ASSET_DIR = sys._MEIPASS
-        else:
-            ASSET_DIR = os.path.dirname(os.path.abspath(__file__))
+        ASSET_DIR = get_asset_dir()
 
         # 1. SERVE QR CODE (Must precede static assets)
         if self.path == '/qrcode.png' or self.path.startswith('/qrcode.png?'):
-            qr_path = os.path.join(BASE_DIR, "qrcode.png")
+            qr_path = get_qr_path()
+
             if not os.path.exists(qr_path):
                 generate_qr()
             if os.path.exists(qr_path):
@@ -1005,7 +1053,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # G. API: Shared Clipboard (GET)
-        if self.path == '/api/text':
+        if self.path in ('/api/text', '/api/clipboard'):
             with state_lock:
                 data = {
                     "text": SHARED_TEXT,
@@ -1302,7 +1350,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # 3. HANDLE SHARED CLIPBOARD POST (/api/text)
-        if self.path == '/api/text':
+        if self.path in ('/api/text', '/api/clipboard'):
             global SHARED_TEXT, TEXT_TIMESTAMP
             length = int(self.headers.get('Content-Length', 0))
             if length > 1024 * 64:
@@ -1311,7 +1359,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             try:
                 data = json.loads(body)
-                new_text = str(data.get("text", "")).strip()
+                new_text = str(data.get("text", data.get("clipboard", ""))).strip()
             except Exception:
                 new_text = body.strip()
 
@@ -1343,7 +1391,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 fn = os.path.basename(data.get('filename', ''))
                 folder = data.get('folder', 'shared')
                 if folder == 'shared' and fn in STAGED_FILES:
+                    staged_info = STAGED_FILES.get(fn, {})
+                    staged_path = staged_info.get("path", "")
                     unstage_file(fn)
+                    if staged_path and os.path.isfile(staged_path) and os.path.commonpath([os.path.abspath(DOWNLOAD_DIR), os.path.abspath(staged_path)]) == os.path.abspath(DOWNLOAD_DIR):
+                        try:
+                            os.remove(staged_path)
+                        except Exception:
+                            pass
                     add_event(f"Unshared: {fn}")
                     broadcast_sse("files", get_files_data())
                     self.send_json({"status": "ok", "deleted": fn})
@@ -1424,6 +1479,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     if os.path.exists(out_path):
                         os.remove(out_path)
                     os.rename(part_path, out_path)
+                    if is_host_upload:
+                        stage_file(out_path)
                 else:
                     if os.path.exists(part_path):
                         os.remove(part_path)
@@ -1528,6 +1585,7 @@ def start_server():
 
     print(f"[+] PyShare Server Live at: {url}")
     print(f"[+] Local Storage: {BASE_DIR}")
+    add_event("Server started. Ready for connections.")
     print("="*45 + "\n")
     
     # Run HTTP server on background daemon thread
@@ -1552,6 +1610,8 @@ def start_server():
                 httpd.server_close()
             except Exception: pass
         print("[-] PyShare Stopped.")
+
+main = start_server
 
 if __name__ == "__main__":
     if "--no-gui" in sys.argv:

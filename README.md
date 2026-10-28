@@ -215,41 +215,38 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 
 ```text
 PyShare/
-├── app_gui.py           # Native CustomTkinter GUI Desktop Studio (Cyberpunk Glass & Quick Share Engine)
-├── main.py              # HTTP Server, SSE Push Engine, Range Streaming, Cloudflare Tunnel & mDNS
-├── host.html            # Host 3-column studio dashboard with Internet mode & clipboard sync
-├── host_styles.css      # Host desktop layout styling
-├── host_scripts.js      # Host SSE listener, PIN sync, RX monitor & Windows clipboard sync
-├── feedback.js          # Universal Feedback & Help modal, device diagnostics & GitHub Issue fallback
-├── client.html          # Mobile-first client interface with PWA support
-├── client_styles.css    # Client touch-friendly layout
-├── login.html           # 4-digit PIN authentication keypad with guide shortcut
-├── guide.html           # Interactive visual How-To Guide & troubleshooting wizard
-├── index.html           # Universal Web Transfer interface (Zero App Install Required)
-├── p2p.js               # WebRTC P2P chunking, transfer queue, drag-and-drop & keyboard PIN
-├── peerjs.min.js        # Vendored PeerJS WebRTC data broker
-├── qrcode.min.js        # Vendored client-side QR code generator
-├── styles.css           # Global design system & Lightbox modal
-├── scripts.js           # Multi-file upload queue, SSE event stream & media preview
-├── manifest.json        # Progressive Web App (PWA) manifest
-├── sw.js                # Service Worker for standalone mobile PWA (Cache v5)
-├── vercel.json          # 1-click cloud deployment configuration
-├── requirements.txt     # Python dependencies
-├── app_icon.ico         # Application icon for Windows executable
-├── app_icon.png         # Cross-platform web icon for desktop and mobile browsers
-└── Screenshots/         # High-resolution dashboard captures
-    ├── banner.png
-    ├── desktop_host.png
-    ├── desktop_client.png
-    ├── host_dark.png
-    ├── host_white.png
-    ├── mobile_host_dark.png
-    ├── mobile_host_white.png
-    ├── client_dark.png
-    ├── client_white.png
-    ├── client_login.png
-    ├── web_transfer.png
-    └── guide.png
+├── app/                  # 💻 Standalone Native Desktop App & Backend Engine
+│   ├── app_gui.py        # Native CustomTkinter GUI Studio (Cyberpunk Glass & Quick Share Engine)
+│   ├── main.py           # HTTP Server, SSE Push Engine, Range Streaming, Cloudflare Tunnel & mDNS
+│   ├── app_icon.ico      # Windows application icon
+│   ├── app_icon.png      # Application branding icon
+│   └── PyShare.spec      # Standalone executable build specification
+├── web/                  # 🌐 Instant Web P2P Suite & Progressive Web App (PWA)
+│   ├── index.html        # Universal Web Transfer interface (Zero App Install Required)
+│   ├── host.html         # Host 3-column studio dashboard with Internet mode & clipboard sync
+│   ├── host_styles.css   # Host desktop layout styling
+│   ├── host_scripts.js   # Host SSE listener, PIN sync, RX monitor & Windows clipboard sync
+│   ├── client.html       # Mobile-first client interface with PWA support
+│   ├── client_styles.css # Client touch-friendly layout
+│   ├── scripts.js        # Multi-file upload queue, SSE event stream & media preview
+│   ├── login.html        # 4-digit PIN authentication keypad with guide shortcut
+│   ├── guide.html        # Interactive visual How-To Guide & troubleshooting wizard
+│   ├── feedback.js       # Universal Feedback & Help modal, device diagnostics & GitHub Issue fallback
+│   ├── p2p.js            # WebRTC P2P chunking, transfer queue, drag-and-drop & keyboard PIN
+│   ├── peerjs.min.js     # Vendored PeerJS WebRTC data broker
+│   ├── qrcode.min.js     # Vendored client-side QR code generator
+│   ├── styles.css        # Global design system & Lightbox modal
+│   ├── manifest.json     # Progressive Web App (PWA) manifest
+│   ├── sw.js             # Service Worker for standalone mobile PWA (Cache v5)
+│   ├── app_icon.png      # Cross-platform web icon for desktop and mobile browsers
+│   └── app_icon.ico      # Web favicon
+├── Screenshots/          # 📸 High-resolution dashboard captures
+├── run.py                # 🚀 Root launcher (Desktop GUI or Headless Server)
+├── requirements.txt      # 📦 Python dependencies
+├── vercel.json           # ☁️ 1-click cloud deployment configuration (points to web/)
+├── .vercelignore         # 🛡️ Cloud deployment exclusions
+├── README.md             # 📖 Project documentation
+└── LICENSE               # 📜 MIT License
 ```
 
 ```mermaid
@@ -285,8 +282,9 @@ flowchart TD
 
 ### 1. Launch PyShare
 * **Desktop App:** Double-click `PyShare.exe`.
-* **From Source:** Run `python main.py` in your terminal.
-* **Instant Web Mode:** Open `index.html` in any browser or visit your deployed web URL.
+* **From Source (Desktop GUI):** Run `python run.py` (or `python app/app_gui.py`).
+* **From Source (Headless Server):** Run `python run.py --server` (or `python app/main.py`).
+* **Instant Web Mode:** Open `web/index.html` in any browser or visit your deployed web URL.
 
 ### 2. Connect Any Device (Host &amp; Client)
 1. Make sure both Host and Client devices are connected to the **same Wi-Fi router** or connect to a device's **Personal Hotspot**.
@@ -322,20 +320,11 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # 4. Run PyShare
-python app_gui.py     # Native Cyberpunk Glass Desktop GUI Studio
-# or: python main.py  # Headless / Web Server Mode
+python run.py             # Native Cyberpunk Glass Desktop GUI Studio
+# or: python run.py --server  # Headless / Web Server Mode
 
 # 5. Build standalone Windows executable (PyShare.exe)
-pyinstaller --noconfirm --clean --onefile --windowed `
-  --add-data "host.html;." --add-data "client.html;." --add-data "login.html;." `
-  --add-data "guide.html;." --add-data "index.html;." --add-data "p2p.js;." `
-  --add-data "peerjs.min.js;." --add-data "qrcode.min.js;." `
-  --add-data "styles.css;." --add-data "host_styles.css;." --add-data "client_styles.css;." `
-  --add-data "scripts.js;." --add-data "host_scripts.js;." --add-data "feedback.js;." `
-  --add-data "app_icon.ico;." --add-data "app_icon.png;." `
-  --add-data "manifest.json;." --add-data "sw.js;." `
-  --hidden-import ifaddr --hidden-import tkinterdnd2 `
-  --icon app_icon.ico --name "PyShare" app_gui.py
+pyinstaller --clean app/PyShare.spec
 ```
 
 ---

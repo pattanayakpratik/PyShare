@@ -28,28 +28,29 @@ jobs:
 
       - name: Compile and Lint Python Code
         run: |
-          python -m py_compile main.py
+          python -m py_compile app/main.py app/app_gui.py run.py
           echo "✅ Python syntax and compile checks passed!"
 
       - name: Verify Web & P2P Assets Integrity
         run: |
           echo "Checking essential static assets for web deployment..."
           assets=(
-            "index.html"
-            "client.html"
-            "host.html"
-            "login.html"
-            "guide.html"
-            "styles.css"
-            "client_styles.css"
-            "host_styles.css"
-            "p2p.js"
-            "scripts.js"
-            "host_scripts.js"
-            "feedback.js"
-            "peerjs.min.js"
-            "qrcode.min.js"
-            "manifest.json"
+            "web/index.html"
+            "web/client.html"
+            "web/host.html"
+            "web/login.html"
+            "web/guide.html"
+            "web/styles.css"
+            "web/client_styles.css"
+            "web/host_styles.css"
+            "web/p2p.js"
+            "web/scripts.js"
+            "web/host_scripts.js"
+            "web/feedback.js"
+            "web/peerjs.min.js"
+            "web/qrcode.min.js"
+            "web/manifest.json"
+            "web/sw.js"
             "vercel.json"
           )
           for file in "${assets[@]}"; do
