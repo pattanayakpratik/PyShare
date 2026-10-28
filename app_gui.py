@@ -1,6 +1,6 @@
 """
 ==========================================================================
-PyShare v4.8.0 - Cyberpunk Neon Liquid Glass Native Desktop GUI
+PyShare v4.9.0 - Cyberpunk Neon Liquid Glass Native Desktop GUI
 Exact 3-Pillar Studio Layout Matching Web UI (host_dark.png & client_dark.png)
 Zero Browser • Dual Host & Client Mode • Quick Share Drag & Drop Staging
 ==========================================================================
