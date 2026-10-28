@@ -177,6 +177,9 @@ def get_cloudflared_path():
     if os.path.exists(desktop_bin):
         return desktop_bin
     local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "cloudflared.exe")
+    root_bin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "cloudflared.exe")
+    if os.path.exists(root_bin):
+        return root_bin
     if os.path.exists(local_bin):
         return local_bin
     return desktop_bin
@@ -682,6 +685,8 @@ def get_asset_dir():
     if os.path.isdir(child_web):
         return child_web
     return here
+
+ASSET_DIR = get_asset_dir()
 
 
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
