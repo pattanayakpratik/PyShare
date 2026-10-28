@@ -36,7 +36,8 @@ a = Analysis(
         'zeroconf',
         'png',
         'pyqrcode',
-        'darkdetect'
+        'darkdetect',
+        'windnd'
     ],
     hookspath=[],
     hooksconfig={},

@@ -507,6 +507,8 @@ def list_dir(path):
         if os.path.exists(path):
             files = sorted(os.listdir(path), key=str.lower)
             for f in files:
+                if f.endswith('.part') or f.endswith('.tmp'):
+                    continue
                 fp = os.path.join(path, f)
                 if os.path.isfile(fp):
                     stat = os.stat(fp)
@@ -516,14 +518,122 @@ def list_dir(path):
                         "size": stat.st_size,
                         "mtime": int(stat.st_mtime),
                         "category": get_category(ext),
-                        "ext": ext.lstrip('.').lower()
+                        "ext": ext.lstrip('.').lower(),
+                        "path": fp
                     })
     except Exception: 
         pass
     return data
 
+# --- QUICK SHARE STAGED FILES REGISTRY ---
+# Zero-copy sharing: files stream directly from their original disk paths
+STAGED_FILES = {}  # filename -> dict(name, path, size, mtime, category, ext)
+STAGED_LOCK = threading.RLock()
+
+def stage_file(filepath):
+    """Register a specific file to share without duplicating it on disk."""
+    if not filepath or not os.path.isfile(filepath):
+        return False
+    abs_path = os.path.abspath(filepath)
+    fn = os.path.basename(abs_path)
+    try:
+        stat = os.stat(abs_path)
+        ext = os.path.splitext(fn)[1]
+        with STAGED_LOCK:
+            STAGED_FILES[fn] = {
+                "name": fn,
+                "path": abs_path,
+                "size": stat.st_size,
+                "mtime": int(stat.st_mtime),
+                "category": get_category(ext),
+                "ext": ext.lstrip('.').lower()
+            }
+        broadcast_sse("files", get_files_data())
+        return True
+    except Exception as e:
+        print(f"[*] Could not stage file {filepath}: {e}")
+        return False
+
+def stage_files(filepaths):
+    """Register multiple files or directories recursively."""
+    added = 0
+    with STAGED_LOCK:
+        for p in filepaths:
+            if not p:
+                continue
+            abs_p = os.path.abspath(p)
+            if os.path.isfile(abs_p):
+                fn = os.path.basename(abs_p)
+                try:
+                    stat = os.stat(abs_p)
+                    ext = os.path.splitext(fn)[1]
+                    STAGED_FILES[fn] = {
+                        "name": fn,
+                        "path": abs_p,
+                        "size": stat.st_size,
+                        "mtime": int(stat.st_mtime),
+                        "category": get_category(ext),
+                        "ext": ext.lstrip('.').lower()
+                    }
+                    added += 1
+                except Exception:
+                    pass
+            elif os.path.isdir(abs_p):
+                for root, _, files in os.walk(abs_p):
+                    for f in files:
+                        if f.endswith('.part') or f.endswith('.tmp'):
+                            continue
+                        fp = os.path.join(root, f)
+                        try:
+                            stat = os.stat(fp)
+                            ext = os.path.splitext(f)[1]
+                            STAGED_FILES[f] = {
+                                "name": f,
+                                "path": fp,
+                                "size": stat.st_size,
+                                "mtime": int(stat.st_mtime),
+                                "category": get_category(ext),
+                                "ext": ext.lstrip('.').lower()
+                            }
+                            added += 1
+                        except Exception:
+                            pass
+    if added > 0:
+        broadcast_sse("files", get_files_data())
+    return added
+
+def unstage_file(filename):
+    """Remove a file from the shared list (does NOT delete original file from disk)."""
+    with STAGED_LOCK:
+        removed = STAGED_FILES.pop(filename, None)
+    if removed:
+        broadcast_sse("files", get_files_data())
+        return True
+    return False
+
+def clear_staged_files():
+    """Unstage all shared files."""
+    with STAGED_LOCK:
+        STAGED_FILES.clear()
+    broadcast_sse("files", get_files_data())
+
+def get_staged_files():
+    """Return list of valid staged file dictionaries."""
+    with STAGED_LOCK:
+        valid = []
+        for fn, item in list(STAGED_FILES.items()):
+            if os.path.isfile(item["path"]):
+                valid.append(item)
+            else:
+                STAGED_FILES.pop(fn, None)
+        return list(valid)
+
 def get_files_data():
-    host_files = list_dir(DOWNLOAD_DIR)
+    staged = get_staged_files()
+    if staged:
+        host_files = staged
+    else:
+        host_files = list_dir(DOWNLOAD_DIR)
     client_files = list_dir(UPLOAD_DIR)
     return {
         "host": host_files,
@@ -563,14 +673,28 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def get_file_path(self, filename):
+        if not filename or filename.endswith('.part') or filename.endswith('.tmp'):
+            return None
+
+        # 1. Check Staged Files (Quick Share: Zero-RAM copy, stream direct from original path)
+        with STAGED_LOCK:
+            if filename in STAGED_FILES:
+                fp = STAGED_FILES[filename]["path"]
+                if os.path.isfile(fp):
+                    return fp
+
+        # 2. Check Shared Directory
         safe_download_dir = os.path.abspath(DOWNLOAD_DIR)
-        safe_upload_dir = os.path.abspath(UPLOAD_DIR)
         dl_fp = os.path.abspath(os.path.join(safe_download_dir, filename))
         if os.path.commonpath([safe_download_dir, dl_fp]) == safe_download_dir and os.path.isfile(dl_fp): 
             return dl_fp
+
+        # 3. Check Received Directory
+        safe_upload_dir = os.path.abspath(UPLOAD_DIR)
         up_fp = os.path.abspath(os.path.join(safe_upload_dir, filename))
         if os.path.commonpath([safe_upload_dir, up_fp]) == safe_upload_dir and os.path.isfile(up_fp): 
             return up_fp
+
         return None
 
     def get_session_token(self):
@@ -913,7 +1037,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # I. API: Download All as ZIP (Zero-RAM Disk-Backed Stream with DoS Protection)
-        if self.path.startswith('/api/zip'):
+        if self.path.startswith('/api/zip') or self.path.startswith('/download-all'):
             acquired = zip_semaphore.acquire(blocking=False)
             if not acquired:
                 self.send_error(429, "An archive is already being generated. Please wait.")
@@ -922,26 +1046,49 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             query = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(query)
             folder_type = params.get('folder', ['shared'])[0]
-            target_dir = UPLOAD_DIR if folder_type == 'received' else DOWNLOAD_DIR
             
-            if not os.path.exists(target_dir) or not os.listdir(target_dir):
-                zip_semaphore.release()
-                self.send_error(404, "No files found to archive")
-                return
-
             temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
             temp_zip_path = temp_zip.name
             temp_zip.close()
 
             try:
+                files_to_pack = []  # (abs_path, arcname)
+                if folder_type == 'received':
+                    target_dir = UPLOAD_DIR
+                    if os.path.exists(target_dir):
+                        for root, _, files in os.walk(target_dir):
+                            for file in files:
+                                if file.endswith('.part') or file.endswith('.tmp'):
+                                    continue
+                                abs_p = os.path.join(root, file)
+                                rel_p = os.path.relpath(abs_p, target_dir)
+                                files_to_pack.append((abs_p, rel_p))
+                else:
+                    # Shared files: prefer STAGED_FILES if any
+                    with STAGED_LOCK:
+                        if STAGED_FILES:
+                            for fn, item in STAGED_FILES.items():
+                                if os.path.isfile(item["path"]):
+                                    files_to_pack.append((item["path"], fn))
+                    if not files_to_pack and os.path.exists(DOWNLOAD_DIR):
+                        for root, _, files in os.walk(DOWNLOAD_DIR):
+                            for file in files:
+                                if file.endswith('.part') or file.endswith('.tmp'):
+                                    continue
+                                abs_p = os.path.join(root, file)
+                                rel_p = os.path.relpath(abs_p, DOWNLOAD_DIR)
+                                files_to_pack.append((abs_p, rel_p))
+
+                if not files_to_pack:
+                    zip_semaphore.release()
+                    self.send_error(404, "No files found to archive")
+                    return
+
                 with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-                    for root, _, files in os.walk(target_dir):
-                        for file in files:
-                            abs_p = os.path.join(root, file)
-                            rel_p = os.path.relpath(abs_p, target_dir)
-                            _, ext = os.path.splitext(file)
-                            comp_mode = zipfile.ZIP_STORED if ext.lower() in PRECOMPRESSED_EXTS else zipfile.ZIP_DEFLATED
-                            zf.write(abs_p, rel_p, compress_type=comp_mode)
+                    for abs_p, arcname in files_to_pack:
+                        _, ext = os.path.splitext(arcname)
+                        comp_mode = zipfile.ZIP_STORED if ext.lower() in PRECOMPRESSED_EXTS else zipfile.ZIP_DEFLATED
+                        zf.write(abs_p, arcname, compress_type=comp_mode)
 
                 zip_size = os.path.getsize(temp_zip_path)
                 zip_fn = f"PyShare_{folder_type.capitalize()}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
@@ -1199,6 +1346,13 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 data = json.loads(body)
                 fn = os.path.basename(data.get('filename', ''))
                 folder = data.get('folder', 'shared')
+                if folder == 'shared' and fn in STAGED_FILES:
+                    unstage_file(fn)
+                    add_event(f"Unshared: {fn}")
+                    broadcast_sse("files", get_files_data())
+                    self.send_json({"status": "ok", "deleted": fn})
+                    return
+
                 target_dir = UPLOAD_DIR if folder == 'received' else DOWNLOAD_DIR
                 target_fp = os.path.abspath(os.path.join(target_dir, fn))
                 safe_target_dir = os.path.abspath(target_dir)
@@ -1240,6 +1394,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
             out_path = get_unique_filepath(target_dir, raw_fn)
             actual_fn = os.path.basename(out_path)
+            part_path = out_path + ".part"
             
             remain = length
             total_size = length
@@ -1248,25 +1403,42 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 add_event(f"Receiving: {actual_fn}")
             
             last_status_time = 0
-            with open(out_path, 'wb') as f:
-                while remain > 0:
-                    chunk = self.rfile.read(min(remain, 262144))  # 256KB chunk
-                    if not chunk: 
-                        break
-                    f.write(chunk)
-                    remain -= len(chunk)
-                    
-                    if not is_host_upload:
-                        now = time.time()
-                        # Throttle lock & SSE broadcast to max 10 times per second
-                        if now - last_status_time >= 0.1 or remain == 0:
-                            last_status_time = now
-                            set_upload_status(client_ip, actual_fn, total_size - remain, total_size)
-                            broadcast_sse("upload", {
-                                "filename": actual_fn,
-                                "current": total_size - remain,
-                                "total": total_size
-                            })
+            try:
+                with open(part_path, 'wb') as f:
+                    while remain > 0:
+                        chunk = self.rfile.read(min(remain, 262144))  # 256KB chunk
+                        if not chunk: 
+                            break
+                        f.write(chunk)
+                        remain -= len(chunk)
+                        
+                        if not is_host_upload:
+                            now = time.time()
+                            # Throttle lock & SSE broadcast to max 10 times per second
+                            if now - last_status_time >= 0.1 or remain == 0:
+                                last_status_time = now
+                                set_upload_status(client_ip, actual_fn, total_size - remain, total_size)
+                                broadcast_sse("upload", {
+                                    "filename": actual_fn,
+                                    "current": total_size - remain,
+                                    "total": total_size
+                                })
+                if remain == 0:
+                    # Atomic commit: Rename completed .part file to final path
+                    if os.path.exists(out_path):
+                        os.remove(out_path)
+                    os.rename(part_path, out_path)
+                else:
+                    if os.path.exists(part_path):
+                        os.remove(part_path)
+                    raise IOError("Transfer interrupted before complete upload")
+            except Exception as e:
+                if os.path.exists(part_path):
+                    try:
+                        os.remove(part_path)
+                    except Exception:
+                        pass
+                raise e
             
             clear_upload_status(client_ip)
             broadcast_sse("upload", None)
@@ -1288,80 +1460,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 # --- DESKTOP APPLICATION LAUNCHER ---
 def launch_desktop_app(url):
     """
-    Launch PyShare in its own dedicated standalone desktop application window.
-    Eliminates browser tabs, URL bar, and bookmarks for a clean native app experience.
+    PyShare Server Core Runner.
+    Native Desktop GUI runs via app_gui.py without spawning any browser windows.
     """
-    if "--no-gui" in sys.argv:
-        print("[*] Running in headless mode (--no-gui). Press Ctrl+C to stop.")
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            return
-
-    system = platform.system()
-    app_profile = os.path.join(tempfile.gettempdir(), "PyShare_AppProfile")
-    os.makedirs(app_profile, exist_ok=True)
-
-    browser_candidates = []
-    if system == "Windows":
-        browser_candidates = [
-            os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
-            os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
-            os.path.expandvars(r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe"),
-            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
-            os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
-            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
-            os.path.expandvars(r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"),
-        ]
-    elif system == "Darwin":
-        browser_candidates = [
-            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-        ]
-    else:
-        import shutil
-        for name in ["microsoft-edge", "google-chrome", "chromium-browser", "chromium", "brave-browser"]:
-            p = shutil.which(name)
-            if p:
-                browser_candidates.append(p)
-
-    app_proc = None
-    for browser_path in browser_candidates:
-        if browser_path and os.path.isfile(browser_path):
-            cmd = [
-                browser_path,
-                f"--app={url}",
-                f"--user-data-dir={app_profile}",
-                "--window-size=1150,780",
-                "--no-first-run",
-                "--no-default-browser-check"
-            ]
-            try:
-                app_proc = subprocess.Popen(cmd)
-                break
-            except Exception as e:
-                print(f"[*] Standalone app launcher notice ({browser_path}): {e}")
-                app_proc = None
-
-    if app_proc:
-        # Block until user closes the standalone app window
-        try:
-            app_proc.wait()
-        except KeyboardInterrupt:
-            try:
-                app_proc.terminate()
-            except Exception:
-                pass
-        return
-
-    # Fallback to default browser if no standalone app runner is found
-    try:
-        webbrowser.open(url)
-    except Exception:
-        pass
-
+    print(f"[*] PyShare server active at: {url}")
+    print("[*] Press Ctrl+C to terminate.")
     try:
         while True:
             time.sleep(1)

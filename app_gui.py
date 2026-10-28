@@ -2,7 +2,7 @@
 ==========================================================================
 PyShare v4.8.0 - Native Desktop Application GUI
 Standalone Cross-Platform GUI • Host & Client Dual-Mode • Zero Browser
-Custom Storage & Sharing Folder Management
+Quick Share Drag & Drop Model • Customizable Storage Locations
 ==========================================================================
 """
 
@@ -20,6 +20,12 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image
+
+try:
+    import windnd
+    DND_SUPPORTED = True
+except ImportError:
+    DND_SUPPORTED = False
 
 import main
 
@@ -84,7 +90,7 @@ class PyShareApp(ctk.CTk):
         ctk.set_appearance_mode(theme)
         ctk.set_default_color_theme("blue")
 
-        self.title("PyShare — Local & P2P File Transfer")
+        self.title("PyShare — Local & P2P Quick Share")
         self.geometry("1140x740")
         self.minsize(960, 620)
 
@@ -117,6 +123,13 @@ class PyShareApp(ctk.CTk):
 
         # Initialize Host Server in Background
         self.start_host_server()
+
+        # Register Native Drag & Drop if available
+        if DND_SUPPORTED:
+            try:
+                windnd.hook_dropfiles(self, func=self.on_drop_files, force_unicode=True)
+            except Exception as e:
+                print(f"[*] Drag-and-drop hook notice: {e}")
 
         # Start Periodic GUI Refresh Ticker
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -180,7 +193,7 @@ class PyShareApp(ctk.CTk):
         actions_frame = ctk.CTkFrame(self.navbar, fg_color="transparent")
         actions_frame.pack(side="right", padx=16)
 
-        # Storage Folder Button
+        # Base Storage Folder Button
         self.storage_btn = ctk.CTkButton(
             actions_frame,
             text="📂 Base Folder",
@@ -244,10 +257,10 @@ class PyShareApp(ctk.CTk):
         main.save_app_config(self.app_config)
 
     # =========================================================================
-    # 3. HOST MODE VIEW (SERVER CONTROLS, PIN, QR CODE, SHARED/RECEIVED FILES)
+    # 3. HOST MODE VIEW (SERVER CONTROLS, PIN, QR CODE, QUICK SHARE)
     # =========================================================================
     def build_host_view(self):
-        # 2-Column Studio Grid Layout
+        # 2-Column Grid Layout
         self.host_left_col = ctk.CTkFrame(self.host_frame, width=350, corner_radius=14, fg_color=("#182234", "#0f172a"))
         self.host_left_col.pack(side="left", fill="y", padx=(0, 10))
         self.host_left_col.pack_propagate(False)
@@ -336,7 +349,7 @@ class PyShareApp(ctk.CTk):
         self.qr_wrapper.pack(pady=4)
 
         # =====================================================================
-        # CUSTOM FOLDER PATHS CARD (USER CAN CHANGE SHARED & RECEIVED FOLDERS)
+        # FOLDER STORAGE LOCATIONS CARD
         # =====================================================================
         paths_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
         paths_card.pack(fill="x", pady=5, padx=4)
@@ -348,61 +361,12 @@ class PyShareApp(ctk.CTk):
             text_color="#94a3b8"
         ).pack(anchor="w", padx=10, pady=(8, 4))
 
-        # --- Shared Folder Path ---
-        ctk.CTkLabel(
-            paths_card,
-            text="📤 Share Files From:",
-            font=ctk.CTkFont(size=11, weight="bold")
-        ).pack(anchor="w", padx=10, pady=(2, 0))
-
-        self.shared_folder_path_lbl = ctk.CTkLabel(
-            paths_card,
-            text=truncate_path(main.DOWNLOAD_DIR),
-            font=ctk.CTkFont(family="monospace", size=10),
-            text_color=("#0284c7", "#38bdf8"),
-            anchor="w"
-        )
-        self.shared_folder_path_lbl.pack(fill="x", padx=10, pady=(0, 4))
-
-        shared_btns_row = ctk.CTkFrame(paths_card, fg_color="transparent")
-        shared_btns_row.pack(fill="x", padx=10, pady=(0, 8))
-
-        ctk.CTkButton(
-            shared_btns_row,
-            text="📁 Change...",
-            height=26,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self.change_host_shared_folder
-        ).pack(side="left", expand=True, padx=(0, 2))
-
-        ctk.CTkButton(
-            shared_btns_row,
-            text="📂 Open",
-            height=26,
-            width=50,
-            font=ctk.CTkFont(size=11),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
-            command=lambda: os.startfile(main.DOWNLOAD_DIR)
-        ).pack(side="left", padx=2)
-
-        ctk.CTkButton(
-            shared_btns_row,
-            text="🔄 Reset",
-            height=26,
-            width=50,
-            font=ctk.CTkFont(size=11),
-            fg_color=("#334155", "#334155"),
-            hover_color=("#475569", "#475569"),
-            command=self.reset_host_shared_folder
-        ).pack(side="left", padx=(2, 0))
-
         # --- Received Folder Path ---
         ctk.CTkLabel(
             paths_card,
-            text="📥 Store Received Files In:",
+            text="📥 Save Received Uploads To:",
             font=ctk.CTkFont(size=11, weight="bold")
-        ).pack(anchor="w", padx=10, pady=(4, 0))
+        ).pack(anchor="w", padx=10, pady=(2, 0))
 
         self.received_folder_path_lbl = ctk.CTkLabel(
             paths_card,
@@ -446,6 +410,55 @@ class PyShareApp(ctk.CTk):
             command=self.reset_host_received_folder
         ).pack(side="left", padx=(2, 0))
 
+        # --- Shared Folder Path (Fallback) ---
+        ctk.CTkLabel(
+            paths_card,
+            text="📤 Default Shared Directory:",
+            font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(anchor="w", padx=10, pady=(4, 0))
+
+        self.shared_folder_path_lbl = ctk.CTkLabel(
+            paths_card,
+            text=truncate_path(main.DOWNLOAD_DIR),
+            font=ctk.CTkFont(family="monospace", size=10),
+            text_color=("#0284c7", "#38bdf8"),
+            anchor="w"
+        )
+        self.shared_folder_path_lbl.pack(fill="x", padx=10, pady=(0, 4))
+
+        shared_btns_row = ctk.CTkFrame(paths_card, fg_color="transparent")
+        shared_btns_row.pack(fill="x", padx=10, pady=(0, 8))
+
+        ctk.CTkButton(
+            shared_btns_row,
+            text="📁 Change...",
+            height=26,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            command=self.change_host_shared_folder
+        ).pack(side="left", expand=True, padx=(0, 2))
+
+        ctk.CTkButton(
+            shared_btns_row,
+            text="📂 Open",
+            height=26,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#334155", "#334155"),
+            hover_color=("#475569", "#475569"),
+            command=lambda: os.startfile(main.DOWNLOAD_DIR)
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            shared_btns_row,
+            text="🔄 Reset",
+            height=26,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#334155", "#334155"),
+            hover_color=("#475569", "#475569"),
+            command=self.reset_host_shared_folder
+        ).pack(side="left", padx=(2, 0))
+
         # Cloudflare Tunnel Toggle Card
         tunnel_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
         tunnel_card.pack(fill="x", pady=5, padx=4)
@@ -465,11 +478,11 @@ class PyShareApp(ctk.CTk):
         )
         self.tunnel_url_lbl.pack(fill="x", padx=10, pady=(0, 8))
 
-        # --- RIGHT PANEL: Tabview (Shared Files, Received Files, Shared Clipboard) ---
+        # --- RIGHT PANEL: Tabview (Quick Share, Received Files, Shared Clipboard) ---
         self.host_tabs = ctk.CTkTabview(self.host_right_col, fg_color="transparent")
         self.host_tabs.pack(fill="both", expand=True, padx=10, pady=10)
 
-        self.tab_shared = self.host_tabs.add("📤 Shared Files")
+        self.tab_shared = self.host_tabs.add("📤 Quick Share (Send)")
         self.tab_received = self.host_tabs.add("📥 Received Files")
         self.tab_clipboard = self.host_tabs.add("📋 Shared Clipboard")
 
@@ -477,22 +490,44 @@ class PyShareApp(ctk.CTk):
         self.build_host_received_tab()
         self.build_host_clipboard_tab()
 
-    # --- HOST TAB 1: Shared Files ---
+    # --- HOST TAB 1: Quick Share (Send) ---
     def build_host_shared_tab(self):
-        # Action Bar
-        action_bar = ctk.CTkFrame(self.tab_shared, height=44, fg_color="transparent")
-        action_bar.pack(fill="x", pady=(0, 6))
+        # Quick Share Drag & Drop Card
+        drop_card = ctk.CTkFrame(self.tab_shared, corner_radius=10, fg_color=("#1e293b", "#161f30"), border_width=1, border_color=("#334155", "#1e293b"))
+        drop_card.pack(fill="x", pady=(0, 8), padx=2)
+
+        drop_inner = ctk.CTkFrame(drop_card, fg_color="transparent")
+        drop_inner.pack(fill="x", padx=12, pady=10)
+
+        ctk.CTkLabel(
+            drop_inner,
+            text="☁️ Quick Share: Drag & Drop Files or Folders Here",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=("#0284c7", "#38bdf8")
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            drop_inner,
+            text="Files stream directly from your PC without duplicate copying. Only staged items are exposed to peers.",
+            font=ctk.CTkFont(size=11),
+            text_color="#94a3b8"
+        ).pack(anchor="w", pady=(2, 8))
+
+        btns_row = ctk.CTkFrame(drop_inner, fg_color="transparent")
+        btns_row.pack(fill="x")
 
         ctk.CTkButton(
-            action_bar,
-            text="➕ Add Files to Share",
+            btns_row,
+            text="➕ Add File(s)...",
+            height=30,
             font=ctk.CTkFont(size=12, weight="bold"),
             command=self.add_files_to_host_share
         ).pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(
-            action_bar,
-            text="📁 Add Folder",
+            btns_row,
+            text="📁 Add Folder...",
+            height=30,
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=("#334155", "#1e293b"),
             hover_color=("#475569", "#334155"),
@@ -500,21 +535,23 @@ class PyShareApp(ctk.CTk):
         ).pack(side="left", padx=4)
 
         ctk.CTkButton(
-            action_bar,
-            text="📁 Change Shared Folder",
+            btns_row,
+            text="🗑️ Clear All",
+            height=30,
+            width=80,
             font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color=("#0284c7", "#0369a1"),
-            hover_color="#0284c7",
-            command=self.change_host_shared_folder
+            fg_color=("#334155", "#1e293b"),
+            hover_color=("#ef4444", "#dc2626"),
+            command=self.clear_all_staged_files
         ).pack(side="left", padx=4)
 
-        self.shared_count_lbl = ctk.CTkLabel(action_bar, text="0 files shared", font=ctk.CTkFont(size=12), text_color="#94a3b8")
+        self.shared_count_lbl = ctk.CTkLabel(btns_row, text="0 files staged", font=ctk.CTkFont(size=12), text_color="#94a3b8")
         self.shared_count_lbl.pack(side="right", padx=8)
 
-        # Folder location notice bar
+        # Status notice bar
         self.shared_banner = ctk.CTkLabel(
             self.tab_shared,
-            text=f"📂 Sharing from: {main.DOWNLOAD_DIR}",
+            text="☁️ Quick Share Ready: Drag & drop files here or click '+ Add File(s)'",
             font=ctk.CTkFont(size=11),
             text_color="#94a3b8",
             anchor="w"
@@ -539,7 +576,7 @@ class PyShareApp(ctk.CTk):
 
         ctk.CTkButton(
             action_bar,
-            text="📁 Change Received Folder",
+            text="📁 Change Folder...",
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=("#0284c7", "#0369a1"),
             hover_color="#0284c7",
@@ -595,26 +632,69 @@ class PyShareApp(ctk.CTk):
         ).pack(side="left")
 
     # =========================================================================
+    # DRAG & DROP AND STAGING METHODS
+    # =========================================================================
+    def on_drop_files(self, file_paths):
+        if not file_paths:
+            return
+        if self.current_mode == "host":
+            count = main.stage_files(file_paths)
+            self.refresh_host_shared_files_list()
+            self.host_tabs.set("📤 Quick Share (Send)")
+            messagebox.showinfo("Quick Share", f"Added {count} file{'s' if count != 1 else ''} to Quick Share!\nPeers can now download them.")
+        else:
+            valid_files = [p for p in file_paths if os.path.isfile(p)]
+            if not valid_files:
+                return
+            for vf in valid_files:
+                if vf not in self.client_selected_upload_files:
+                    self.client_selected_upload_files.append(vf)
+            self.update_client_upload_queue_ui()
+
+    def add_files_to_host_share(self):
+        paths = filedialog.askopenfilenames(title="Select Specific Files to Quick Share")
+        if not paths:
+            return
+        count = main.stage_files(paths)
+        self.refresh_host_shared_files_list()
+        messagebox.showinfo("Quick Share", f"Added {count} file{'s' if count != 1 else ''} to Quick Share!")
+
+    def add_folder_to_host_share(self):
+        folder = filedialog.askdirectory(title="Select Folder to Quick Share")
+        if not folder:
+            return
+        count = main.stage_files([folder])
+        self.refresh_host_shared_files_list()
+        messagebox.showinfo("Quick Share", f"Added {count} file{'s' if count != 1 else ''} from folder to Quick Share!")
+
+    def clear_all_staged_files(self):
+        if messagebox.askyesno("Clear All", "Unstage all files from Quick Share?\n(Original files on your disk will NOT be deleted)."):
+            main.clear_staged_files()
+            self.refresh_host_shared_files_list()
+
+    def unstage_host_file(self, filename):
+        main.unstage_file(filename)
+        self.refresh_host_shared_files_list()
+
+    # =========================================================================
     # FOLDER PATH CUSTOMIZATION METHODS (HOST MODE)
     # =========================================================================
     def change_host_shared_folder(self):
         new_dir = filedialog.askdirectory(
-            title="Select Folder to Share with Peers",
+            title="Select Default Shared Directory",
             initialdir=main.DOWNLOAD_DIR
         )
         if new_dir and os.path.isdir(new_dir):
             if main.set_custom_shared_dir(new_dir):
                 self.shared_folder_path_lbl.configure(text=truncate_path(new_dir))
-                self.shared_banner.configure(text=f"📂 Sharing from: {new_dir}")
                 self.refresh_host_shared_files_list()
-                messagebox.showinfo("Folder Updated", f"PyShare is now sharing files from:\n{new_dir}")
+                messagebox.showinfo("Folder Updated", f"Default shared folder set to:\n{new_dir}")
 
     def reset_host_shared_folder(self):
         default_dir = self.defaults["shared_dir"]
         os.makedirs(default_dir, exist_ok=True)
         if main.set_custom_shared_dir(default_dir):
             self.shared_folder_path_lbl.configure(text=truncate_path(default_dir))
-            self.shared_banner.configure(text=f"📂 Sharing from: {default_dir}")
             self.refresh_host_shared_files_list()
             messagebox.showinfo("Reset to Default", f"Shared folder reset to default:\n{default_dir}")
 
@@ -795,9 +875,18 @@ class PyShareApp(ctk.CTk):
 
         # --- RIGHT: Send Files to Host & Host Clipboard ---
         ul_header = ctk.CTkFrame(self.client_upload_col, fg_color="transparent")
-        ul_header.pack(fill="x", padx=14, pady=12)
+        ul_header.pack(fill="x", padx=14, pady=(12, 6))
 
         ctk.CTkLabel(ul_header, text="📤 Send Files to Host", font=ctk.CTkFont(size=14, weight="bold")).pack(side="left")
+
+        # Drag & Drop Zone Hint for Upload
+        drop_hint_lbl = ctk.CTkLabel(
+            self.client_upload_col,
+            text="☁️ Drag & drop files anywhere to queue for upload",
+            font=ctk.CTkFont(size=11),
+            text_color="#94a3b8"
+        )
+        drop_hint_lbl.pack(fill="x", padx=14, pady=(0, 4))
 
         self.client_select_files_btn = ctk.CTkButton(
             self.client_upload_col,
@@ -973,32 +1062,6 @@ class PyShareApp(ctk.CTk):
         if os.path.exists(main.BASE_DIR):
             os.startfile(main.BASE_DIR)
 
-    def add_files_to_host_share(self):
-        paths = filedialog.askopenfilenames(title="Select Files to Share with Peers")
-        if not paths:
-            return
-        for p in paths:
-            try:
-                dest = os.path.join(main.DOWNLOAD_DIR, os.path.basename(p))
-                if os.path.abspath(p) != os.path.abspath(dest):
-                    shutil.copy2(p, dest)
-            except Exception as e:
-                messagebox.showerror("Error", f"Could not copy file:\n{e}")
-        self.refresh_host_shared_files_list()
-
-    def add_folder_to_host_share(self):
-        folder = filedialog.askdirectory(title="Select Folder to Share with Peers")
-        if not folder:
-            return
-        try:
-            dest = os.path.join(main.DOWNLOAD_DIR, os.path.basename(folder))
-            if os.path.exists(dest):
-                shutil.rmtree(dest)
-            shutil.copytree(folder, dest)
-            self.refresh_host_shared_files_list()
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not copy folder:\n{e}")
-
     def broadcast_host_clipboard(self):
         text = self.host_clipboard_textbox.get("1.0", "end-1c").strip()
         if text:
@@ -1067,11 +1130,12 @@ class PyShareApp(ctk.CTk):
         self.client_refresh_btn.configure(state="normal")
         self.client_dl_all_btn.configure(state="normal")
         self.client_select_files_btn.configure(state="normal")
-        self.client_send_btn.configure(state="normal")
+        if self.client_selected_upload_files:
+            self.client_send_btn.configure(state="normal")
         self.client_clip_send_btn.configure(state="normal")
         self.client_clip_copy_btn.configure(state="normal")
 
-        # Fetch files from host
+        # Fetch files & clipboard from host
         self.fetch_client_host_files()
         self.fetch_client_host_clipboard()
 
@@ -1150,7 +1214,14 @@ class PyShareApp(ctk.CTk):
             try:
                 r = self.client_session.get(f"{self.client_host_url}/api/files", timeout=6)
                 if r.status_code == 200:
-                    files = r.json()
+                    data = r.json()
+                    # Parse dictionary response {"host": [...], "client": [...]} or raw list
+                    if isinstance(data, dict):
+                        files = data.get("host") or data.get("pc") or []
+                    elif isinstance(data, list):
+                        files = data
+                    else:
+                        files = []
                     self.after(0, lambda: self.render_client_host_files_list(files))
             except Exception as e:
                 print(f"Error fetching host files: {e}")
@@ -1214,8 +1285,8 @@ class PyShareApp(ctk.CTk):
 
         def _worker():
             try:
-                url = f"{self.client_host_url}/download/{filename}"
-                with self.client_session.get(url, stream=True, timeout=15) as r:
+                url = f"{self.client_host_url}/download/{requests.utils.quote(filename)}"
+                with self.client_session.get(url, stream=True, timeout=20) as r:
                     r.raise_for_status()
                     total = int(r.headers.get('content-length', 0))
                     downloaded = 0
@@ -1266,18 +1337,22 @@ class PyShareApp(ctk.CTk):
 
         def _worker():
             try:
-                url = f"{self.client_host_url}/download-all"
-                with self.client_session.get(url, stream=True, timeout=30) as r:
+                url = f"{self.client_host_url}/api/zip?folder=shared"
+                with self.client_session.get(url, stream=True, timeout=60) as r:
                     r.raise_for_status()
                     total = int(r.headers.get('content-length', 0))
                     downloaded = 0
+                    start_time = time.time()
                     with open(dest_path, 'wb') as f:
                         for chunk in r.iter_content(chunk_size=128 * 1024):
                             if chunk:
                                 f.write(chunk)
                                 downloaded += len(chunk)
                                 if total > 0:
-                                    self.after(0, lambda p=(downloaded/total): self.client_progress_bar.set(p))
+                                    pct = downloaded / total
+                                    elapsed = max(0.1, time.time() - start_time)
+                                    speed = downloaded / elapsed
+                                    self.after(0, lambda p=pct, sp=speed: self.update_client_download_progress(p, sp))
                 self.after(0, lambda: self.on_client_download_success("PyShare_Archive.zip", dest_path))
             except Exception as e:
                 self.after(0, lambda: self.on_client_download_error("Archive.zip", str(e)))
@@ -1288,12 +1363,26 @@ class PyShareApp(ctk.CTk):
         paths = filedialog.askopenfilenames(title="Select Files to Upload to Host")
         if not paths:
             return
-        self.client_selected_upload_files = list(paths)
+        for p in paths:
+            if p not in self.client_selected_upload_files:
+                self.client_selected_upload_files.append(p)
+        self.update_client_upload_queue_ui()
+
+    def update_client_upload_queue_ui(self):
         self.client_upload_queue_box.configure(state="normal")
         self.client_upload_queue_box.delete("1.0", "end")
-        for p in self.client_selected_upload_files:
-            sz = os.path.getsize(p) if os.path.isfile(p) else 0
-            self.client_upload_queue_box.insert("end", f"• {os.path.basename(p)} ({format_size(sz)})\n")
+        if not self.client_selected_upload_files:
+            self.client_upload_queue_box.insert("1.0", "No files queued. Drag & drop files here or click 'Select Files'.")
+            self.client_send_btn.configure(state="disabled")
+            self.client_progress_lbl.configure(text="Ready")
+        else:
+            total_size = sum(os.path.getsize(p) for p in self.client_selected_upload_files if os.path.isfile(p))
+            for p in self.client_selected_upload_files:
+                sz = os.path.getsize(p) if os.path.isfile(p) else 0
+                self.client_upload_queue_box.insert("end", f"• {os.path.basename(p)} ({format_size(sz)})\n")
+            if self.client_connected and not self.is_client_uploading:
+                self.client_send_btn.configure(state="normal")
+            self.client_progress_lbl.configure(text=f"{len(self.client_selected_upload_files)} file(s) queued ({format_size(total_size)})")
         self.client_upload_queue_box.configure(state="disabled")
 
     def client_execute_upload(self):
@@ -1304,18 +1393,27 @@ class PyShareApp(ctk.CTk):
             return
 
         self.is_client_uploading = True
+        self.client_send_btn.configure(state="disabled")
+        self.client_select_files_btn.configure(state="disabled")
         files_to_send = list(self.client_selected_upload_files)
 
         def _worker():
             total_files = len(files_to_send)
             for idx, p in enumerate(files_to_send):
+                if not os.path.isfile(p):
+                    continue
                 fn = os.path.basename(p)
+                file_size = os.path.getsize(p)
                 self.after(0, lambda i=idx+1, name=fn: self.client_progress_lbl.configure(text=f"Uploading {i}/{total_files}: {name}..."))
                 try:
                     url = f"{self.client_host_url}/upload"
+                    headers = {
+                        'X-File-Name': requests.utils.quote(fn),
+                        'Content-Type': 'application/octet-stream',
+                        'Content-Length': str(file_size)
+                    }
                     with open(p, 'rb') as f:
-                        files = {'files': (fn, f)}
-                        resp = self.client_session.post(url, files=files, timeout=30)
+                        resp = self.client_session.post(url, data=f, headers=headers, timeout=120)
                         if resp.status_code != 200:
                             raise Exception(f"HTTP {resp.status_code}")
                     self.after(0, lambda p=(idx + 1) / total_files: self.client_progress_bar.set(p))
@@ -1330,6 +1428,8 @@ class PyShareApp(ctk.CTk):
     def on_client_upload_complete(self):
         self.is_client_uploading = False
         self.client_selected_upload_files = []
+        self.client_select_files_btn.configure(state="normal")
+        self.client_send_btn.configure(state="disabled")
         self.client_upload_queue_box.configure(state="normal")
         self.client_upload_queue_box.delete("1.0", "end")
         self.client_upload_queue_box.insert("1.0", "All files uploaded successfully!")
@@ -1431,46 +1531,85 @@ class PyShareApp(ctk.CTk):
                     pass
 
     def refresh_host_shared_files_list(self):
-        if not os.path.exists(main.DOWNLOAD_DIR):
-            return
-        files = []
-        try:
-            for fn in os.listdir(main.DOWNLOAD_DIR):
-                fp = os.path.join(main.DOWNLOAD_DIR, fn)
-                if os.path.isfile(fp):
-                    files.append((fn, os.path.getsize(fp), fp))
-        except Exception:
-            return
+        staged = main.get_staged_files()
+        total_size = sum(item.get("size", 0) for item in staged)
+        count = len(staged)
 
-        self.shared_count_lbl.configure(text=f"{len(files)} file{'s' if len(files) != 1 else ''} shared")
-        self.shared_banner.configure(text=f"📂 Sharing from: {main.DOWNLOAD_DIR}")
+        if count > 0:
+            self.shared_count_lbl.configure(text=f"{count} file{'s' if count != 1 else ''} staged ({format_size(total_size)})")
+            self.shared_banner.configure(text=f"⚡ Quick Share Active • {count} item{'s' if count != 1 else ''} exposed to peers")
+        else:
+            disk_files = main.list_dir(main.DOWNLOAD_DIR)
+            if disk_files:
+                self.shared_count_lbl.configure(text=f"{len(disk_files)} file{'s' if len(disk_files) != 1 else ''} in folder")
+                self.shared_banner.configure(text=f"📂 Sharing all files from default directory: {main.DOWNLOAD_DIR}")
+            else:
+                self.shared_count_lbl.configure(text="0 files staged")
+                self.shared_banner.configure(text="☁️ Quick Share Ready: Drag & drop files here or click '+ Add File(s)'")
 
-        # Clear existing
+        # Clear existing rows
         for widget in self.shared_files_scroll.winfo_children():
             widget.destroy()
 
-        if not files:
-            ctk.CTkLabel(
-                self.shared_files_scroll,
-                text="No files shared yet in this folder.\nClick '+ Add Files to Share' or change the folder above.",
-                font=ctk.CTkFont(size=12),
-                text_color="#94a3b8"
-            ).pack(pady=20)
-            return
+        if count == 0:
+            disk_files = main.list_dir(main.DOWNLOAD_DIR)
+            if not disk_files:
+                empty_card = ctk.CTkFrame(self.shared_files_scroll, fg_color="transparent")
+                empty_card.pack(fill="both", expand=True, pady=40)
+                ctk.CTkLabel(
+                    empty_card,
+                    text="☁️",
+                    font=ctk.CTkFont(size=42)
+                ).pack()
+                ctk.CTkLabel(
+                    empty_card,
+                    text="No files shared yet",
+                    font=ctk.CTkFont(size=14, weight="bold"),
+                    text_color="#94a3b8"
+                ).pack(pady=(4, 2))
+                ctk.CTkLabel(
+                    empty_card,
+                    text="Drag & drop any files or folders from Windows Explorer here,\nor click '+ Add File(s)...' above to choose specific files to share.",
+                    font=ctk.CTkFont(size=11),
+                    text_color="#64748b"
+                ).pack()
+                return
+            else:
+                for f in disk_files:
+                    self._create_shared_file_row(f.get("name"), f.get("size", 0), f.get("path"), is_staged=False)
+                return
 
-        for fn, sz, fp in files:
-            row = ctk.CTkFrame(self.shared_files_scroll, fg_color=("#182234", "#111827"), corner_radius=8)
-            row.pack(fill="x", pady=3, padx=4)
+        for item in staged:
+            self._create_shared_file_row(item.get("name"), item.get("size", 0), item.get("path"), is_staged=True)
 
-            icon = get_file_icon(fn)
-            ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=16), width=32).pack(side="left", padx=(8, 4), pady=6)
+    def _create_shared_file_row(self, fn, sz, fp, is_staged=True):
+        row = ctk.CTkFrame(self.shared_files_scroll, fg_color=("#182234", "#111827"), corner_radius=8)
+        row.pack(fill="x", pady=3, padx=4)
 
-            info_col = ctk.CTkFrame(row, fg_color="transparent")
-            info_col.pack(side="left", fill="x", expand=True, padx=4)
+        icon = get_file_icon(fn)
+        ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=16), width=32).pack(side="left", padx=(8, 4), pady=6)
 
-            ctk.CTkLabel(info_col, text=fn, font=ctk.CTkFont(size=12, weight="bold"), anchor="w").pack(fill="x")
-            ctk.CTkLabel(info_col, text=format_size(sz), font=ctk.CTkFont(size=10), text_color="#94a3b8", anchor="w").pack(fill="x")
+        info_col = ctk.CTkFrame(row, fg_color="transparent")
+        info_col.pack(side="left", fill="x", expand=True, padx=4)
 
+        ctk.CTkLabel(info_col, text=fn, font=ctk.CTkFont(size=12, weight="bold"), anchor="w").pack(fill="x")
+        path_hint = truncate_path(fp, max_len=40) if fp else ""
+        sub_text = f"{format_size(sz)} • {path_hint}" if path_hint else format_size(sz)
+        ctk.CTkLabel(info_col, text=sub_text, font=ctk.CTkFont(size=10), text_color="#94a3b8", anchor="w").pack(fill="x")
+
+        if is_staged:
+            btn_remove = ctk.CTkButton(
+                row,
+                text="✕ Remove",
+                width=76,
+                height=26,
+                font=ctk.CTkFont(size=11, weight="bold"),
+                fg_color=("#ef4444", "#dc2626"),
+                hover_color="#b91c1c",
+                command=lambda filename=fn: self.unstage_host_file(filename)
+            )
+            btn_remove.pack(side="right", padx=(4, 8), pady=6)
+        else:
             btn_del = ctk.CTkButton(
                 row,
                 text="🗑️",
@@ -1482,6 +1621,7 @@ class PyShareApp(ctk.CTk):
             )
             btn_del.pack(side="right", padx=(4, 8), pady=6)
 
+        if fp and os.path.exists(fp):
             btn_open = ctk.CTkButton(
                 row,
                 text="👁️ Open",
@@ -1495,7 +1635,7 @@ class PyShareApp(ctk.CTk):
             btn_open.pack(side="right", padx=4, pady=6)
 
     def delete_shared_file(self, path):
-        if messagebox.askyesno("Confirm Delete", f"Remove this file from shared list?\n{os.path.basename(path)}"):
+        if messagebox.askyesno("Confirm Delete", f"Remove this file from disk?\n{os.path.basename(path)}"):
             try:
                 os.remove(path)
                 self.refresh_host_shared_files_list()
@@ -1508,6 +1648,8 @@ class PyShareApp(ctk.CTk):
         files = []
         try:
             for fn in os.listdir(main.UPLOAD_DIR):
+                if fn.endswith('.part') or fn.endswith('.tmp'):
+                    continue
                 fp = os.path.join(main.UPLOAD_DIR, fn)
                 if os.path.isfile(fp):
                     files.append((fn, os.path.getsize(fp), fp))
@@ -1542,6 +1684,17 @@ class PyShareApp(ctk.CTk):
             ctk.CTkLabel(info_col, text=fn, font=ctk.CTkFont(size=12, weight="bold"), anchor="w").pack(fill="x")
             ctk.CTkLabel(info_col, text=format_size(sz), font=ctk.CTkFont(size=10), text_color="#94a3b8", anchor="w").pack(fill="x")
 
+            btn_del = ctk.CTkButton(
+                row,
+                text="🗑️",
+                width=32,
+                height=26,
+                fg_color=("#ef4444", "#dc2626"),
+                hover_color="#b91c1c",
+                command=lambda path=fp: self.delete_received_file(path)
+            )
+            btn_del.pack(side="right", padx=(4, 8), pady=6)
+
             btn_open = ctk.CTkButton(
                 row,
                 text="👁️ Open",
@@ -1550,7 +1703,15 @@ class PyShareApp(ctk.CTk):
                 font=ctk.CTkFont(size=11, weight="bold"),
                 command=lambda path=fp: os.startfile(path)
             )
-            btn_open.pack(side="right", padx=8, pady=6)
+            btn_open.pack(side="right", padx=4, pady=6)
+
+    def delete_received_file(self, path):
+        if messagebox.askyesno("Confirm Delete", f"Delete this received file from disk?\n{os.path.basename(path)}"):
+            try:
+                os.remove(path)
+                self.refresh_host_received_files_list()
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not delete file:\n{e}")
 
     def refresh_client_ui(self):
         if self.client_connected:
