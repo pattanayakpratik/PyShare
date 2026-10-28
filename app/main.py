@@ -1,4 +1,4 @@
-from zeroconf import ServiceInfo, Zeroconf
+from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
 import os
 import http.server
 import socketserver
