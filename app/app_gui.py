@@ -131,24 +131,23 @@ def truncate_path(path, max_len=32):
     return "..." + path[-(max_len - 3):]
 
 def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    
-    cand = os.path.join(base_path, relative_path)
-    if os.path.exists(cand):
-        return cand
-    
-    web_cand = os.path.abspath(os.path.join(base_path, "..", "web", relative_path))
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS
+        candidate = os.path.join(base, relative_path)
+        if os.path.exists(candidate):
+            return candidate
+        web_cand = os.path.join(base, 'web', relative_path)
+        if os.path.exists(web_cand):
+            return web_cand
+        return candidate
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    candidate = os.path.join(app_dir, relative_path)
+    if os.path.exists(candidate):
+        return candidate
+    web_cand = os.path.abspath(os.path.join(app_dir, '..', 'web', relative_path))
     if os.path.exists(web_cand):
         return web_cand
-        
-    parent_cand = os.path.abspath(os.path.join(base_path, "..", relative_path))
-    if os.path.exists(parent_cand):
-        return parent_cand
-
-    return cand
+    return candidate
 
 
 class PyShareApp(ctk.CTk):
