@@ -1231,6 +1231,90 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(500, str(e))
 
 # --- SERVER CONTROLLER ---
+# --- DESKTOP APPLICATION LAUNCHER ---
+def launch_desktop_app(url):
+    """
+    Launch PyShare in its own dedicated standalone desktop application window.
+    Eliminates browser tabs, URL bar, and bookmarks for a clean native app experience.
+    """
+    if "--no-gui" in sys.argv:
+        print("[*] Running in headless mode (--no-gui). Press Ctrl+C to stop.")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            return
+
+    system = platform.system()
+    app_profile = os.path.join(tempfile.gettempdir(), "PyShare_AppProfile")
+    os.makedirs(app_profile, exist_ok=True)
+
+    browser_candidates = []
+    if system == "Windows":
+        browser_candidates = [
+            os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+        ]
+    elif system == "Darwin":
+        browser_candidates = [
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+        ]
+    else:
+        import shutil
+        for name in ["microsoft-edge", "google-chrome", "chromium-browser", "chromium", "brave-browser"]:
+            p = shutil.which(name)
+            if p:
+                browser_candidates.append(p)
+
+    app_proc = None
+    for browser_path in browser_candidates:
+        if browser_path and os.path.isfile(browser_path):
+            cmd = [
+                browser_path,
+                f"--app={url}",
+                f"--user-data-dir={app_profile}",
+                "--window-size=1150,780",
+                "--no-first-run",
+                "--no-default-browser-check"
+            ]
+            try:
+                app_proc = subprocess.Popen(cmd)
+                break
+            except Exception as e:
+                print(f"[*] Standalone app launcher notice ({browser_path}): {e}")
+                app_proc = None
+
+    if app_proc:
+        # Block until user closes the standalone app window
+        try:
+            app_proc.wait()
+        except KeyboardInterrupt:
+            try:
+                app_proc.terminate()
+            except Exception:
+                pass
+        return
+
+    # Fallback to default browser if no standalone app runner is found
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+
+
 def start_server():
     global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, httpd, ACTUAL_PORT, zc
     
@@ -1292,13 +1376,13 @@ def start_server():
     print(f"[+] Local Storage: {BASE_DIR}")
     print("="*45 + "\n")
     
-    try:
-        webbrowser.open(url)
-    except Exception:
-        pass
+    # Run HTTP server on background daemon thread
+    server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    server_thread.start()
 
+    host_app_url = f"http://127.0.0.1:{ACTUAL_PORT}/"
     try:
-        httpd.serve_forever()
+        launch_desktop_app(host_app_url)
     except KeyboardInterrupt: 
         print("\n[-] Shutting down server...")
     finally:
@@ -1310,6 +1394,7 @@ def start_server():
             except Exception: pass
         if httpd:
             try:
+                httpd.shutdown()
                 httpd.server_close()
             except Exception: pass
         print("[-] PyShare Stopped.")
