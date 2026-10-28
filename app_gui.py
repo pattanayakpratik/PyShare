@@ -2,6 +2,7 @@
 ==========================================================================
 PyShare v4.8.0 - Native Desktop Application GUI
 Standalone Cross-Platform GUI • Host & Client Dual-Mode • Zero Browser
+Custom Storage & Sharing Folder Management
 ==========================================================================
 """
 
@@ -50,6 +51,16 @@ def get_file_icon(filename):
         return '💻'
     return '📁'
 
+def truncate_path(path, max_len=36):
+    if not path:
+        return ""
+    if len(path) <= max_len:
+        return path
+    parts = path.split(os.sep)
+    if len(parts) > 2:
+        return f"{parts[0]}{os.sep}...{os.sep}{parts[-1]}"
+    return "..." + path[-(max_len - 3):]
+
 def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
@@ -62,13 +73,20 @@ class PyShareApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        # Load Persistent User Configuration
+        self.app_config = main.load_app_config()
+        self.defaults = main.get_default_directories()
+        self.client_download_dir = self.app_config.get("client_download_dir", self.defaults["client_download_dir"])
+        os.makedirs(self.client_download_dir, exist_ok=True)
+
         # Window Appearance & Configuration
-        ctk.set_appearance_mode("dark")
+        theme = self.app_config.get("theme", "dark")
+        ctk.set_appearance_mode(theme)
         ctk.set_default_color_theme("blue")
 
         self.title("PyShare — Local & P2P File Transfer")
-        self.geometry("1100x720")
-        self.minsize(920, 600)
+        self.geometry("1140x740")
+        self.minsize(960, 620)
 
         # Set Window Icon
         icon_path = resource_path("app_icon.ico")
@@ -165,7 +183,7 @@ class PyShareApp(ctk.CTk):
         # Storage Folder Button
         self.storage_btn = ctk.CTkButton(
             actions_frame,
-            text="📂 Storage Folder",
+            text="📂 Base Folder",
             width=110,
             height=32,
             font=ctk.CTkFont(size=12, weight="bold"),
@@ -222,26 +240,28 @@ class PyShareApp(ctk.CTk):
         current = ctk.get_appearance_mode()
         new_theme = "light" if current.lower() == "dark" else "dark"
         ctk.set_appearance_mode(new_theme)
+        self.app_config["theme"] = new_theme
+        main.save_app_config(self.app_config)
 
     # =========================================================================
     # 3. HOST MODE VIEW (SERVER CONTROLS, PIN, QR CODE, SHARED/RECEIVED FILES)
     # =========================================================================
     def build_host_view(self):
         # 2-Column Studio Grid Layout
-        self.host_left_col = ctk.CTkFrame(self.host_frame, width=340, corner_radius=14, fg_color=("#182234", "#0f172a"))
+        self.host_left_col = ctk.CTkFrame(self.host_frame, width=350, corner_radius=14, fg_color=("#182234", "#0f172a"))
         self.host_left_col.pack(side="left", fill="y", padx=(0, 10))
         self.host_left_col.pack_propagate(False)
 
         self.host_right_col = ctk.CTkFrame(self.host_frame, corner_radius=14, fg_color=("#182234", "#0f172a"))
         self.host_right_col.pack(side="right", fill="both", expand=True)
 
-        # --- LEFT PANEL: Status, PIN, QR Code, Tunnel, Folders ---
+        # --- LEFT PANEL: Status, PIN, QR Code, Folder Customization, Tunnel ---
         left_scroll = ctk.CTkScrollableFrame(self.host_left_col, fg_color="transparent")
-        left_scroll.pack(fill="both", expand=True, padx=8, pady=8)
+        left_scroll.pack(fill="both", expand=True, padx=6, pady=6)
 
         # Server Live Status Card
         status_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        status_card.pack(fill="x", pady=6, padx=4)
+        status_card.pack(fill="x", pady=5, padx=4)
 
         status_top = ctk.CTkFrame(status_card, fg_color="transparent")
         status_top.pack(fill="x", padx=10, pady=(8, 2))
@@ -270,7 +290,7 @@ class PyShareApp(ctk.CTk):
 
         # Room PIN Card
         pin_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        pin_card.pack(fill="x", pady=6, padx=4)
+        pin_card.pack(fill="x", pady=5, padx=4)
 
         ctk.CTkLabel(pin_card, text="ROOM PIN", font=ctk.CTkFont(size=11, weight="bold"), text_color="#94a3b8").pack(pady=(8, 0))
 
@@ -308,16 +328,127 @@ class PyShareApp(ctk.CTk):
 
         # QR Code Card
         qr_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        qr_card.pack(fill="x", pady=6, padx=4)
+        qr_card.pack(fill="x", pady=5, padx=4)
 
         ctk.CTkLabel(qr_card, text="SCAN WITH PHONE TO CONNECT", font=ctk.CTkFont(size=11, weight="bold"), text_color="#94a3b8").pack(pady=(8, 6))
 
         self.qr_wrapper = ctk.CTkLabel(qr_card, text="[QR Code Loading...]")
         self.qr_wrapper.pack(pady=4)
 
+        # =====================================================================
+        # CUSTOM FOLDER PATHS CARD (USER CAN CHANGE SHARED & RECEIVED FOLDERS)
+        # =====================================================================
+        paths_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
+        paths_card.pack(fill="x", pady=5, padx=4)
+
+        ctk.CTkLabel(
+            paths_card,
+            text="📁 FOLDER LOCATIONS",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#94a3b8"
+        ).pack(anchor="w", padx=10, pady=(8, 4))
+
+        # --- Shared Folder Path ---
+        ctk.CTkLabel(
+            paths_card,
+            text="📤 Share Files From:",
+            font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(anchor="w", padx=10, pady=(2, 0))
+
+        self.shared_folder_path_lbl = ctk.CTkLabel(
+            paths_card,
+            text=truncate_path(main.DOWNLOAD_DIR),
+            font=ctk.CTkFont(family="monospace", size=10),
+            text_color=("#0284c7", "#38bdf8"),
+            anchor="w"
+        )
+        self.shared_folder_path_lbl.pack(fill="x", padx=10, pady=(0, 4))
+
+        shared_btns_row = ctk.CTkFrame(paths_card, fg_color="transparent")
+        shared_btns_row.pack(fill="x", padx=10, pady=(0, 8))
+
+        ctk.CTkButton(
+            shared_btns_row,
+            text="📁 Change...",
+            height=26,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            command=self.change_host_shared_folder
+        ).pack(side="left", expand=True, padx=(0, 2))
+
+        ctk.CTkButton(
+            shared_btns_row,
+            text="📂 Open",
+            height=26,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#334155", "#334155"),
+            hover_color=("#475569", "#475569"),
+            command=lambda: os.startfile(main.DOWNLOAD_DIR)
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            shared_btns_row,
+            text="🔄 Reset",
+            height=26,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#334155", "#334155"),
+            hover_color=("#475569", "#475569"),
+            command=self.reset_host_shared_folder
+        ).pack(side="left", padx=(2, 0))
+
+        # --- Received Folder Path ---
+        ctk.CTkLabel(
+            paths_card,
+            text="📥 Store Received Files In:",
+            font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(anchor="w", padx=10, pady=(4, 0))
+
+        self.received_folder_path_lbl = ctk.CTkLabel(
+            paths_card,
+            text=truncate_path(main.UPLOAD_DIR),
+            font=ctk.CTkFont(family="monospace", size=10),
+            text_color=("#0284c7", "#38bdf8"),
+            anchor="w"
+        )
+        self.received_folder_path_lbl.pack(fill="x", padx=10, pady=(0, 4))
+
+        received_btns_row = ctk.CTkFrame(paths_card, fg_color="transparent")
+        received_btns_row.pack(fill="x", padx=10, pady=(0, 8))
+
+        ctk.CTkButton(
+            received_btns_row,
+            text="📁 Change...",
+            height=26,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            command=self.change_host_received_folder
+        ).pack(side="left", expand=True, padx=(0, 2))
+
+        ctk.CTkButton(
+            received_btns_row,
+            text="📂 Open",
+            height=26,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#334155", "#334155"),
+            hover_color=("#475569", "#475569"),
+            command=lambda: os.startfile(main.UPLOAD_DIR)
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            received_btns_row,
+            text="🔄 Reset",
+            height=26,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#334155", "#334155"),
+            hover_color=("#475569", "#475569"),
+            command=self.reset_host_received_folder
+        ).pack(side="left", padx=(2, 0))
+
         # Cloudflare Tunnel Toggle Card
         tunnel_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        tunnel_card.pack(fill="x", pady=6, padx=4)
+        tunnel_card.pack(fill="x", pady=5, padx=4)
 
         tunnel_top = ctk.CTkFrame(tunnel_card, fg_color="transparent")
         tunnel_top.pack(fill="x", padx=10, pady=(8, 4))
@@ -333,26 +464,6 @@ class PyShareApp(ctk.CTk):
             text_color="#94a3b8"
         )
         self.tunnel_url_lbl.pack(fill="x", padx=10, pady=(0, 8))
-
-        # Folder Quick Buttons
-        folders_card = ctk.CTkFrame(left_scroll, corner_radius=10, fg_color=("#1e293b", "#1e293b"))
-        folders_card.pack(fill="x", pady=6, padx=4)
-
-        ctk.CTkButton(
-            folders_card,
-            text="📤 Open Shared Files Folder",
-            height=30,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=lambda: os.startfile(main.DOWNLOAD_DIR)
-        ).pack(fill="x", padx=10, pady=(8, 4))
-
-        ctk.CTkButton(
-            folders_card,
-            text="📥 Open Received Files Folder",
-            height=30,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=lambda: os.startfile(main.UPLOAD_DIR)
-        ).pack(fill="x", padx=10, pady=(4, 8))
 
         # --- RIGHT PANEL: Tabview (Shared Files, Received Files, Shared Clipboard) ---
         self.host_tabs = ctk.CTkTabview(self.host_right_col, fg_color="transparent")
@@ -370,14 +481,14 @@ class PyShareApp(ctk.CTk):
     def build_host_shared_tab(self):
         # Action Bar
         action_bar = ctk.CTkFrame(self.tab_shared, height=44, fg_color="transparent")
-        action_bar.pack(fill="x", pady=(0, 8))
+        action_bar.pack(fill="x", pady=(0, 6))
 
         ctk.CTkButton(
             action_bar,
             text="➕ Add Files to Share",
             font=ctk.CTkFont(size=12, weight="bold"),
             command=self.add_files_to_host_share
-        ).pack(side="left", padx=(0, 8))
+        ).pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(
             action_bar,
@@ -388,8 +499,27 @@ class PyShareApp(ctk.CTk):
             command=self.add_folder_to_host_share
         ).pack(side="left", padx=4)
 
+        ctk.CTkButton(
+            action_bar,
+            text="📁 Change Shared Folder",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=("#0284c7", "#0369a1"),
+            hover_color="#0284c7",
+            command=self.change_host_shared_folder
+        ).pack(side="left", padx=4)
+
         self.shared_count_lbl = ctk.CTkLabel(action_bar, text="0 files shared", font=ctk.CTkFont(size=12), text_color="#94a3b8")
         self.shared_count_lbl.pack(side="right", padx=8)
+
+        # Folder location notice bar
+        self.shared_banner = ctk.CTkLabel(
+            self.tab_shared,
+            text=f"📂 Sharing from: {main.DOWNLOAD_DIR}",
+            font=ctk.CTkFont(size=11),
+            text_color="#94a3b8",
+            anchor="w"
+        )
+        self.shared_banner.pack(fill="x", pady=(0, 6))
 
         # Scrollable list for shared files
         self.shared_files_scroll = ctk.CTkScrollableFrame(self.tab_shared, fg_color=("#1e293b", "#090d16"), corner_radius=10)
@@ -398,17 +528,36 @@ class PyShareApp(ctk.CTk):
     # --- HOST TAB 2: Received Files ---
     def build_host_received_tab(self):
         action_bar = ctk.CTkFrame(self.tab_received, height=44, fg_color="transparent")
-        action_bar.pack(fill="x", pady=(0, 8))
+        action_bar.pack(fill="x", pady=(0, 6))
 
         ctk.CTkButton(
             action_bar,
             text="📂 Open Received Folder",
             font=ctk.CTkFont(size=12, weight="bold"),
             command=lambda: os.startfile(main.UPLOAD_DIR)
-        ).pack(side="left", padx=(0, 8))
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            action_bar,
+            text="📁 Change Received Folder",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=("#0284c7", "#0369a1"),
+            hover_color="#0284c7",
+            command=self.change_host_received_folder
+        ).pack(side="left", padx=4)
 
         self.received_count_lbl = ctk.CTkLabel(action_bar, text="0 files received", font=ctk.CTkFont(size=12), text_color="#94a3b8")
         self.received_count_lbl.pack(side="right", padx=8)
+
+        # Folder location notice bar
+        self.received_banner = ctk.CTkLabel(
+            self.tab_received,
+            text=f"📥 Saving files to: {main.UPLOAD_DIR}",
+            font=ctk.CTkFont(size=11),
+            text_color="#94a3b8",
+            anchor="w"
+        )
+        self.received_banner.pack(fill="x", pady=(0, 6))
 
         self.received_files_scroll = ctk.CTkScrollableFrame(self.tab_received, fg_color=("#1e293b", "#090d16"), corner_radius=10)
         self.received_files_scroll.pack(fill="both", expand=True)
@@ -446,6 +595,51 @@ class PyShareApp(ctk.CTk):
         ).pack(side="left")
 
     # =========================================================================
+    # FOLDER PATH CUSTOMIZATION METHODS (HOST MODE)
+    # =========================================================================
+    def change_host_shared_folder(self):
+        new_dir = filedialog.askdirectory(
+            title="Select Folder to Share with Peers",
+            initialdir=main.DOWNLOAD_DIR
+        )
+        if new_dir and os.path.isdir(new_dir):
+            if main.set_custom_shared_dir(new_dir):
+                self.shared_folder_path_lbl.configure(text=truncate_path(new_dir))
+                self.shared_banner.configure(text=f"📂 Sharing from: {new_dir}")
+                self.refresh_host_shared_files_list()
+                messagebox.showinfo("Folder Updated", f"PyShare is now sharing files from:\n{new_dir}")
+
+    def reset_host_shared_folder(self):
+        default_dir = self.defaults["shared_dir"]
+        os.makedirs(default_dir, exist_ok=True)
+        if main.set_custom_shared_dir(default_dir):
+            self.shared_folder_path_lbl.configure(text=truncate_path(default_dir))
+            self.shared_banner.configure(text=f"📂 Sharing from: {default_dir}")
+            self.refresh_host_shared_files_list()
+            messagebox.showinfo("Reset to Default", f"Shared folder reset to default:\n{default_dir}")
+
+    def change_host_received_folder(self):
+        new_dir = filedialog.askdirectory(
+            title="Select Folder to Store Incoming Uploads",
+            initialdir=main.UPLOAD_DIR
+        )
+        if new_dir and os.path.isdir(new_dir):
+            if main.set_custom_received_dir(new_dir):
+                self.received_folder_path_lbl.configure(text=truncate_path(new_dir))
+                self.received_banner.configure(text=f"📥 Saving files to: {new_dir}")
+                self.refresh_host_received_files_list()
+                messagebox.showinfo("Folder Updated", f"Incoming uploads will now be saved in:\n{new_dir}")
+
+    def reset_host_received_folder(self):
+        default_dir = self.defaults["received_dir"]
+        os.makedirs(default_dir, exist_ok=True)
+        if main.set_custom_received_dir(default_dir):
+            self.received_folder_path_lbl.configure(text=truncate_path(default_dir))
+            self.received_banner.configure(text=f"📥 Saving files to: {default_dir}")
+            self.refresh_host_received_files_list()
+            messagebox.showinfo("Reset to Default", f"Received folder reset to default:\n{default_dir}")
+
+    # =========================================================================
     # 4. CLIENT MODE VIEW (CONNECT TO ANY HOST, DOWNLOAD & UPLOAD FILES)
     # =========================================================================
     def build_client_view(self):
@@ -477,7 +671,7 @@ class PyShareApp(ctk.CTk):
 
         # Inputs Row (Host IP, PIN, Connect Button, Auto-Discover Button)
         inputs_row = ctk.CTkFrame(conn_card, fg_color="transparent")
-        inputs_row.pack(fill="x", padx=16, pady=(4, 14))
+        inputs_row.pack(fill="x", padx=16, pady=(4, 6))
 
         ctk.CTkLabel(inputs_row, text="Host Address:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(0, 6))
         self.client_host_entry = ctk.CTkEntry(inputs_row, placeholder_text="192.168.1.5:8010", width=180, font=ctk.CTkFont(size=12))
@@ -506,6 +700,55 @@ class PyShareApp(ctk.CTk):
             command=self.auto_discover_hosts_network
         )
         self.client_discover_btn.pack(side="left")
+
+        # Client Download Destination Settings Row
+        dl_dest_row = ctk.CTkFrame(conn_card, fg_color="transparent")
+        dl_dest_row.pack(fill="x", padx=16, pady=(2, 10))
+
+        ctk.CTkLabel(
+            dl_dest_row,
+            text="📥 Save Downloaded Files To:",
+            font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(side="left", padx=(0, 6))
+
+        self.client_dl_path_lbl = ctk.CTkLabel(
+            dl_dest_row,
+            text=truncate_path(self.client_download_dir, max_len=45),
+            font=ctk.CTkFont(family="monospace", size=11),
+            text_color=("#0284c7", "#38bdf8")
+        )
+        self.client_dl_path_lbl.pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            dl_dest_row,
+            text="📁 Change...",
+            height=24,
+            width=80,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            command=self.change_client_download_folder
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            dl_dest_row,
+            text="📂 Open",
+            height=24,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#334155", "#334155"),
+            hover_color=("#475569", "#475569"),
+            command=lambda: os.startfile(self.client_download_dir)
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            dl_dest_row,
+            text="🔄 Reset",
+            height=24,
+            width=50,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#334155", "#334155"),
+            hover_color=("#475569", "#475569"),
+            command=self.reset_client_download_folder
+        ).pack(side="left", padx=2)
 
         # Body: 2-Column Split (Left: Download Host's Files, Right: Send Files to Host & Clipboard)
         client_body = ctk.CTkFrame(self.client_frame, fg_color="transparent")
@@ -625,18 +868,39 @@ class PyShareApp(ctk.CTk):
         )
         self.client_clip_copy_btn.pack(side="left")
 
+    def change_client_download_folder(self):
+        new_dir = filedialog.askdirectory(
+            title="Select Destination Folder for Downloaded Files",
+            initialdir=self.client_download_dir
+        )
+        if new_dir and os.path.isdir(new_dir):
+            self.client_download_dir = os.path.abspath(new_dir)
+            self.client_dl_path_lbl.configure(text=truncate_path(self.client_download_dir, max_len=45))
+            self.app_config["client_download_dir"] = self.client_download_dir
+            main.save_app_config(self.app_config)
+            messagebox.showinfo("Folder Updated", f"Downloaded files will now be saved in:\n{self.client_download_dir}")
+
+    def reset_client_download_folder(self):
+        default_dir = self.defaults["client_download_dir"]
+        os.makedirs(default_dir, exist_ok=True)
+        self.client_download_dir = default_dir
+        self.client_dl_path_lbl.configure(text=truncate_path(self.client_download_dir, max_len=45))
+        self.app_config["client_download_dir"] = self.client_download_dir
+        main.save_app_config(self.app_config)
+        messagebox.showinfo("Reset to Default", f"Download destination reset to:\n{default_dir}")
+
     # =========================================================================
     # 5. HOST SERVER ENGINE & CONTROLS
     # =========================================================================
     def start_host_server(self):
         def _run():
             try:
-                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-                main.BASE_DIR = os.path.join(desktop, "PyShare_Files")
-                main.UPLOAD_DIR = os.path.join(main.BASE_DIR, "Received_Files")
-                main.DOWNLOAD_DIR = os.path.join(main.BASE_DIR, "Shared_Files")
+                # Load persistent folders
+                main.DOWNLOAD_DIR = os.path.abspath(self.app_config.get("shared_dir", self.defaults["shared_dir"]))
+                main.UPLOAD_DIR = os.path.abspath(self.app_config.get("received_dir", self.defaults["received_dir"]))
                 os.makedirs(main.UPLOAD_DIR, exist_ok=True)
                 os.makedirs(main.DOWNLOAD_DIR, exist_ok=True)
+                main.BASE_DIR = os.path.dirname(main.DOWNLOAD_DIR)
 
                 # Bind Port
                 main.socketserver.TCPServer.allow_reuse_address = True
@@ -941,7 +1205,8 @@ class PyShareApp(ctk.CTk):
         if not self.client_connected or self.is_client_downloading:
             return
 
-        dest_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        dest_dir = self.client_download_dir
+        os.makedirs(dest_dir, exist_ok=True)
         dest_path = os.path.join(dest_dir, filename)
 
         self.is_client_downloading = True
@@ -980,7 +1245,7 @@ class PyShareApp(ctk.CTk):
     def on_client_download_success(self, filename, path):
         self.is_client_downloading = False
         self.client_progress_bar.set(1.0)
-        self.client_progress_lbl.configure(text=f"Saved to Downloads: {filename}")
+        self.client_progress_lbl.configure(text=f"Saved to {os.path.basename(self.client_download_dir)}: {filename}")
         if messagebox.askyesno("Download Complete", f"File saved:\n{path}\n\nDo you want to open it now?"):
             os.startfile(path)
 
@@ -993,7 +1258,9 @@ class PyShareApp(ctk.CTk):
     def client_download_all_zip(self):
         if not self.client_connected or self.is_client_downloading:
             return
-        dest_path = os.path.join(os.path.expanduser("~"), "Downloads", f"PyShare_Files_{int(time.time())}.zip")
+        dest_dir = self.client_download_dir
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, f"PyShare_Files_{int(time.time())}.zip")
         self.is_client_downloading = True
         self.client_progress_lbl.configure(text="Downloading ZIP archive...")
 
@@ -1111,7 +1378,6 @@ class PyShareApp(ctk.CTk):
             if self.current_mode == "host":
                 self.refresh_host_ui()
             elif self.current_mode == "client" and self.client_connected:
-                # Periodic poll of host files & clipboard every 4 ticks
                 pass
         except Exception:
             pass
@@ -1177,6 +1443,7 @@ class PyShareApp(ctk.CTk):
             return
 
         self.shared_count_lbl.configure(text=f"{len(files)} file{'s' if len(files) != 1 else ''} shared")
+        self.shared_banner.configure(text=f"📂 Sharing from: {main.DOWNLOAD_DIR}")
 
         # Clear existing
         for widget in self.shared_files_scroll.winfo_children():
@@ -1185,7 +1452,7 @@ class PyShareApp(ctk.CTk):
         if not files:
             ctk.CTkLabel(
                 self.shared_files_scroll,
-                text="No files shared yet. Click '+ Add Files to Share' above.",
+                text="No files shared yet in this folder.\nClick '+ Add Files to Share' or change the folder above.",
                 font=ctk.CTkFont(size=12),
                 text_color="#94a3b8"
             ).pack(pady=20)
@@ -1248,6 +1515,7 @@ class PyShareApp(ctk.CTk):
             return
 
         self.received_count_lbl.configure(text=f"{len(files)} file{'s' if len(files) != 1 else ''} received")
+        self.received_banner.configure(text=f"📥 Saving files to: {main.UPLOAD_DIR}")
 
         for widget in self.received_files_scroll.winfo_children():
             widget.destroy()

@@ -51,6 +51,60 @@ DOWNLOAD_DIR = ""  # Shared by Host (Host Shared Files)
 ACTUAL_PORT = START_PORT
 zc = None
 
+# --- PERSISTENT USER CONFIGURATION ---
+CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".pyshare_config.json")
+
+def get_default_directories():
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    base = os.path.join(desktop, "PyShare_Files")
+    return {
+        "shared_dir": os.path.join(base, "Shared_Files"),
+        "received_dir": os.path.join(base, "Received_Files"),
+        "client_download_dir": os.path.join(os.path.expanduser("~"), "Downloads"),
+        "theme": "dark"
+    }
+
+def load_app_config():
+    defaults = get_default_directories()
+    if os.path.isfile(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                if isinstance(saved, dict):
+                    defaults.update(saved)
+        except Exception:
+            pass
+    return defaults
+
+def save_app_config(cfg):
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        print(f"[*] Could not save config: {e}")
+
+def set_custom_shared_dir(path):
+    global DOWNLOAD_DIR
+    if path and os.path.isdir(path):
+        DOWNLOAD_DIR = os.path.abspath(path)
+        cfg = load_app_config()
+        cfg["shared_dir"] = DOWNLOAD_DIR
+        save_app_config(cfg)
+        broadcast_sse("files", None)
+        return True
+    return False
+
+def set_custom_received_dir(path):
+    global UPLOAD_DIR
+    if path and os.path.isdir(path):
+        UPLOAD_DIR = os.path.abspath(path)
+        cfg = load_app_config()
+        cfg["received_dir"] = UPLOAD_DIR
+        save_app_config(cfg)
+        broadcast_sse("history", None)
+        return True
+    return False
+
 # --- SECURITY & STATE ---
 CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
@@ -1322,12 +1376,13 @@ def start_server():
     print("[*] Starting PyShare...")
 
     try:
-        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-        BASE_DIR = os.path.join(desktop, "PyShare_Files")
-        UPLOAD_DIR = os.path.join(BASE_DIR, "Received_Files")
-        DOWNLOAD_DIR = os.path.join(BASE_DIR, "Shared_Files")
+        cfg = load_app_config()
+        defaults = get_default_directories()
+        DOWNLOAD_DIR = os.path.abspath(cfg.get("shared_dir", defaults["shared_dir"]))
+        UPLOAD_DIR = os.path.abspath(cfg.get("received_dir", defaults["received_dir"]))
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+        BASE_DIR = os.path.dirname(DOWNLOAD_DIR)
     except Exception as e:
         print(f"[!] Storage Directory Initialization Error: {e}")
         return
