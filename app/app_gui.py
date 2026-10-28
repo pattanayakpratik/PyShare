@@ -198,6 +198,8 @@ class PyShareApp(ctk.CTk):
         self.search_shared_query = ""
         self.search_received_query = ""
         self.search_client_query = ""
+        self._last_shared_snapshot = None
+        self._last_received_snapshot = None
 
         # Build Full Liquid Glass Layout
         self.build_top_navbar()
@@ -1274,11 +1276,13 @@ class PyShareApp(ctk.CTk):
     def clear_all_staged_files(self):
         if messagebox.askyesno("Clear All", "Unstage all files from Quick Share?\n(Original files on your disk will NOT be deleted)."):
             main.clear_staged_files()
+            self._last_shared_snapshot = None
             self.refresh_host_shared_files_list()
             self.add_log_entry("Cleared all staged files")
 
     def unstage_host_file(self, filename):
         main.unstage_file(filename)
+        self._last_shared_snapshot = None
         self.refresh_host_shared_files_list()
         self.add_log_entry(f"Unstaged: {filename}")
 
@@ -1295,6 +1299,7 @@ class PyShareApp(ctk.CTk):
         new_dir = filedialog.askdirectory(title="Select Default Shared Directory", initialdir=main.DOWNLOAD_DIR)
         if new_dir and os.path.isdir(new_dir):
             if main.set_custom_shared_dir(new_dir):
+                self._last_shared_snapshot = None
                 self.refresh_host_shared_files_list()
                 self.add_log_entry(f"Shared folder: {new_dir}")
                 messagebox.showinfo("Folder Updated", f"Default shared folder set to:\n{new_dir}")
@@ -1303,6 +1308,7 @@ class PyShareApp(ctk.CTk):
         new_dir = filedialog.askdirectory(title="Select Folder to Store Incoming Uploads", initialdir=main.UPLOAD_DIR)
         if new_dir and os.path.isdir(new_dir):
             if main.set_custom_received_dir(new_dir):
+                self._last_received_snapshot = None
                 self.refresh_host_received_files_list()
                 self.add_log_entry(f"Received folder: {new_dir}")
                 messagebox.showinfo("Folder Updated", f"Incoming uploads will now be saved in:\n{new_dir}")
@@ -1943,6 +1949,12 @@ class PyShareApp(ctk.CTk):
         if self.search_shared_query:
             display_files = [f for f in display_files if self.search_shared_query in f.get("name", "").lower()]
 
+        # Only rebuild scroll frame if files or search query actually changed
+        snapshot = (self.search_shared_query, tuple((f.get("name"), f.get("size"), f.get("path")) for f in display_files))
+        if getattr(self, "_last_shared_snapshot", None) == snapshot:
+            return
+        self._last_shared_snapshot = snapshot
+
         for widget in self.shared_scroll.winfo_children():
             widget.destroy()
 
@@ -2052,6 +2064,7 @@ class PyShareApp(ctk.CTk):
         if messagebox.askyesno("Confirm Delete", f"Remove this file from disk?\n{os.path.basename(path)}"):
             try:
                 os.remove(path)
+                self._last_shared_snapshot = None
                 self.refresh_host_shared_files_list()
                 self.add_log_entry(f"Deleted file: {os.path.basename(path)}")
             except Exception as e:
@@ -2076,6 +2089,12 @@ class PyShareApp(ctk.CTk):
 
         if self.search_received_query:
             files = [f for f in files if self.search_received_query in f[0].lower()]
+
+        # Only rebuild scroll frame if files or search query actually changed
+        snapshot = (self.search_received_query, tuple(files))
+        if getattr(self, "_last_received_snapshot", None) == snapshot:
+            return
+        self._last_received_snapshot = snapshot
 
         for widget in self.received_scroll.winfo_children():
             widget.destroy()
@@ -2161,6 +2180,7 @@ class PyShareApp(ctk.CTk):
         if messagebox.askyesno("Confirm Delete", f"Delete this received file from disk?\n{os.path.basename(path)}"):
             try:
                 os.remove(path)
+                self._last_received_snapshot = None
                 self.refresh_host_received_files_list()
                 self.add_log_entry(f"Deleted received file: {os.path.basename(path)}")
             except Exception as e:
