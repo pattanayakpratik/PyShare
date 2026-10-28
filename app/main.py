@@ -1580,6 +1580,7 @@ def start_server():
 
     print(f"[+] PyShare Server Live at: {url}")
     print(f"[+] Local Storage: {BASE_DIR}")
+    add_event("Server started. Ready for connections.")
     print("="*45 + "\n")
     
     # Run HTTP server on background daemon thread

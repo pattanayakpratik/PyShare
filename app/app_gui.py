@@ -1289,10 +1289,32 @@ class PyShareApp(ctk.CTk):
     def add_log_entry(self, msg):
         t = time.strftime("%H:%M:%S")
         self.hub_log_pane.configure(state="normal")
+        try:
+            main.add_event(msg)
+            self.sync_host_events()
+            return
+        except Exception:
+            pass
         self.hub_log_pane.insert("1.0", f"[{t}] {msg}\n")
         self.hub_log_pane.configure(state="disabled")
 
     # =========================================================================
+    def sync_host_events(self):
+        if not hasattr(self, 'hub_log_pane') or not hasattr(main, 'pop_events'):
+            return
+        try:
+            events = main.pop_events()
+            if len(events) != getattr(self, "_last_event_count", 0) or (events and events[-1] != getattr(self, "_last_event_item", None)):
+                self._last_event_count = len(events)
+                self._last_event_item = events[-1] if events else None
+                self.hub_log_pane.configure(state="normal")
+                self.hub_log_pane.delete("1.0", "end")
+                for ev in reversed(events):
+                    self.hub_log_pane.insert("end", f"[{ev.get('time', '00:00:00')}] {ev.get('msg', '')}\n")
+                self.hub_log_pane.configure(state="disabled")
+        except Exception:
+            pass
+
     # 7. FOLDER STORAGE PATH CUSTOMIZATION
     # =========================================================================
     def change_host_shared_folder(self):
@@ -1910,6 +1932,9 @@ class PyShareApp(ctk.CTk):
 
         # Update QR image if needed
         self.update_qr_image()
+
+        # Update Live Server Events Log
+        self.sync_host_events()
 
         # Update File Lists
         self.refresh_host_shared_files_list()
