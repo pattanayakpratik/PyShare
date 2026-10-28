@@ -1400,4 +1400,12 @@ def start_server():
         print("[-] PyShare Stopped.")
 
 if __name__ == "__main__":
-    start_server()
+    if "--no-gui" in sys.argv:
+        start_server()
+    else:
+        try:
+            import app_gui
+            app_gui.start_native_app()
+        except Exception as e:
+            print(f"[*] Native GUI notice: {e}, falling back to server mode.")
+            start_server()
