@@ -2237,7 +2237,7 @@ def start_native_app():
     app = PyShareApp()
     app.mainloop()
 
-main = start_native_app
+
 
 if __name__ == "__main__":
     start_native_app()
