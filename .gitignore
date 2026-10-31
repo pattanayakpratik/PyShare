@@ -29,11 +29,10 @@ SharedFiles/From_PC/*
 # Ignore the folders created during the build process
 build/
 dist/
-# Ignore the auto-generated configuration file
+# Ignore auto-generated configuration files but keep project spec & version info
 *.spec
-!PyShare.spec
-# ignore the info file 
-version_info.txt
+!app/PyShare.spec
+!app/version_info.txt
 
 # --- OS Specific ---
 .DS_Store
