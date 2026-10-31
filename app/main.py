@@ -690,6 +690,8 @@ ASSET_DIR = get_asset_dir()
 
 
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
+    disable_nagle_algorithm = True
+    wbufsize = 1048576
     
     def log_message(self, format, *args):
         pass  # Suppress default console logs
@@ -1146,7 +1148,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
                 with open(temp_zip_path, 'rb') as f:
                     while True:
-                        chunk = f.read(262144)  # 256KB chunks
+                        chunk = f.read(1048576)  # 256KB chunks
                         if not chunk:
                             break
                         self.wfile.write(chunk)
@@ -1215,7 +1217,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         f.seek(start)
                         remain = content_len
                         while remain > 0:
-                            chunk = f.read(min(remain, 262144))
+                            chunk = f.read(min(remain, 1048576))
                             if not chunk:
                                 break
                             self.wfile.write(chunk)
@@ -1233,7 +1235,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     with open(fp, 'rb') as f:
                         while True:
-                            chunk = f.read(262144)
+                            chunk = f.read(1048576)
                             if not chunk:
                                 break
                             self.wfile.write(chunk)
@@ -1457,7 +1459,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 with open(part_path, 'wb') as f:
                     while remain > 0:
-                        chunk = self.rfile.read(min(remain, 262144))  # 256KB chunk
+                        chunk = self.rfile.read(min(remain, 1048576))  # 1MB fast stream chunk
                         if not chunk: 
                             break
                         f.write(chunk)
@@ -1466,7 +1468,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         if not is_host_upload:
                             now = time.time()
                             # Throttle lock & SSE broadcast to max 10 times per second
-                            if now - last_status_time >= 0.1 or remain == 0:
+                            if now - last_status_time >= 0.3 or remain == 0:
                                 last_status_time = now
                                 set_upload_status(client_ip, actual_fn, total_size - remain, total_size)
                                 broadcast_sse("upload", {
@@ -1525,6 +1527,28 @@ def launch_desktop_app(url):
         pass
 
 
+class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+    def server_bind(self):
+        super().server_bind()
+        try:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
+        except Exception:
+            pass
+
+    def get_request(self):
+        conn, addr = super().get_request()
+        try:
+            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            conn.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
+            conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
+        except Exception:
+            pass
+        return conn, addr
+
 def start_server():
     global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, httpd, ACTUAL_PORT, zc
     
@@ -1546,7 +1570,7 @@ def start_server():
     socketserver.TCPServer.allow_reuse_address = True
     for port in range(START_PORT, START_PORT + 10):
         try:
-            server = socketserver.ThreadingTCPServer(("", port), FinalFileHandler)
+            server = FastThreadingTCPServer(("", port), FinalFileHandler)
             ACTUAL_PORT = port
             httpd = server
             break

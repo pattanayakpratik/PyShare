@@ -1708,7 +1708,7 @@ class PyShareApp(ctk.CTk):
                     start_time = time.time()
 
                     with open(dest_path, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=64 * 1024):
+                        for chunk in r.iter_content(chunk_size=1024 * 1024):
                             if chunk:
                                 f.write(chunk)
                                 downloaded += len(chunk)
@@ -1759,7 +1759,7 @@ class PyShareApp(ctk.CTk):
                     downloaded = 0
                     start_time = time.time()
                     with open(dest_path, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=128 * 1024):
+                        for chunk in r.iter_content(chunk_size=1024 * 1024):
                             if chunk:
                                 f.write(chunk)
                                 downloaded += len(chunk)
