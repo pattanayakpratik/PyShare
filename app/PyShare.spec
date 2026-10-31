@@ -76,5 +76,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version=os.path.join(spec_dir, 'version_info.txt'),
     icon=[os.path.join(spec_dir, 'app_icon.ico')],
 )
