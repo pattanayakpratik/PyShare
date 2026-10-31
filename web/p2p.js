@@ -3,7 +3,7 @@
    Direct Device-to-Device • Zero App Install • Works across any browser
    ========================================================================== */
 
-const CHUNK_SIZE = 32 * 1024; // 32KB chunk slice for smooth WebRTC backpressure
+const CHUNK_SIZE = 64 * 1024; // 64KB chunk slice for optimal WebRTC throughput
 let peer = null;
 let activeConnections = [];
 let currentPin = "";
@@ -317,20 +317,44 @@ function updateClientStatus(text, color) {
 }
 
 // --- FILE STREAMING & RECEIVING ENGINE ---
+// --- FILE STREAMING & RECEIVING ENGINE ---
+const MACRO_READ_SIZE = 4 * 1024 * 1024; // Read 4MB from disk at a time (64x fewer disk I/O calls)
+const DISK_FLUSH_SIZE = 4 * 1024 * 1024; // Flush to FileSystemWritableFileStream in 4MB batches
+
+function flushStreamBuffer(transfer, stream) {
+    if (!stream || !transfer.writeBuffer || transfer.writeBuffer.length === 0) return;
+    const batchBlob = new Blob(transfer.writeBuffer);
+    transfer.writeBuffer = [];
+    transfer.writeBufferBytes = 0;
+    transfer.writeQueue = (transfer.writeQueue || Promise.resolve()).then(() =>
+        stream.write(batchBlob)
+    ).catch(() => {
+        delete activeFileStreams[transfer.meta.id];
+    });
+}
+
 async function handleIncomingData(msg, conn) {
+    // Fast-path: Raw ArrayBuffer chunk sent directly on RTCDataChannel
+    if (msg instanceof ArrayBuffer || ArrayBuffer.isView(msg)) {
+        const buffer = msg instanceof ArrayBuffer ? msg : msg.buffer.slice(msg.byteOffset, msg.byteOffset + msg.byteLength);
+        const activeId = conn._activeRxId;
+        if (activeId && activeTransfers[activeId]) {
+            processIncomingChunk(activeId, buffer);
+            return;
+        }
+    }
+
     if (!msg || !msg.type) return;
 
     // 1. File Metadata Arrival
     if (msg.type === 'file_start') {
-        // Prevent duplicate file_start resetting an active transfer
-        if (activeTransfers[msg.id]) {
-            console.warn('Ignoring duplicate file_start for', msg.id);
-            return;
-        }
-
+        if (activeTransfers[msg.id]) return;
+        conn._activeRxId = msg.id;
         activeTransfers[msg.id] = {
             meta: msg,
             chunks: [],
+            writeBuffer: [],
+            writeBufferBytes: 0,
             receivedBytes: 0,
             startTime: Date.now()
         };
@@ -349,37 +373,20 @@ async function handleIncomingData(msg, conn) {
 
     // 2. Binary File Chunk
     else if (msg.type === 'file_chunk') {
-        const transfer = activeTransfers[msg.id];
-        if (!transfer) return;
-
-        const stream = activeFileStreams[msg.id];
-        if (stream) {
-            transfer.writeQueue = (transfer.writeQueue || Promise.resolve()).then(() => 
-                stream.write(msg.chunk)
-            ).catch(() => {
-                delete activeFileStreams[msg.id];
-                transfer.chunks.push(msg.chunk);
-            });
-        } else {
-            transfer.chunks.push(msg.chunk);
-        }
-
-        transfer.receivedBytes += msg.chunk.byteLength;
-        updateQueueProgress(msg.id, transfer.receivedBytes, transfer.meta.size);
-        const pct = Math.min(100, Math.round((transfer.receivedBytes / (transfer.meta.size || 1)) * 100));
-        updateCatalogButtonState(msg.id, 'downloading', pct);
+        processIncomingChunk(msg.id, msg.chunk);
     }
 
     // 3. File Transfer Complete
     else if (msg.type === 'file_end') {
         const transfer = activeTransfers[msg.id];
         if (!transfer) return;
-
+        if (conn._activeRxId === msg.id) conn._activeRxId = null;
         pendingFileRequests.delete(msg.id);
 
         const stream = activeFileStreams[msg.id];
         if (stream) {
             try {
+                flushStreamBuffer(transfer, stream);
                 if (transfer.writeQueue) await transfer.writeQueue;
                 await stream.close();
             } catch (e) {}
@@ -393,7 +400,7 @@ async function handleIncomingData(msg, conn) {
 
         try {
             const blob = new Blob(transfer.chunks, { type: transfer.meta.mime });
-            transfer.chunks = []; // Clear array of ArrayBuffers to release RAM immediately
+            transfer.chunks = [];
             const objectUrl = URL.createObjectURL(blob);
 
             const fileRecord = {
@@ -406,7 +413,6 @@ async function handleIncomingData(msg, conn) {
                 blob: blob
             };
 
-            // Deduplicate record in receivedFilesList
             const existingIdx = receivedFilesList.findIndex(f => f.id === fileRecord.id);
             if (existingIdx >= 0) {
                 receivedFilesList[existingIdx] = fileRecord;
@@ -415,12 +421,10 @@ async function handleIncomingData(msg, conn) {
             }
 
             delete activeTransfers[msg.id];
-
             markQueueDone(msg.id);
             renderReceivedFilesUI();
             updateCatalogButtonState(msg.id, 'downloaded');
 
-            // Trigger standard browser download prompt directly to user device
             try {
                 const a = document.createElement('a');
                 a.href = objectUrl;
@@ -428,9 +432,7 @@ async function handleIncomingData(msg, conn) {
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-            } catch (e) {
-                console.warn('Browser auto-download trigger notice:', e);
-            }
+            } catch (e) {}
 
             showToast(`Saved: ${fileRecord.name}`, '📥');
         } catch (err) {
@@ -445,12 +447,12 @@ async function handleIncomingData(msg, conn) {
         const newCount = (msg.files || []).length;
         const oldCount = peerCatalogFiles.length;
         if (newCount > oldCount && oldCount > 0) {
-            showToast(`Host shared ${newCount - oldCount} new file${newCount - oldCount > 1 ? 's' : ''}`, '📂');
+            showToast(`Host shared ${newCount - oldCount} new file${newCount - oldCount > 1 ? 's' : ''}`, '📁');
         }
         renderPeerCatalog(msg.files);
     }
 
-    // 5. Request File Download (Client asks Host for a specific shared file)
+    // 5. Request File Download
     else if (msg.type === 'request_file') {
         const target = sharedFilesList.find(f => f.id === msg.id);
         if (target && target.file) {
@@ -465,6 +467,30 @@ async function handleIncomingData(msg, conn) {
     }
 }
 
+function processIncomingChunk(fileId, chunk) {
+    const transfer = activeTransfers[fileId];
+    if (!transfer || !chunk) return;
+
+    const byteLen = chunk.byteLength || chunk.size || 0;
+    const stream = activeFileStreams[fileId];
+    if (stream) {
+        transfer.writeBuffer.push(chunk);
+        transfer.writeBufferBytes += byteLen;
+        if (transfer.writeBufferBytes >= DISK_FLUSH_SIZE) {
+            flushStreamBuffer(transfer, stream);
+        }
+    } else {
+        transfer.chunks.push(chunk);
+    }
+
+    transfer.receivedBytes += byteLen;
+    updateQueueProgress(fileId, transfer.receivedBytes, transfer.meta.size);
+    const pct = Math.min(100, Math.round((transfer.receivedBytes / (transfer.meta.size || 1)) * 100));
+    if (transfer._lastPct !== pct) {
+        transfer._lastPct = pct;
+        updateCatalogButtonState(fileId, 'downloading', pct);
+    }
+}
 // Send Files to All Active Peers
 function sendFiles(files) {
     if (!files || !files.length) return;
@@ -521,39 +547,36 @@ function sendFiles(files) {
     }
 }
 
-// Wait for RTCDataChannel buffer to drain below threshold
-function waitForBufferDrain(dc, maxBuffered = 512 * 1024) {
-    if (!dc || dc.bufferedAmount <= maxBuffered) {
+// High-throughput WebRTC buffer drain with 4MB high-water / 1MB low-water marks
+function waitForBufferDrain(dc, lowWaterMark = 1024 * 1024) {
+    if (!dc || dc.bufferedAmount <= lowWaterMark) {
         return Promise.resolve();
     }
     return new Promise((resolve) => {
         let timer = null;
+        const cleanup = () => {
+            if (timer) clearTimeout(timer);
+            try { dc.removeEventListener('bufferedamountlow', handler); } catch (e) {}
+        };
         const handler = () => {
-            if (!dc || dc.bufferedAmount <= maxBuffered) {
+            if (!dc || dc.bufferedAmount <= lowWaterMark) {
                 cleanup();
                 resolve();
             }
         };
-        const cleanup = () => {
-            if (timer) clearTimeout(timer);
-            try {
-                dc.removeEventListener('bufferedamountlow', handler);
-            } catch (e) {}
-        };
         try {
+            dc.bufferedAmountLowThreshold = lowWaterMark;
             dc.addEventListener('bufferedamountlow', handler);
         } catch (e) {
             resolve();
             return;
         }
-        // Safety fallback timer to prevent infinite hang if event is dropped by browser
         timer = setTimeout(() => {
             cleanup();
             resolve();
-        }, 350);
+        }, 15);
     });
 }
-
 // Sequential Outgoing Transfer Queue per Peer Connection
 function queueFileSend(file, conn, fileId) {
     if (!conn) return;
@@ -589,14 +612,13 @@ async function processSendQueue(conn) {
     }
 }
 
-// Stream File using Modern ArrayBuffer Slices and Backpressure Control
+// Stream File using 4MB Macro-Reads and 64KB Slices
 async function streamFileToConnectionAsync(file, conn, fileId) {
     const ext = file.name.split('.').pop().toLowerCase();
     const category = getCategory(ext);
 
     if (!conn.open) return;
 
-    // 1. Send File Header Metadata
     conn.send({
         type: 'file_start',
         id: fileId,
@@ -613,7 +635,6 @@ async function streamFileToConnectionAsync(file, conn, fileId) {
     let offset = 0;
     const totalSize = file.size;
 
-    // Handle 0-byte empty file edge case
     if (totalSize === 0) {
         conn.send({ type: 'file_end', id: fileId });
         markQueueDone(fileId);
@@ -621,31 +642,40 @@ async function streamFileToConnectionAsync(file, conn, fileId) {
         return;
     }
 
-    // 2. Stream Binary Chunks with Backpressure Control
+    // Read 4MB blocks from disk at a time to eliminate per-chunk disk I/O overhead
     while (offset < totalSize) {
         if (!conn.open) {
             throw new Error('Connection closed during transfer');
         }
 
-        // Backpressure Check: wait if RTCDataChannel buffer exceeds 1MB
-        if (conn.dataChannel && conn.dataChannel.bufferedAmount > 1024 * 1024) {
-            await waitForBufferDrain(conn.dataChannel, 512 * 1024);
+        const macroEnd = Math.min(offset + MACRO_READ_SIZE, totalSize);
+        const macroBuffer = await file.slice(offset, macroEnd).arrayBuffer();
+        let subOffset = 0;
+
+        while (subOffset < macroBuffer.byteLength) {
+            if (!conn.open) {
+                throw new Error('Connection closed during transfer');
+            }
+
+            if (conn.dataChannel && conn.dataChannel.bufferedAmount > 4 * 1024 * 1024) {
+                await waitForBufferDrain(conn.dataChannel, 1024 * 1024);
+            }
+
+            const chunkEnd = Math.min(subOffset + CHUNK_SIZE, macroBuffer.byteLength);
+            const chunkSlice = macroBuffer.slice(subOffset, chunkEnd);
+
+            conn.send({
+                type: 'file_chunk',
+                id: fileId,
+                chunk: chunkSlice
+            },true);
+
+            subOffset = chunkEnd;
+            offset += chunkSlice.byteLength;
+            updateQueueProgress(fileId, offset, totalSize);
         }
-
-        const slice = file.slice(offset, offset + CHUNK_SIZE);
-        const buffer = await slice.arrayBuffer();
-
-        conn.send({
-            type: 'file_chunk',
-            id: fileId,
-            chunk: buffer
-        });
-
-        offset += buffer.byteLength;
-        updateQueueProgress(fileId, offset, totalSize);
     }
 
-    // 3. Send File Completion Signal
     conn.send({
         type: 'file_end',
         id: fileId
@@ -775,7 +805,10 @@ function renderQueueItem(id, filename, totalSize, direction) {
     `;
 }
 
+let lastQueueProgressUpdate = 0;
 function updateQueueProgress(id, current, total) {
+    if (current < total && Date.now() - lastQueueProgressUpdate < 100) return;
+    lastQueueProgressUpdate = Date.now();
     const bar = document.getElementById('q_bar_' + id);
     const status = document.getElementById('q_status_' + id);
     const speedEl = document.getElementById('queueSpeed');

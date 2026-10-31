@@ -275,6 +275,7 @@ class UploadQueueManager {
         const xhr = new XMLHttpRequest();
         let lastLoaded = 0;
         let lastTime = Date.now();
+        let lastProgressTime = 0;
 
         xhr.open('POST', item.url);
         xhr.setRequestHeader('X-File-Name', encodeURIComponent(item.file.name));
@@ -282,10 +283,11 @@ class UploadQueueManager {
 
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
+                const now = Date.now();
+                if (e.loaded < e.total && now - lastProgressTime < 100) return;
+                lastProgressTime = now;
                 const pct = Math.round((e.loaded / e.total) * 100);
                 if (barEl) barEl.style.width = pct + '%';
-
-                const now = Date.now();
                 const timeDiff = (now - lastTime) / 1000;
                 if (timeDiff >= 0.5) {
                     const speed = (e.loaded - lastLoaded) / timeDiff;

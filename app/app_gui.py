@@ -1371,7 +1371,7 @@ class PyShareApp(ctk.CTk):
                 main.socketserver.TCPServer.allow_reuse_address = True
                 for port in range(main.START_PORT, main.START_PORT + 10):
                     try:
-                        server = main.socketserver.ThreadingTCPServer(("", port), main.FinalFileHandler)
+                        server = main.FastThreadingTCPServer(("", port), main.FinalFileHandler)
                         main.ACTUAL_PORT = port
                         main.httpd = server
                         break
@@ -1707,7 +1707,7 @@ class PyShareApp(ctk.CTk):
                     downloaded = 0
                     start_time = time.time()
 
-                    with open(dest_path, 'wb') as f:
+                    with open(dest_path, 'wb', buffering=1048576) as f:
                         for chunk in r.iter_content(chunk_size=1024 * 1024):
                             if chunk:
                                 f.write(chunk)
@@ -1758,7 +1758,7 @@ class PyShareApp(ctk.CTk):
                     total = int(r.headers.get('content-length', 0))
                     downloaded = 0
                     start_time = time.time()
-                    with open(dest_path, 'wb') as f:
+                    with open(dest_path, 'wb', buffering=1048576) as f:
                         for chunk in r.iter_content(chunk_size=1024 * 1024):
                             if chunk:
                                 f.write(chunk)
@@ -1812,6 +1812,44 @@ class PyShareApp(ctk.CTk):
         self.client_select_files_btn.configure(state="disabled")
         files_to_send = list(self.client_selected_upload_files)
 
+        class ProgressFileReader:
+            def __init__(self, file_path, total_sz, file_idx, num_files, fname, gui_ref):
+                self.f = open(file_path, 'rb', buffering=1048576)
+                self.total_sz = total_sz
+                self.file_idx = file_idx
+                self.num_files = num_files
+                self.fname = fname
+                self.gui = gui_ref
+                self.sent = 0
+                self.t0 = time.time()
+                self.last_ui = 0
+
+            def __len__(self):
+                return self.total_sz
+
+            def read(self, size=-1):
+                chunk = self.f.read(1048576 if size <= 0 else max(size, 1048576))
+                if chunk:
+                    self.sent += len(chunk)
+                    now_t = time.time()
+                    if now_t - self.last_ui >= 0.2 or self.sent >= self.total_sz:
+                        self.last_ui = now_t
+                        pct = self.sent / max(1, self.total_sz)
+                        spd = self.sent / max(0.1, now_t - self.t0)
+                        self.gui.after(0, lambda p=pct, s=spd, n=self.fname, i=self.file_idx, nf=self.num_files: (
+                            self.gui.client_progress_bar.set(p),
+                            self.gui.client_progress_lbl.configure(
+                                text=f"Uploading {i}/{nf}: {n} ({int(p * 100)}%) • {format_size(s)}/s"
+                            )
+                        ))
+                return chunk
+
+            def close(self):
+                try:
+                    self.f.close()
+                except Exception:
+                    pass
+
         def _worker():
             total_files = len(files_to_send)
             for idx, p in enumerate(files_to_send):
@@ -1819,7 +1857,7 @@ class PyShareApp(ctk.CTk):
                     continue
                 fn = os.path.basename(p)
                 file_size = os.path.getsize(p)
-                self.after(0, lambda i=idx+1, name=fn: self.client_progress_lbl.configure(text=f"Uploading {i}/{total_files}: {name}..."))
+                reader = None
                 try:
                     url = f"{self.client_host_url}/upload"
                     headers = {
@@ -1827,19 +1865,21 @@ class PyShareApp(ctk.CTk):
                         'Content-Type': 'application/octet-stream',
                         'Content-Length': str(file_size)
                     }
-                    with open(p, 'rb') as f:
-                        resp = self.client_session.post(url, data=f, headers=headers, timeout=120)
-                        if resp.status_code != 200:
-                            raise Exception(f"HTTP {resp.status_code}")
-                    self.after(0, lambda p=(idx + 1) / total_files: self.client_progress_bar.set(p))
+                    reader = ProgressFileReader(p, file_size, idx + 1, total_files, fn, self)
+                    resp = self.client_session.post(url, data=reader, headers=headers, timeout=300)
+                    if resp.status_code != 200:
+                        raise Exception(f"HTTP {resp.status_code}")
                 except Exception as e:
                     self.after(0, lambda name=fn, err=str(e): messagebox.showerror("Upload Error", f"Failed to upload {name}:\n{err}"))
                     break
+                finally:
+                    if reader:
+                        reader.close()
 
             self.after(0, self.on_client_upload_complete)
 
         threading.Thread(target=_worker, daemon=True).start()
-
+        
     def on_client_upload_complete(self):
         self.is_client_uploading = False
         self.client_selected_upload_files = []
@@ -2109,7 +2149,17 @@ class PyShareApp(ctk.CTk):
         except Exception:
             return
 
-        self.rx_count_lbl.configure(text=f"{len(files)} files")
+        with main.state_lock:
+            active_rx = list(main.upload_status.values())
+        if active_rx:
+            rx = active_rx[0]
+            pct = int((rx["current"] / max(1, rx["total"])) * 100)
+            self.rx_count_lbl.configure(
+                text=f"⚡ Receiving {pct}% ({format_size(rx['current'])} / {format_size(rx['total'])})",
+                text_color=self.colors["accent_cyan"]
+            )
+        else:
+            self.rx_count_lbl.configure(text=f"{len(files)} files", text_color=self.colors["text_sub"])
 
         if self.search_received_query:
             files = [f for f in files if self.search_received_query in f[0].lower()]

@@ -690,9 +690,11 @@ ASSET_DIR = get_asset_dir()
 
 
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
     disable_nagle_algorithm = True
-    wbufsize = 1048576
-    
+    wbufsize = 0            # Unbuffered socket writes so downloads never stall at 99%
+    rbufsize = 1048576      # 1MB socket read buffer for high-throughput uploads
+
     def log_message(self, format, *args):
         pass  # Suppress default console logs
 
@@ -994,6 +996,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             except (BrokenPipeError, ConnectionResetError, Exception):
                 pass
             finally:
+                self.close_connection = True
                 remove_sse_subscriber(q)
             return
 
@@ -1146,12 +1149,13 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_security_headers()
                 self.end_headers()
 
-                with open(temp_zip_path, 'rb') as f:
+                with open(temp_zip_path, 'rb', buffering=1048576) as f:
                     while True:
                         chunk = f.read(1048576)  # 256KB chunks
                         if not chunk:
                             break
                         self.wfile.write(chunk)
+                self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
                 pass
             except Exception as e:
@@ -1213,7 +1217,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_security_headers()
                     self.end_headers()
                     
-                    with open(fp, 'rb') as f:
+                    with open(fp, 'rb', buffering=1048576) as f:
                         f.seek(start)
                         remain = content_len
                         while remain > 0:
@@ -1233,12 +1237,13 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
                     self.end_headers()
-                    with open(fp, 'rb') as f:
+                    with open(fp, 'rb', buffering=1048576) as f:
                         while True:
                             chunk = f.read(1048576)
                             if not chunk:
                                 break
                             self.wfile.write(chunk)
+                self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
                 pass
             return
@@ -1456,10 +1461,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 add_event(f"Receiving: {actual_fn}")
             
             last_status_time = 0
+            read_fn = self.rfile.read1 if hasattr(self.rfile, 'read1') else self.rfile.read
             try:
-                with open(part_path, 'wb') as f:
+                with open(part_path, 'wb', buffering=1048576) as f:
                     while remain > 0:
-                        chunk = self.rfile.read(min(remain, 1048576))  # 1MB fast stream chunk
+                        chunk = read_fn(min(remain, 1048576))
                         if not chunk: 
                             break
                         f.write(chunk)
@@ -1467,8 +1473,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         
                         if not is_host_upload:
                             now = time.time()
-                            # Throttle lock & SSE broadcast to max 10 times per second
-                            if now - last_status_time >= 0.3 or remain == 0:
+                            if now - last_status_time >= 0.25 or remain == 0:
                                 last_status_time = now
                                 set_upload_status(client_ip, actual_fn, total_size - remain, total_size)
                                 broadcast_sse("upload", {
@@ -1532,19 +1537,17 @@ class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
     def server_bind(self):
-        super().server_bind()
         try:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4194304)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4194304)
         except Exception:
             pass
+        super().server_bind()
 
     def get_request(self):
         conn, addr = super().get_request()
         try:
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            conn.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
-            conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
         except Exception:
             pass
         return conn, addr
