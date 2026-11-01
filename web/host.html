@@ -21,7 +21,12 @@
                 <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
                 PyShare
             </div>
+            <div class="mode-pill-container" style="display:inline-flex; background:var(--input-bg); border:1px solid var(--border-color); border-radius:20px; padding:3px; gap:4px; margin-left:8px;">
+                <button class="mode-pill active" style="background:var(--accent-cyan); color:#000; font-weight:700; border:none; border-radius:16px; padding:4px 12px; font-size:11px; cursor:default;">🏠 Host</button>
+                <a href="/client.html" class="mode-pill" style="color:var(--text-sub); text-decoration:none; font-weight:600; border-radius:16px; padding:4px 12px; font-size:11px; transition:all 0.2s;">📱 Client</a>
+            </div>
             <div style="display:flex; align-items:center; gap:8px;">
+                <button class="icon-btn" onclick="location.reload()" title="Refresh">🔄</button>
                 <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
                 <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
                 <a href="/p2p" class="icon-btn" title="Web Transfer (Zero-Install Browser Mode)" style="text-decoration:none;">🌐</a>
@@ -137,6 +142,7 @@
                 <div class="panel-header">
                     <div class="panel-title">📥 Received Files</div>
                     <div class="panel-actions">
+                        <button class="btn-secondary" onclick="updateFiles()" title="Refresh file list">🔄 Refresh</button>
                         <a href="/api/zip?folder=received" class="btn-secondary" title="Download all as ZIP">📦 ZIP All</a>
                         <button class="btn-secondary" onclick="fetch('/api/open?folder=received')">📂 Open Folder</button>
                     </div>
@@ -156,6 +162,7 @@
                 <div class="panel-header">
                     <div class="panel-title">📤 Shared Files</div>
                     <div class="panel-actions">
+                        <button class="btn-secondary" onclick="updateFiles()" title="Refresh file list">🔄 Refresh</button>
                         <a href="/api/zip?folder=shared" class="btn-secondary" title="Download all as ZIP">📦 ZIP All</a>
                         <button class="btn-secondary" onclick="fetch('/api/open?folder=shared')">📂 Open Folder</button>
                     </div>

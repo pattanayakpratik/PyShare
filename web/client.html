@@ -24,7 +24,12 @@
                 <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
                 PyShare
             </div>
+            <div class="mode-pill-container" style="display:inline-flex; background:var(--input-bg); border:1px solid var(--border-color); border-radius:20px; padding:3px; gap:4px; margin-left:8px;">
+                <a href="/host.html" class="mode-pill" style="color:var(--text-sub); text-decoration:none; font-weight:600; border-radius:16px; padding:4px 12px; font-size:11px; transition:all 0.2s;">🏠 Host</a>
+                <button class="mode-pill active" style="background:var(--accent-cyan); color:#000; font-weight:700; border:none; border-radius:16px; padding:4px 12px; font-size:11px; cursor:default;">📱 Client</button>
+            </div>
             <div style="display:flex; align-items:center; gap:6px;">
+                <button class="icon-btn" onclick="location.reload()" title="Refresh">🔄</button>
                 <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
                 <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
                 <a href="/p2p" class="icon-btn" title="Web Transfer (Zero-Install Browser Mode)" style="text-decoration:none;">🌐</a>
@@ -59,7 +64,10 @@
                     <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0;">
                         <span>💾 Download from Host</span>
                     </h3>
-                    <a href="/api/zip?folder=shared" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; flex-shrink: 0;" title="Download all files as ZIP">📦 ZIP All</a>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn-secondary" onclick="updateFiles()" style="padding: 4px 10px; font-size: 11px; flex-shrink: 0;" title="Refresh host files">🔄 Refresh</button>
+                        <a href="/api/zip?folder=shared" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; flex-shrink: 0;" title="Download all files as ZIP">📦 ZIP All</a>
+                    </div>
                 </div>
 
                 <input type="text" id="searchPC" class="search-input-box" placeholder="🔍 Search host files..." onkeyup="renderPCFiles()">
