@@ -279,7 +279,7 @@ class PyShareApp(ctk.CTk):
             selected_hover_color=self.colors["accent_cyan"],
             unselected_color=self.colors["input_bg"],
             unselected_hover_color=self.colors["btn_pill_bg"],
-            text_color_on_select="#000000" if self.active_mode == "dark" else "#ffffff",
+
             corner_radius=16,
             height=32
         )
