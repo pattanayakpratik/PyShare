@@ -1,6 +1,6 @@
 """
 ==========================================================================
-PyShare v4.9.0 - Cyberpunk Neon Liquid Glass Native Desktop GUI
+PyShare v4.9.1 - Cyberpunk Neon Liquid Glass Native Desktop GUI
 Exact 3-Pillar Studio Layout Matching Web UI (host_dark.png & client_dark.png)
 Zero Browser • Dual Host & Client Mode • Quick Share Drag & Drop Staging
 ==========================================================================
@@ -16,6 +16,7 @@ import tempfile
 import shutil
 import subprocess
 import requests
+import webbrowser
 
 import customtkinter as ctk
 import tkinter as tk
@@ -39,30 +40,30 @@ import main
 # =========================================================================
 THEME = {
     "dark": {
-        "bg_root": "#060913",              # Deep cosmic obsidian
-        "card_bg": "#0d1424",              # Translucent liquid glass
-        "card_border": "#1a263c",          # Subtle glass border
-        "card_border_glow": "#00f0ff",     # Cyan glowing border for dropzones
-        "card_hover": "#121c32",           # Hover state
-        "input_bg": "#070c17",             # Deep sunken input
-        "input_border": "#1e2c44",         # Input border
+        "bg_root": "#080c16",              # Deep cosmic navy-obsidian
+        "card_bg": "#0f172a",              # Frosted glass slab
+        "card_border": "#1e293b",          # Subtle translucent glass border
+        "card_border_glow": "#0284c7",     # Soft cyan accent border (not harsh neon)
+        "card_hover": "#1e293b",           # Hover state
+        "input_bg": "#0b1120",             # Inset dark panel
+        "input_border": "#1e293b",         # Inset border
         "text_main": "#f8fafc",            # Crisp white
         "text_sub": "#94a3b8",             # Muted slate
-        "text_cyan": "#00f0ff",            # Neon cyan
-        "accent_cyan": "#00f0ff",          # Neon cyan
-        "accent_blue": "#3b82f6",          # Electric blue
-        "accent_violet": "#a855f7",        # Purple
-        "accent_green": "#10b981",         # Emerald
-        "accent_red": "#ef4444",           # Rose red
-        "btn_pill_bg": "#151f33",          # Dark glass pill button
-        "btn_pill_border": "#22324f",      # Button border
-        "btn_pill_hover": "#1e2e4a",       # Button hover
-        "row_bg": "#0b1220",               # List row background
-        "row_border": "#162238",           # List row border
-        "row_hover": "#131d31",            # List row hover
+        "text_cyan": "#38bdf8",            # Electric sky blue
+        "accent_cyan": "#38bdf8",          # Sky blue
+        "accent_blue": "#2563eb",          # Royal blue
+        "accent_violet": "#8b5cf6",        # Soft violet
+        "accent_green": "#10b981",         # Emerald green
+        "accent_red": "#f43f5e",           # Rose red
+        "btn_pill_bg": "#1e293b",          # Translucent glass pill button
+        "btn_pill_border": "#334155",      # Specular border
+        "btn_pill_hover": "#334155",       # Button hover
+        "row_bg": "#0d1527",               # List row background
+        "row_border": "#1e293b",           # List row border
+        "row_hover": "#17233d",            # List row hover
         "qr_bg": "#ffffff",                # Crisp white for QR code
-        "segmented_bg": "#0a0f1d",
-        "segmented_selected": "#0284c7"
+        "segmented_bg": "#0b1120",
+        "segmented_selected": "#2563eb"
     },
     "light": {
         "bg_root": "#f1f5f9",
@@ -281,8 +282,97 @@ class PyShareApp(ctk.CTk):
         self.mode_switcher.pack(side="left", padx=16)
 
         # Right Action Buttons
+        # Right Action Buttons (Aligned with Web UI controls)
         right_actions = ctk.CTkFrame(self.navbar, fg_color="transparent")
         right_actions.pack(side="right")
+
+        # 1. Open Web Mode in Browser
+        self.btn_nav_web = ctk.CTkButton(
+            right_actions,
+            text="🌐 Web",
+            width=68,
+            height=32,
+            corner_radius=16,
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.open_web_dashboard
+        )
+        self.btn_nav_web.pack(side="left", padx=3)
+
+        # 2. How-To Guide
+        self.btn_nav_guide = ctk.CTkButton(
+            right_actions,
+            text="❓",
+            width=32,
+            height=32,
+            corner_radius=16,
+            font=ctk.CTkFont(size=12),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.open_user_guide
+        )
+        self.btn_nav_guide.pack(side="left", padx=3)
+
+        # 3. Manual Force Refresh
+        self.btn_nav_refresh = ctk.CTkButton(
+            right_actions,
+            text="🔄",
+            width=32,
+            height=32,
+            corner_radius=16,
+            font=ctk.CTkFont(size=12),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.manual_refresh_all
+        )
+        self.btn_nav_refresh.pack(side="left", padx=3)
+
+        # 4. Stop Server & Exit (Shutdown)
+        self.btn_nav_shutdown = ctk.CTkButton(
+            right_actions,
+            text="🛑",
+            width=32,
+            height=32,
+            corner_radius=16,
+            font=ctk.CTkFont(size=12),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["accent_red"],
+            text_color=self.colors["accent_red"],
+            hover_color=self.colors["accent_red"],
+            command=self.confirm_shutdown
+        )
+        self.btn_nav_shutdown.pack(side="left", padx=3)
+
+    def open_web_dashboard(self):
+        url = f"http://127.0.0.1:{main.ACTUAL_PORT}"
+        webbrowser.open(url)
+        self.add_log_entry(f"Opened Web Dashboard: {url}")
+
+    def open_user_guide(self):
+        url = f"http://127.0.0.1:{main.ACTUAL_PORT}/guide.html"
+        webbrowser.open(url)
+        self.add_log_entry("Opened User Guide")
+
+    def manual_refresh_all(self):
+        try:
+            self.refresh_host_ui()
+            if self.current_mode == "client" and self.client_connected:
+                self.fetch_client_host_files()
+            self.add_log_entry("Manual Refresh: UI, network & file lists re-synced.")
+        except Exception as e:
+            self.add_log_entry(f"Refresh error: {e}")
+
+    def confirm_shutdown(self):
+        if messagebox.askyesno("Shutdown PyShare", "Stop PyShare server and exit the application?"):
+            self.on_close()
 
     # =========================================================================
     # 2. STATUS BAR (Centered Status Pill with Glowing Dot & IP)
@@ -370,112 +460,86 @@ class PyShareApp(ctk.CTk):
     # 4. HOST MODE: EXACT 3-PILLAR STUDIO LAYOUT (Matching host_dark.png)
     # =========================================================================
     def build_host_3_pillar_view(self):
-        # Pillar 1: "Add to Shared" Dropzone Card (Left, fixed width)
+        # Center canvas wrapper with balanced margins
+        self.host_center = ctk.CTkFrame(self.host_frame, fg_color="transparent")
+        self.host_center.pack(fill="both", expand=True, padx=8, pady=4)
+
+        # Pillar 1: Add to Shared Dropzone (300px width, refined 1px border)
         self.col_send = ctk.CTkFrame(
-            self.host_frame,
-            width=280,
-            corner_radius=22,
+            self.host_center,
+            width=300,
+            corner_radius=20,
             fg_color=self.colors["card_bg"],
-            border_width=2,
+            border_width=1,
             border_color=self.colors["card_border_glow"]
         )
-        self.col_send.pack(side="left", fill="y", padx=(0, 12))
+        self.col_send.pack(side="left", fill="y", padx=(0, 14))
         self.col_send.pack_propagate(False)
         self.build_pillar_1_dropzone()
 
-        # Pillar 2: "Connect Device & Live Hub" (Center, fixed width)
+        # Pillar 2: Connect Device & Live Hub (360px width)
         self.col_connect = ctk.CTkFrame(
-            self.host_frame,
-            width=350,
-            corner_radius=22,
+            self.host_center,
+            width=360,
+            corner_radius=20,
             fg_color=self.colors["card_bg"],
             border_width=1,
             border_color=self.colors["card_border"]
         )
-        self.col_connect.pack(side="left", fill="y", padx=(0, 12))
+        self.col_connect.pack(side="left", fill="y", padx=(0, 14))
         self.col_connect.pack_propagate(False)
         self.build_pillar_2_connect_hub()
 
-        # Pillar 3: Dual File Managers (Right, expands to fill remaining width)
-        self.col_files = ctk.CTkFrame(self.host_frame, fg_color="transparent")
-        self.col_files.pack(side="right", fill="both", expand=True)
+        # Pillar 3: Dual File Managers (Fills remaining space with matched rounding)
+        self.col_files = ctk.CTkFrame(self.host_center, fg_color="transparent")
+        self.col_files.pack(side="left", fill="both", expand=True)
         self.build_pillar_3_file_managers()
 
     # --- PILLAR 1: ADD TO SHARED DROPZONE ---
     def build_pillar_1_dropzone(self):
         drop_inner = ctk.CTkFrame(self.col_send, fg_color="transparent")
-        drop_inner.pack(fill="both", expand=True, padx=14, pady=16)
+        drop_inner.pack(fill="both", expand=True, padx=16, pady=20)
 
-        # Glowing Tray Upload Icon
-        icon_frame = ctk.CTkFrame(drop_inner, width=72, height=72, corner_radius=18, fg_color=self.colors["btn_pill_bg"])
-        icon_frame.pack(pady=(12, 10))
+        # Translucent pill container for the cloud icon
+        icon_frame = ctk.CTkFrame(
+            drop_inner,
+            width=68,
+            height=68,
+            corner_radius=22,
+            fg_color=self.colors["input_bg"],
+            border_width=1,
+            border_color=self.colors["card_border"]
+        )
+        icon_frame.pack(pady=(10, 12))
         icon_frame.pack_propagate(False)
-        ctk.CTkLabel(icon_frame, text="📤", font=ctk.CTkFont(size=34)).pack(expand=True)
+        ctk.CTkLabel(icon_frame, text="☁️", font=ctk.CTkFont(size=30)).pack(expand=True)
 
         ctk.CTkLabel(
             drop_inner,
             text="Add to Shared",
             font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
             text_color=self.colors["text_main"]
-        ).pack(pady=(0, 2))
+        ).pack(pady=(0, 4))
 
         ctk.CTkLabel(
             drop_inner,
-            text="Drag & Drop files here\nor click below",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text="Drag & drop files here\nor select below",
+            font=ctk.CTkFont(family="Segoe UI", size=12),
             text_color=self.colors["text_sub"],
             justify="center"
-        ).pack(pady=(0, 14))
+        ).pack(pady=(0, 16))
 
-        # Vibrant Gradient Select Files Button
+        # Main gradient-style primary button
         ctk.CTkButton(
             drop_inner,
             text="Select Files",
             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
-            height=38,
+            height=40,
             corner_radius=12,
             fg_color=self.colors["accent_blue"],
-            hover_color="#2563eb",
+            hover_color="#1d4ed8",
             command=self.add_files_to_host_share
         ).pack(fill="x", pady=4)
-
-        # Add Folder Button
-        ctk.CTkButton(
-            drop_inner,
-            text="📁 Add Folder...",
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
-            height=34,
-            corner_radius=10,
-            fg_color=self.colors["btn_pill_bg"],
-            border_width=1,
-            border_color=self.colors["btn_pill_border"],
-            hover_color=self.colors["btn_pill_hover"],
-            command=self.add_folder_to_host_share
-        ).pack(fill="x", pady=3)
-
-        # Clear All Button
-        ctk.CTkButton(
-            drop_inner,
-            text="🗑️ Clear All Staged",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
-            height=28,
-            corner_radius=8,
-            fg_color="transparent",
-            text_color=self.colors["accent_red"],
-            hover_color=self.colors["btn_pill_bg"],
-            command=self.clear_all_staged_files
-        ).pack(fill="x", pady=(6, 0))
-
-        # Bottom Quick Share Explainer
-        hint_card = ctk.CTkFrame(drop_inner, corner_radius=10, fg_color=self.colors["input_bg"], border_width=1, border_color=self.colors["input_border"])
-        hint_card.pack(fill="x", side="bottom", pady=(8, 0))
-        ctk.CTkLabel(
-            hint_card,
-            text="⚡ Quick Share Model\nOnly files you drop or select are shared.",
-            font=ctk.CTkFont(family="Segoe UI", size=10),
-            text_color=self.colors["text_sub"],
-            justify="center"
-        ).pack(padx=8, pady=8)
 
     # --- PILLAR 2: CONNECT DEVICE & LIVE HUB ---
     def build_pillar_2_connect_hub(self):
@@ -743,6 +807,20 @@ class PyShareApp(ctk.CTk):
 
         ctk.CTkButton(
             actions,
+            text="🔄 Refresh",
+            width=76,
+            height=26,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.refresh_host_received_files_list
+        ).pack(side="left", padx=2)
+
+        ctk.CTkButton(
+            actions,
             text="📦 ZIP All",
             width=68,
             height=26,
@@ -832,6 +910,20 @@ class PyShareApp(ctk.CTk):
 
         actions = ctk.CTkFrame(header, fg_color="transparent")
         actions.pack(side="right")
+
+        ctk.CTkButton(
+            actions,
+            text="🔄 Refresh",
+            width=76,
+            height=26,
+            corner_radius=8,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.colors["btn_pill_bg"],
+            border_width=1,
+            border_color=self.colors["btn_pill_border"],
+            hover_color=self.colors["btn_pill_hover"],
+            command=self.refresh_host_shared_files_list
+        ).pack(side="left", padx=2)
 
         ctk.CTkButton(
             actions,
@@ -2045,9 +2137,10 @@ class PyShareApp(ctk.CTk):
             fg_color=self.colors["row_bg"],
             border_width=1,
             border_color=self.colors["row_border"],
-            corner_radius=10
+            corner_radius=12,
+            height=48
         )
-        row.pack(fill="x", pady=2, padx=2)
+        row.pack(fill="x", pady=3, padx=2)
 
         icon = get_file_icon(fn)
         ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=15), width=28).pack(side="left", padx=(8, 4), pady=5)
@@ -2187,13 +2280,14 @@ class PyShareApp(ctk.CTk):
 
     def _render_received_row(self, fn, sz, fp):
         row = ctk.CTkFrame(
-            self.received_scroll,
+            self.shared_scroll,
             fg_color=self.colors["row_bg"],
             border_width=1,
             border_color=self.colors["row_border"],
-            corner_radius=10
+            corner_radius=12,
+            height=48
         )
-        row.pack(fill="x", pady=2, padx=2)
+        row.pack(fill="x", pady=3, padx=2)
 
         icon = get_file_icon(fn)
         ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=15), width=28).pack(side="left", padx=(8, 4), pady=5)

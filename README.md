@@ -21,7 +21,7 @@
 
 <br/>
 
-[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.0/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.0/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
+[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [💾 **Download Windows Installer**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare-Setup-v4.9.1.exe) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
@@ -101,8 +101,9 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 
 **Windows Users:** Run PyShare directly as a single portable application — **zero Python setup required.**
 
-* **PyShare (Windows Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.0/PyShare.exe)**
-* **PyShare (Compressed ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.0/PyShare.zip)**
+* **PyShare Setup (Windows Installer)** 👉 **[Download PyShare-Setup-v4.9.1.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare-Setup-v4.9.1.exe)** *(Installs into Program Files, creates Start Menu & Desktop shortcuts, and registers in Windows Settings Installed Apps)*
+* **PyShare Portable (Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.exe)**
+* **PyShare Portable (ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.zip)**
 * **GitHub Releases** 👉 **[PyShare Releases](https://github.com/pattanayakpratik/PyShare/releases)**
 
 > [!NOTE]
@@ -111,6 +112,22 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 ---
 
 <span id="whats-new"></span>
+## 🆕 What's New in v4.9.1
+
+- 📦 **Official Windows Setup Installer (`PyShare-Setup-v4.9.1.exe`)**:
+  - Full modern Inno Setup installer that installs PyShare into `Program Files`, adds Start Menu and Desktop shortcuts, and registers in Windows Settings → "Installed Apps" with a clean uninstaller.
+- 🔄 **Desktop UI Controls & Refresh System**:
+  - Added manual `🔄 Refresh` button to the desktop top navigation bar, Received Files card header, and Shared Files card header to instantly re-sync UI state, network discovery, and file lists.
+  - Added `🌐 Web` dashboard button in the top navbar to quickly open the browser interface alongside the native desktop app.
+  - Added `❓ Guide` button in the top navbar to open the visual user manual.
+  - Restored `🛑` Server Shutdown button in the top navbar to safely terminate background threads and cleanly exit.
+- ⚡ **High-Speed Network & Streaming Pipeline**:
+  - Configured 4MB TCP socket receive/send buffers on listening socket before `bind()` to negotiate TCP Window Scaling (RFC 1323) during initial SYN handshake, boosting multi-gigabit LAN transfer speeds.
+  - WebRTC P2P chunking pipeline with 4MB macro-reads, 64KB data channel chunks, and `bufferedAmountLow` event-driven drain for maximum throughput.
+  - Fixed client upload generator stream framing by using `ProgressFileReader` to prevent chunked encoding transfer corruption.
+
+---
+
 ## 🆕 What's New in v4.9.0
 
 - 🖥️ **Native CustomTkinter Desktop Application (Zero Browser Dependencies):**
