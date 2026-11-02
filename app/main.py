@@ -880,7 +880,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if not raw_clean.startswith(('view/', 'download/', 'api/')):
-            if any(raw_clean.endswith(ext) for ext in asset_exts) or raw_clean in ('login.html', 'manifest.json', 'sw.js', 'index.html', 'guide.html'):
+            if any(raw_clean.endswith(ext) for ext in asset_exts) or raw_clean in ('login.html', 'manifest.json', 'sw.js', 'index.html', 'guide.html', 'landing.html'):
                 safe_asset_dir = os.path.abspath(ASSET_DIR)
                 fp = os.path.abspath(os.path.join(safe_asset_dir, raw_clean))
                 # Validate the target file resides strictly within ASSET_DIR
@@ -916,7 +916,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(content)
                     return
-                elif raw_clean in ('login.html', 'manifest.json', 'sw.js', 'index.html', 'guide.html'):
+                elif raw_clean in ('login.html', 'manifest.json', 'sw.js', 'index.html', 'guide.html', 'landing.html'):
                     self.send_error(404, "Asset not found")
                     return
 
@@ -945,13 +945,15 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         
         # A. Serve Dashboard (Host or Client)
         parsed_dash_path = urllib.parse.urlparse(self.path).path.rstrip('/')
-        if parsed_dash_path in ('', '/host', '/host.html', '/client', '/client.html'):
+        if parsed_dash_path in ('', '/host', '/host.html', '/client', '/client.html', '/landing', '/landing.html'):
             if parsed_dash_path in ('/client', '/client.html'):
                 page_file = "client.html"
             elif parsed_dash_path in ('/host', '/host.html'):
                 page_file = "host.html" if self.is_host_client() else "client.html"
+            elif parsed_dash_path in ('', '/landing', '/landing.html'):
+                page_file = "landing.html" if self.is_host_client() else "client.html"
             else:
-                page_file = "host.html" if self.is_host_client() else "client.html"
+                page_file = "landing.html" if self.is_host_client() else "client.html"
             file_path = os.path.join(ASSET_DIR, page_file)
 
             if os.path.exists(file_path):

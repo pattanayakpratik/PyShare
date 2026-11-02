@@ -240,6 +240,7 @@ PyShare/
 │   └── PyShare.spec      # Standalone executable build specification
 ├── web/                  # 🌐 Instant Web P2P Suite & Progressive Web App (PWA)
 │   ├── index.html        # Universal Web Transfer interface (Zero App Install Required)
+│   ├── landing.html      # Desktop App Room Selector (Create Room or Join Room on Open)
 │   ├── host.html         # Host 3-column studio dashboard with Internet mode & clipboard sync
 │   ├── host_styles.css   # Host desktop layout styling
 │   ├── host_scripts.js   # Host SSE listener, PIN sync, RX monitor & Windows clipboard sync

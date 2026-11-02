@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>PyShare — High-Speed File Transfer Studio</title>
+    <link rel="icon" type="image/x-icon" href="app_icon.ico">
+    <link rel="apple-touch-icon" href="app_icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#141d2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-color);
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 16px 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .landing-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-top: 28px;
+            width: 100%;
+            max-width: 740px;
+        }
+        @media (min-width: 640px) {
+            .landing-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .mode-select-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-specular);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-radius: 24px;
+            padding: 36px 26px;
+            text-align: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-card);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+            text-decoration: none;
+            color: inherit;
+        }
+        .mode-select-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.6), transparent);
+            pointer-events: none;
+        }
+        .mode-select-card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-card), 0 0 35px rgba(0, 240, 255, 0.32);
+        }
+        .mode-select-card:active {
+            transform: scale(0.98);
+        }
+        .mode-icon {
+            font-size: 52px;
+            filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.45));
+            animation: neonFloat 3.5s ease-in-out infinite alternate;
+        }
+        @keyframes neonFloat {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-6px); }
+        }
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+            max-width: 290px;
+            margin: 0 auto;
+        }
+        .keypad-btn {
+            background: var(--keypad-bg);
+            border: 1px solid var(--keypad-border);
+            border-top: 1px solid var(--keypad-border-top);
+            color: var(--keypad-text);
+            padding: 16px 0;
+            font-size: 22px;
+            font-weight: 700;
+            border-radius: 14px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: var(--shadow-sm);
+        }
+        .keypad-btn:hover {
+            background: var(--btn-secondary-hover-bg);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 16px var(--glow-cyan);
+            transform: translateY(-1px);
+        }
+        .keypad-btn:active {
+            transform: scale(0.95);
+            background: rgba(0, 240, 255, 0.25);
+            border-color: var(--accent-cyan);
+        }
+        .key-btn-submit {
+            background: linear-gradient(135deg, #00f0ff 0%, #3b82f6 50%, #a855f7 100%);
+            color: #060913;
+            border: none;
+            grid-column: span 3;
+            margin-top: 4px;
+            padding: 15px 0;
+            font-size: 16px;
+            font-weight: 800;
+            border-radius: 9999px;
+            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .key-btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 26px rgba(0, 240, 255, 0.55);
+        }
+        .key-btn-submit:active {
+            transform: scale(0.97);
+        }
+
+        .pin-dot-display {
+            font-size: 30px;
+            letter-spacing: 14px;
+            margin-bottom: 22px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-top: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 12px;
+            border-radius: 14px;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
+            min-height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+            width: 100%;
+            max-width: 290px;
+            font-family: monospace;
+        }
+        .pin-dot-display.error {
+            border-color: var(--accent-red);
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 16px rgba(244, 63, 94, 0.4);
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        /* Light Theme Overrides */
+        [data-theme="light"] .mode-select-card {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-top: 1px solid #ffffff;
+            box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
+        }
+        [data-theme="light"] .mode-select-card::before {
+            background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.4), transparent);
+        }
+        [data-theme="light"] .mode-select-card:hover {
+            border-color: rgba(37, 99, 235, 0.5);
+            background: #ffffff;
+            box-shadow: 0 20px 45px -8px rgba(37, 99, 235, 0.18), 0 0 0 1px rgba(37, 99, 235, 0.2), inset 0 1px 0 #ffffff;
+        }
+        [data-theme="light"] .pin-dot-display {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.85) 100%);
+            border: 1px solid rgba(203, 213, 225, 0.85);
+            border-top: 1px solid #ffffff;
+            color: #2563eb;
+            text-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04), inset 0 1px 0 #ffffff;
+        }
+        [data-theme="light"] .keypad-btn {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-top: 1px solid #ffffff;
+            color: #0f172a;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff;
+        }
+        [data-theme="light"] .keypad-btn:hover {
+            background: #ffffff;
+            border-color: rgba(37, 99, 235, 0.4);
+            color: #2563eb;
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.15), inset 0 1px 0 #ffffff;
+        }
+        [data-theme="light"] .key-btn-submit {
+            background: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #7c3aed 100%);
+            color: #ffffff;
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+
+        <!-- Top Navbar -->
+        <nav class="navbar">
+            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+            <div class="logo">
+                <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
+                PyShare
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button class="icon-btn" onclick="location.reload()" title="Refresh">🔄</button>
+                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
+                <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
+                <a href="/p2p" class="icon-btn" title="Web Transfer (Browser Mode)" style="text-decoration:none;">🌐</a>
+                <button class="icon-btn" onclick="disconnectServer()" style="color:var(--accent-red); border-color:rgba(239,68,68,0.4);" title="Shutdown Server">🛑</button>
+            </div>
+        </nav>
+
+        <!-- SCREEN 1: LANDING MODE SELECTOR (Create Room vs Join Room) -->
+        <div id="screenLanding" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 24px 0;">
+            <!-- Server IP Pill -->
+            <div class="status-bar" style="margin-bottom: 20px;">
+                <div class="status-pill" onclick="copyHostIp()" style="cursor: pointer;" title="Click to copy server URL">
+                    <span class="status-dot"></span>
+                    <span>Server IP: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">Detecting...</strong></span>
+                    <span style="font-size:11px; opacity:0.6; margin-left:4px;">📋</span>
+                </div>
+            </div>
+
+            <div style="font-size: 42px; margin-bottom: 12px;">⚡</div>
+            <h1 style="font-size: 26px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px;">PyShare File Transfer Studio</h1>
+            <p style="color: var(--text-sub); font-size: 14px; max-width: 520px; line-height: 1.5; margin-bottom: 8px;">
+                High-speed local network file transfer between PC, Mac, iPhone, Android &amp; Tablets with zero cloud uploads.
+            </p>
+
+            <div class="landing-grid">
+                <!-- Card 1: Create Room (Host Mode) -->
+                <a href="/host" class="mode-select-card">
+                    <div class="mode-icon">📤</div>
+                    <h2 style="font-size: 20px; font-weight: 700; color: var(--text-main); margin: 0;">Create Room</h2>
+                    <p style="font-size: 13px; color: var(--text-sub); line-height: 1.4; margin: 0;">Be the Host — Show QR code &amp; PIN to stage and share files from this PC</p>
+                    <div class="btn-primary" style="margin-top: 10px; padding: 10px 24px; font-size: 13px; font-weight: 700; border-radius: 9999px;">
+                        Create Room (Host)
+                    </div>
+                </a>
+
+                <!-- Card 2: Join Room (Client Mode) -->
+                <div class="mode-select-card" onclick="openJoinScreen()">
+                    <div class="mode-icon">📥</div>
+                    <h2 style="font-size: 20px; font-weight: 700; color: var(--text-main); margin: 0;">Join Room</h2>
+                    <p style="font-size: 13px; color: var(--text-sub); line-height: 1.4; margin: 0;">Be the Client — Enter 4-digit PIN to receive and download files from Host</p>
+                    <div class="btn-secondary" style="margin-top: 10px; padding: 10px 24px; font-size: 13px; font-weight: 700; border-radius: 9999px;">
+                        Join Room (Client)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Callout / Feature Badges -->
+            <div style="margin-top: 28px; font-size: 12px; color: var(--text-sub); max-width: 560px; line-height: 1.5; background: var(--callout-bg); border: 1px solid var(--callout-border); border-top: 1px solid var(--border-specular); border-radius: 14px; padding: 14px 18px; text-align: left; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-sm);">
+                <div style="display: flex; gap: 8px; align-items: flex-start;">
+                    <span style="font-size: 14px; line-height: 1.2;">📶</span>
+                    <span><strong>100% Offline Local Wi-Fi &amp; Hotspot:</strong> File transfers stay completely inside your local network with gigabit speed and <strong>0 MB internet data consumed</strong>!</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 6px;">
+                    <span style="font-size: 14px; line-height: 1.2;">🌐</span>
+                    <span><strong>Zero-Install Web Mode?</strong> Open <a href="/p2p" style="color:var(--accent-blue); text-decoration: underline; font-weight: 600;">Instant Web Transfer</a> for peer-to-peer browser sharing.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN 2: JOIN ROOM KEYPAD -->
+        <div id="screenKeypad" style="display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 24px 0;">
+            <button onclick="backToLanding()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-sub); font-size: 12px; font-weight: 600; cursor: pointer; margin-bottom: 18px; transition: all 0.2s;">
+                <span>←</span> <span>Back to Room Options</span>
+            </button>
+
+            <div style="font-size: 38px; margin-bottom: 8px;">🔑</div>
+            <h2 style="font-size: 22px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">Enter Host Room PIN</h2>
+            <p style="color: var(--text-sub); font-size: 13px; margin-bottom: 20px;">Type the 4-digit PIN displayed on the Host screen</p>
+
+            <div id="pinBox" class="pin-dot-display"></div>
+
+            <div class="keypad-grid">
+                <button class="keypad-btn" onclick="add('1')">1</button>
+                <button class="keypad-btn" onclick="add('2')">2</button>
+                <button class="keypad-btn" onclick="add('3')">3</button>
+                <button class="keypad-btn" onclick="add('4')">4</button>
+                <button class="keypad-btn" onclick="add('5')">5</button>
+                <button class="keypad-btn" onclick="add('6')">6</button>
+                <button class="keypad-btn" onclick="add('7')">7</button>
+                <button class="keypad-btn" onclick="add('8')">8</button>
+                <button class="keypad-btn" onclick="add('9')">9</button>
+                <button class="keypad-btn" onclick="clearPin()" style="font-size: 16px; color: #8292ab;">C</button>
+                <button class="keypad-btn" onclick="add('0')">0</button>
+                <button class="keypad-btn" onclick="back()" style="font-size: 18px; color: #8292ab;">⌫</button>
+                <button class="key-btn-submit" onclick="submitPin()">Connect</button>
+            </div>
+
+            <!-- Optional Connect to Custom Host IP -->
+            <div style="margin-top: 18px; width: 100%; max-width: 290px; text-align: center;">
+                <details style="font-size: 12px; color: var(--text-sub); text-align: left;">
+                    <summary style="cursor: pointer; padding: 4px; color: #60a5fa; font-weight: 500;">
+                        🌐 Connect to another Host IP (Optional)
+                    </summary>
+                    <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+                        <input type="text" id="customHostInput" placeholder="e.g. 192.168.0.150:8010" style="width: 100%; padding: 8px 12px; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-main); font-size: 12px; font-family: monospace;">
+                        <span style="font-size: 11px; color: var(--text-muted);">Leave empty to connect to the local PyShare Host on this PC.</span>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Theme Switcher Logic
+        (function initTheme() {
+            const urlTheme = new URLSearchParams(window.location.search).get('theme');
+            const saved = urlTheme || localStorage.getItem('pyshare_theme') || document.documentElement.getAttribute('data-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            if (urlTheme) {
+                try { localStorage.setItem('pyshare_theme', urlTheme); } catch(e) {}
+            }
+        })();
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            try { localStorage.setItem('pyshare_theme', next); } catch(e) {}
+        }
+
+        // Live Server IP fetch
+        let currentServerIp = "Detecting...";
+        async function fetchServerInfo() {
+            try {
+                const res = await fetch('/api/info');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.ip && data.port) {
+                        currentServerIp = `${data.ip}:${data.port}`;
+                        const hostIpEl = document.getElementById('host-ip');
+                        if (hostIpEl) {
+                            hostIpEl.innerText = currentServerIp;
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+        fetchServerInfo();
+
+        function copyHostIp() {
+            if (currentServerIp && currentServerIp !== "Detecting...") {
+                const fullUrl = `http://${currentServerIp}`;
+                navigator.clipboard.writeText(fullUrl).then(() => {
+                    const el = document.getElementById('host-ip');
+                    if (el) {
+                        const original = el.innerText;
+                        el.innerText = "COPIED!";
+                        setTimeout(() => { el.innerText = original; }, 1500);
+                    }
+                }).catch(() => {});
+            }
+        }
+
+        function disconnectServer() {
+            if (confirm("Stop PyShare server? All connections will be terminated.")) {
+                fetch("/api/stop", { method: "POST" }).finally(() => {
+                    window.close();
+                    document.body.innerHTML = `
+                        <div style="display:flex;height:100vh;align-items:center;justify-content:center;background:#060913;color:#f8fafc;font-family:sans-serif;text-align:center;">
+                            <div>
+                                <h1 style="font-size:24px;margin-bottom:8px;">🛑 PyShare Server Stopped</h1>
+                                <p style="color:#94a3b8;font-size:14px;">The local server has terminated safely. You can close this window.</p>
+                            </div>
+                        </div>`;
+                });
+            }
+        }
+
+        // Screen switching
+        function openJoinScreen() {
+            document.getElementById('screenLanding').style.display = 'none';
+            document.getElementById('screenKeypad').style.display = 'flex';
+            clearPin();
+        }
+
+        function backToLanding() {
+            document.getElementById('screenKeypad').style.display = 'none';
+            document.getElementById('screenLanding').style.display = 'flex';
+            clearPin();
+        }
+
+        // Keypad PIN Logic
+        let pin = "";
+        const pinBox = document.getElementById("pinBox");
+
+        function updateDisplay() {
+            let visual = "";
+            for (let i = 0; i < 4; i++) {
+                if (i < pin.length) {
+                    visual += "•";
+                } else {
+                    visual += '<span style="opacity:0.25;">•</span>';
+                }
+            }
+            if (pinBox) pinBox.innerHTML = visual;
+        }
+
+        function add(digit) {
+            if (pin.length < 4) {
+                pin += digit;
+                updateDisplay();
+                if (pin.length === 4) {
+                    setTimeout(submitPin, 250);
+                }
+            }
+        }
+
+        function back() {
+            pin = pin.slice(0, -1);
+            if (pinBox) pinBox.classList.remove('error');
+            updateDisplay();
+        }
+
+        function clearPin() {
+            pin = "";
+            if (pinBox) pinBox.classList.remove('error');
+            updateDisplay();
+        }
+
+        async function submitPin() {
+            if (!pin || pin.length < 4) return;
+
+            const customHost = (document.getElementById('customHostInput')?.value || '').trim();
+            if (customHost) {
+                // If connecting to another host IP
+                const targetUrl = customHost.startsWith('http') ? customHost : `http://${customHost}`;
+                window.location.href = `${targetUrl}/login.html?pin=${encodeURIComponent(pin)}`;
+                return;
+            }
+
+            if (pinBox) pinBox.style.opacity = "0.5";
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'pin=' + encodeURIComponent(pin)
+                });
+
+                if (pinBox) pinBox.style.opacity = "1";
+
+                if (res.ok) {
+                    window.location.href = '/client';
+                } else {
+                    if (pinBox) {
+                        pinBox.classList.add('error');
+                        if (res.status === 429) {
+                            const errTxt = await res.text();
+                            pinBox.innerHTML = "<span style='font-size:11px; letter-spacing:0px; color:#ef4444; font-weight:700;'>" + (errTxt || 'LOCKED OUT') + "</span>";
+                        } else {
+                            pinBox.innerHTML = "<span style='font-size:15px; letter-spacing:1px; color:#ef4444; font-weight:700;'>WRONG PIN</span>";
+                        }
+                    }
+                    setTimeout(() => {
+                        clearPin();
+                    }, 1500);
+                }
+            } catch (e) {
+                if (pinBox) {
+                    pinBox.style.opacity = "1";
+                    pinBox.classList.add('error');
+                }
+            }
+        }
+
+        // Keyboard Support
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('screenKeypad').style.display !== 'none') {
+                if (e.target && e.target.tagName === 'INPUT') return;
+                if (e.key >= '0' && e.key <= '9') {
+                    add(e.key);
+                } else if (e.key === 'Backspace') {
+                    back();
+                } else if (e.key === 'Enter') {
+                    submitPin();
+                } else if (e.key === 'Escape') {
+                    backToLanding();
+                } else if (e.key.toLowerCase() === 'c') {
+                    clearPin();
+                }
+            }
+        });
+
+        updateDisplay();
+    </script>
+    <script src="feedback.js"></script>
+</body>
+</html>

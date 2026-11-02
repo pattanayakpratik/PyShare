@@ -7,7 +7,7 @@ root_dir = os.path.abspath(os.path.join(spec_dir, ".."))
 web_dir = os.path.join(root_dir, "web")
 
 web_files = [
-    'index.html', 'client.html', 'host.html', 'login.html', 'guide.html',
+    'index.html', 'landing.html', 'client.html', 'host.html', 'login.html', 'guide.html',
     'styles.css', 'client_styles.css', 'host_styles.css',
     'scripts.js', 'host_scripts.js', 'feedback.js', 'p2p.js',
     'peerjs.min.js', 'qrcode.min.js', 'manifest.json', 'sw.js',
