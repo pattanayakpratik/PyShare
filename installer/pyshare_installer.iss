@@ -18,7 +18,7 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist
 OutputBaseFilename=PyShare-Setup-v{#MyAppVersion}
-SetupIconFile=..\app\app_icon.ico
+SetupIconFile=..\backend\app_icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -38,8 +38,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\app\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\app\app_icon.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\backend\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\backend\app_icon.png"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_icon.ico"

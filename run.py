@@ -11,7 +11,9 @@ import sys
 import os
 
 # Ensure the 'app' directory is in Python's search path
-APP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app")
+root_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.join(root_dir, "backend")
+APP_DIR = backend_dir if os.path.isdir(backend_dir) else os.path.join(root_dir, "app")
 if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
 

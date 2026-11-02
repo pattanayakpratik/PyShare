@@ -31,7 +31,9 @@ build/
 dist/
 # Ignore auto-generated configuration files but keep project spec & version info
 *.spec
+!backend/PyShare.spec
 !app/PyShare.spec
+!backend/version_info.txt
 !app/version_info.txt
 
 # --- OS Specific ---

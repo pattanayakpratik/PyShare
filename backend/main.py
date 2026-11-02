@@ -673,17 +673,19 @@ def get_asset_dir():
     """Returns the directory containing static web templates and assets."""
     if getattr(sys, 'frozen', False):
         base = sys._MEIPASS
-        web_sub = os.path.join(base, "web")
-        if os.path.isdir(web_sub):
-            return web_sub
+        for candidate in ("frontend", "web"):
+            sub = os.path.join(base, candidate)
+            if os.path.isdir(sub):
+                return sub
         return base
     here = os.path.dirname(os.path.abspath(__file__))
-    sibling_web = os.path.abspath(os.path.join(here, "..", "web"))
-    if os.path.isdir(sibling_web):
-        return sibling_web
-    child_web = os.path.abspath(os.path.join(here, "web"))
-    if os.path.isdir(child_web):
-        return child_web
+    for candidate in ("frontend", "web"):
+        sibling = os.path.abspath(os.path.join(here, "..", candidate))
+        if os.path.isdir(sibling):
+            return sibling
+        child = os.path.abspath(os.path.join(here, candidate))
+        if os.path.isdir(child):
+            return child
     return here
 
 ASSET_DIR = get_asset_dir()

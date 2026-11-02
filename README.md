@@ -232,13 +232,13 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 
 ```text
 PyShare/
-├── app/                  # 💻 Standalone Native Desktop App & Backend Engine
+├── backend/              # 💻 Python Server & Native Desktop GUI Engine
 │   ├── app_gui.py        # Native Desktop GUI Studio (Cyberpunk Glass & Direct Staging Engine)
 │   ├── main.py           # HTTP Server, SSE Push Engine, Range Streaming, Cloudflare Tunnel & mDNS
 │   ├── app_icon.ico      # Windows application icon
 │   ├── app_icon.png      # Application branding icon
 │   └── PyShare.spec      # Standalone executable build specification
-├── web/                  # 🌐 Instant Web P2P Suite & Progressive Web App (PWA)
+├── frontend/             # 🎨 Universal UI (Shared between Desktop App & Web P2P)
 │   ├── index.html        # Universal Web Transfer interface (Zero App Install Required)
 │   ├── landing.html      # Desktop App Room Selector (Create Room or Join Room on Open)
 │   ├── host.html         # Host 3-column studio dashboard with Internet mode & clipboard sync
@@ -300,9 +300,9 @@ flowchart TD
 
 ### 1. Launch PyShare
 * **Desktop App:** Double-click `PyShare.exe`.
-* **From Source (Desktop GUI):** Run `python run.py` (or `python app/app_gui.py`).
-* **From Source (Headless Server):** Run `python run.py --server` (or `python app/main.py`).
-* **Instant Web Mode:** Open `web/index.html` in any browser or visit your deployed web URL.
+* **From Source (Desktop GUI):** Run `python run.py` (or `python backend/app_gui.py`).
+* **From Source (Headless Server):** Run `python run.py --server` (or `python backend/main.py`).
+* **Instant Web Mode:** Open `frontend/index.html` in any browser or visit your deployed web URL.
 
 ### 2. Connect Any Device (Host &amp; Client)
 1. Make sure both Host and Client devices are connected to the **same Wi-Fi router** or connect to a device's **Personal Hotspot**.
@@ -342,7 +342,7 @@ python run.py             # Native Cyberpunk Glass Desktop GUI Studio
 # or: python run.py --server  # Headless / Web Server Mode
 
 # 5. Build standalone Windows executable (PyShare.exe)
-pyinstaller --clean app/PyShare.spec
+pyinstaller --clean backend/PyShare.spec
 ```
 
 ---

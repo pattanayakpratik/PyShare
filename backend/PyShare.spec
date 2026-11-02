@@ -4,7 +4,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 spec_dir = os.path.dirname(os.path.abspath(SPEC))
 root_dir = os.path.abspath(os.path.join(spec_dir, ".."))
-web_dir = os.path.join(root_dir, "web")
+web_dir = os.path.join(root_dir, "frontend")
 
 web_files = [
     'index.html', 'landing.html', 'client.html', 'host.html', 'login.html', 'guide.html',
@@ -23,6 +23,7 @@ datas = [
 for wf in web_files:
     full_path = os.path.join(web_dir, wf)
     if os.path.exists(full_path):
+        datas.append((full_path, 'frontend'))
         datas.append((full_path, 'web'))
         datas.append((full_path, '.'))
 

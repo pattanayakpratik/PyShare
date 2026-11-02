@@ -1,8 +1,14 @@
 {
-  "outputDirectory": "web",
+  "outputDirectory": "frontend",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/p2p", "destination": "/" },
-    { "source": "/p2p.html", "destination": "/" }
+    {
+      "source": "/p2p",
+      "destination": "/"
+    },
+    {
+      "source": "/p2p.html",
+      "destination": "/"
+    }
   ]
 }
