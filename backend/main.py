@@ -1609,12 +1609,20 @@ def start_server():
         defaults = get_default_directories()
         DOWNLOAD_DIR = os.path.abspath(cfg.get("shared_dir", defaults["shared_dir"]))
         UPLOAD_DIR = os.path.abspath(cfg.get("received_dir", defaults["received_dir"]))
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
-        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-        BASE_DIR = os.path.dirname(DOWNLOAD_DIR)
+        try:
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+            BASE_DIR = os.path.dirname(DOWNLOAD_DIR)
+        except Exception as e:
+            fallback_base = os.path.join(tempfile.gettempdir(), "PyShare_Files")
+            DOWNLOAD_DIR = os.path.join(fallback_base, "Shared_Files")
+            UPLOAD_DIR = os.path.join(fallback_base, "Received_Files")
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+            BASE_DIR = fallback_base
+            print(f"[*] Desktop storage restricted ({e}). Using fallback storage: {BASE_DIR}")
     except Exception as e:
-        print(f"[!] Storage Directory Initialization Error: {e}")
-        return
+        print(f"[!] Storage Directory Initialization Warning: {e}")
 
     socketserver.TCPServer.allow_reuse_address = True
     for port in range(START_PORT, START_PORT + 10):
