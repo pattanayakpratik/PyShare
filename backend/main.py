@@ -699,12 +699,17 @@ def get_staged_files():
         return list(valid)
 
 def get_files_data():
-    host_files = get_staged_files()
+    staged = get_staged_files()
+    staged_paths = {os.path.abspath(item["path"]) for item in staged if "path" in item}
+    staged_names = {item["name"] for item in staged}
+    for item in list_dir(DOWNLOAD_DIR):
+        if os.path.abspath(item["path"]) not in staged_paths and item["name"] not in staged_names:
+            staged.append(item)
     client_files = list_dir(UPLOAD_DIR)
     return {
-        "host": host_files,
+        "host": staged,
         "client": client_files,
-        "pc": host_files,
+        "pc": staged,
         "mobile": client_files
     }
 
