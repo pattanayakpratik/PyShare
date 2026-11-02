@@ -4,7 +4,5 @@ zeroconf
 pyinstaller
 pyperclip
 ifaddr
-customtkinter
-Pillow
 requests
-windnd
+pywebview>=5.0

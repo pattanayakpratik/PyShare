@@ -381,7 +381,15 @@
             })
             .catch(() => {});
 
-        updateDisplay();
+        // Auto-fill and submit PIN if passed in URL query param (?pin=1234)
+        const urlPin = new URLSearchParams(window.location.search).get('pin');
+        if (urlPin && /^\d{4}$/.test(urlPin)) {
+            pin = urlPin;
+            updateDisplay();
+            setTimeout(submitPin, 300);
+        } else {
+            updateDisplay();
+        }
     </script>
     <script src="feedback.js"></script>
 </body>

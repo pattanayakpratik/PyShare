@@ -124,7 +124,7 @@ init_directories()
 CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
 NEXT_CHANGE = 0    # Track timestamp when PIN rotates
-SESSIONS = set()   # Stores authenticated client session tokens
+SESSIONS = {}      # Stores authenticated client session tokens (token -> created_timestamp)
 SHARED_TEXT = ""   # In-memory shared clipboard / quick link
 TEXT_TIMESTAMP = 0 # Timestamp of last clipboard change
 state_lock = threading.Lock()
@@ -136,7 +136,7 @@ login_attempts = {}       # client_ip -> {"count": int, "lockout_until": float}
 login_lock = threading.Lock()
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_DURATION = 30     # seconds lockout after repeated failures
-zip_semaphore = threading.Semaphore(1)  # Maximum 1 active ZIP generation at a time
+zip_semaphore = threading.BoundedSemaphore(1)  # Strict maximum 1 active ZIP generation at a time
 
 # --- SERVER-SENT EVENTS (SSE) REAL-TIME PUSH ENGINE ---
 sse_subscribers = set()
@@ -169,15 +169,16 @@ TUNNEL_STATUS = "idle"  # idle | downloading | starting | active | error
 TUNNEL_LOCK = threading.Lock()
 
 def get_cloudflared_path():
-    """Locate or download cloudflared executable."""
+    """Locate or determine standalone cloudflared executable path for current OS."""
     cf = shutil.which("cloudflared")
     if cf:
         return cf
-    desktop_bin = os.path.join(os.path.expanduser("~"), "Desktop", "PyShare_Files", "bin", "cloudflared.exe")
+    bin_name = "cloudflared.exe" if platform.system() == "Windows" else "cloudflared"
+    desktop_bin = os.path.join(os.path.expanduser("~"), "Desktop", "PyShare_Files", "bin", bin_name)
     if os.path.exists(desktop_bin):
         return desktop_bin
-    local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "cloudflared.exe")
-    root_bin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "cloudflared.exe")
+    local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", bin_name)
+    root_bin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", bin_name)
     if os.path.exists(root_bin):
         return root_bin
     if os.path.exists(local_bin):
@@ -185,15 +186,40 @@ def get_cloudflared_path():
     return desktop_bin
 
 def download_cloudflared(dest_path):
-    """Download standalone cloudflared binary if missing."""
+    """Download standalone cloudflared binary matching OS and architecture."""
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+    sys_plat = platform.system().lower()
+    sys_arch = platform.machine().lower()
+
+    if sys_plat == "windows":
+        arch_suffix = "amd64" if ("64" in sys_arch or "x86_64" in sys_arch) else "386"
+        filename = f"cloudflared-windows-{arch_suffix}.exe"
+    elif sys_plat == "darwin":
+        arch_suffix = "arm64" if ("arm" in sys_arch or "aarch64" in sys_arch) else "amd64"
+        filename = f"cloudflared-darwin-{arch_suffix}"
+    else:  # Linux / Unix
+        if "arm64" in sys_arch or "aarch64" in sys_arch:
+            arch_suffix = "arm64"
+        elif "arm" in sys_arch:
+            arch_suffix = "arm"
+        elif "64" in sys_arch or "x86_64" in sys_arch:
+            arch_suffix = "amd64"
+        else:
+            arch_suffix = "386"
+        filename = f"cloudflared-linux-{arch_suffix}"
+
+    url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/{filename}"
     temp_path = dest_path + ".tmp"
     try:
         urllib.request.urlretrieve(url, temp_path)
         if os.path.exists(dest_path):
             os.remove(dest_path)
         os.replace(temp_path, dest_path)
+        if sys_plat != "windows":
+            try:
+                os.chmod(dest_path, 0o755)
+            except Exception:
+                pass
     except Exception:
         if os.path.exists(temp_path):
             try:
@@ -560,12 +586,25 @@ def list_dir(path):
 STAGED_FILES = {}  # filename -> dict(name, path, size, mtime, category, ext)
 STAGED_LOCK = threading.RLock()
 
+def get_unique_staged_name(filepath):
+    """Return a unique staging display name to prevent collision between files with identical names from different folders."""
+    abs_path = os.path.abspath(filepath)
+    fn = os.path.basename(abs_path)
+    base, ext = os.path.splitext(fn)
+    candidate = fn
+    counter = 1
+    with STAGED_LOCK:
+        while candidate in STAGED_FILES and STAGED_FILES[candidate]["path"] != abs_path:
+            candidate = f"{base} ({counter}){ext}"
+            counter += 1
+    return candidate
+
 def stage_file(filepath):
     """Register a specific file to share without duplicating it on disk."""
     if not filepath or not os.path.isfile(filepath):
         return False
     abs_path = os.path.abspath(filepath)
-    fn = os.path.basename(abs_path)
+    fn = get_unique_staged_name(abs_path)
     try:
         stat = os.stat(abs_path)
         ext = os.path.splitext(fn)[1]
@@ -593,7 +632,7 @@ def stage_files(filepaths):
                 continue
             abs_p = os.path.abspath(p)
             if os.path.isfile(abs_p):
-                fn = os.path.basename(abs_p)
+                fn = get_unique_staged_name(abs_p)
                 try:
                     stat = os.stat(abs_p)
                     ext = os.path.splitext(fn)[1]
@@ -614,11 +653,12 @@ def stage_files(filepaths):
                         if f.endswith('.part') or f.endswith('.tmp'):
                             continue
                         fp = os.path.join(root, f)
+                        fn = get_unique_staged_name(fp)
                         try:
                             stat = os.stat(fp)
                             ext = os.path.splitext(f)[1]
-                            STAGED_FILES[f] = {
-                                "name": f,
+                            STAGED_FILES[fn] = {
+                                "name": fn,
                                 "path": fp,
                                 "size": stat.st_size,
                                 "mtime": int(stat.st_mtime),
@@ -706,6 +746,16 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
 
+    @staticmethod
+    def format_content_disposition(filename, is_attachment=True):
+        """Format Content-Disposition safely for latin-1 HTTP headers according to RFC 6266 / RFC 5987."""
+        ascii_fallback = re.sub(r'[^\x20-\x7e]', '_', filename).replace('"', '')
+        if not ascii_fallback.strip():
+            ascii_fallback = "download"
+        encoded_fn = urllib.parse.quote(filename, encoding='utf-8')
+        disp_type = "attachment" if is_attachment else "inline"
+        return f"{disp_type}; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded_fn}"
+
     def send_json(self, data, status=200):
         body = json.dumps(data).encode('utf-8')
         self.send_response(status)
@@ -774,7 +824,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if token:
             with state_lock:
                 if token in SESSIONS:
-                    return True
+                    created_at = SESSIONS[token]
+                    if (time.time() - created_at) < 86400:
+                        return True
+                    else:
+                        SESSIONS.pop(token, None)
 
         # Host machine automatic bypass applies ONLY when managing host routes, NOT client mode!
         req_path = urllib.parse.urlparse(self.path).path.rstrip('/')
@@ -1169,7 +1223,6 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                                 files_to_pack.append((abs_p, rel_p))
 
                 if not files_to_pack:
-                    zip_semaphore.release()
                     self.send_error(404, "No files found to archive")
                     return
 
@@ -1184,7 +1237,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
                 self.send_response(200)
                 self.send_header("Content-Type", "application/zip")
-                self.send_header("Content-Disposition", f'attachment; filename="{zip_fn}"')
+                self.send_header("Content-Disposition", self.format_content_disposition(zip_fn, is_attachment=True))
                 self.send_header("Content-Length", str(zip_size))
                 self.send_security_headers()
                 self.end_headers()
@@ -1251,7 +1304,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Content-Length", str(content_len))
                     self.send_header("Accept-Ranges", "bytes")
                     if not is_view:
-                        self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
+                        self.send_header("Content-Disposition", self.format_content_disposition(fn, is_attachment=True))
                     elif is_active_scriptable:
                         self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
@@ -1272,7 +1325,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Accept-Ranges", "bytes")
                     self.send_header("Content-Length", str(file_size))
                     if not is_view:
-                        self.send_header("Content-Disposition", f'attachment; filename="{fn}"')
+                        self.send_header("Content-Disposition", self.format_content_disposition(fn, is_attachment=True))
                     elif is_active_scriptable:
                         self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
@@ -1289,7 +1342,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # K. Server Shutdown
-        if self.path == '/shutdown':
+        if self.path in ('/shutdown', '/api/stop', '/api/shutdown'):
             if not self.is_host_client():
                 self.send_error(403, "Forbidden")
                 return
@@ -1316,12 +1369,39 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return
 
     def do_POST(self):
+        # Handle Server Shutdown via POST
+        if self.path in ('/shutdown', '/api/stop', '/api/shutdown'):
+            if not self.is_host_client():
+                self.send_error(403, "Forbidden")
+                return
+            self.send_json({"status": "shutting_down"})
+            def kill():
+                global zc, httpd
+                stop_tunnel()
+                if zc:
+                    try:
+                        zc.unregister_all_services()
+                        zc.close()
+                    except Exception: pass
+                if httpd:
+                    try:
+                        httpd.shutdown()
+                        httpd.server_close()
+                    except Exception: pass
+                os._exit(0)
+            threading.Thread(target=kill, daemon=True).start()
+            return
+
         # 1. HANDLE LOGIN (Accept CURRENT_PIN or PREVIOUS_PIN for grace window with Rate Limiting)
         if self.path == '/login':
             client_ip = self.get_client_ip()
             now = time.time()
             
             with login_lock:
+                if len(login_attempts) > 100:
+                    stale_ips = [ip for ip, info in login_attempts.items() if info.get("lockout_until", 0) <= now]
+                    for ip in stale_ips:
+                        login_attempts.pop(ip, None)
                 attempt_info = login_attempts.get(client_ip, {"count": 0, "lockout_until": 0})
                 if attempt_info["lockout_until"] > now:
                     remaining = int(attempt_info["lockout_until"] - now)
@@ -1349,7 +1429,13 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
                 token = secrets.token_hex(16)
                 with state_lock:
-                    SESSIONS.add(token)
+                    now_ts = time.time()
+                    SESSIONS[token] = now_ts
+                    if len(SESSIONS) > 500:
+                        cutoff = now_ts - 86400
+                        expired = [t for t, ts in SESSIONS.items() if ts <= cutoff]
+                        for t in expired:
+                            SESSIONS.pop(t, None)
                 add_event(f"Device connected: {client_ip}")
 
                 body_bytes = b"OK"
