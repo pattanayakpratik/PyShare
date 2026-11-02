@@ -23,7 +23,7 @@ window.globalSSE = null;
     
     if (window.location.protocol === 'https:') {
         const clientPill = document.querySelector('.client-status-pill span:last-child');
-        if (clientPill) clientPill.innerText = 'Connected via Internet 🌐';
+        if (clientPill) clientPill.innerHTML = 'Connected via Internet <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
     }
     
     document.addEventListener('keydown', (e) => {
@@ -252,7 +252,7 @@ class UploadQueueManager {
             if (totalRemaining > 0) {
                 statusEl.innerText = `Uploading ${totalRemaining} file${totalRemaining > 1 ? 's' : ''}...`;
             } else if (this.queue.length > 0) {
-                statusEl.innerText = `✅ All uploads complete!`;
+                statusEl.innerText = `All uploads complete!`;
                 setTimeout(() => {
                     const drawer = document.getElementById('floatingQueue');
                     if (drawer) drawer.style.display = 'none';
@@ -308,11 +308,11 @@ class UploadQueueManager {
                     barEl.style.width = '100%';
                     barEl.style.background = 'var(--accent-green)';
                 }
-                if (statusEl) statusEl.innerText = '✅ Done';
+                if (statusEl) statusEl.innerText = 'Done';
                 showToast(`Saved: ${item.file.name}`, '✅');
             } else {
                 item.status = 'error';
-                if (statusEl) statusEl.innerText = '❌ Failed';
+                if (statusEl) statusEl.innerText = 'Failed';
                 showToast(`Failed: ${item.file.name}`, '❌');
             }
             loadFiles();
@@ -322,7 +322,7 @@ class UploadQueueManager {
         xhr.onerror = () => {
             this.activeUploads--;
             item.status = 'error';
-            if (statusEl) statusEl.innerText = '❌ Network Error';
+            if (statusEl) statusEl.innerText = 'Network Error';
             showToast(`Upload error: ${item.file.name}`, '❌');
             this.processNext();
         };
@@ -412,9 +412,9 @@ function renderFileList(files, elementId, emptyMsg, folderType) {
                 <div class="file-size">${size}</div>
             </div>
             <div class="file-actions">
-                <button class="action-circle-btn" onclick="openPreviewEnc('${encName}', '${f.category}', ${f.size})" title="Preview">👁️</button>
-                <a href="/download/${encName}" class="action-circle-btn" title="Download">⬇</a>
-                ${isHost ? `<button class="action-circle-btn btn-del" onclick="deleteFileEnc('${encName}', '${folderType}')" title="Delete">🗑️</button>` : ''}
+                <button class="action-circle-btn" onclick="openPreviewEnc('${encName}', '${f.category}', ${f.size})" title="Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <a href="/download/${encName}" class="action-circle-btn" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
+                ${isHost ? `<button class="action-circle-btn btn-del" onclick="deleteFileEnc('${encName}', '${folderType}')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
             </div>
         </li>`;
     }).join('');
@@ -453,7 +453,7 @@ async function openPreview(filename, category, size) {
     } else if (category === 'audio') {
         body.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px;">
-                <div style="font-size:48px;">🎵</div>
+                <div><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
                 <div style="font-weight:600; font-size:15px;">${escapeHtml(filename)}</div>
                 <audio controls autoplay style="width:100%; max-width:400px;">
                     <source src="${fileUrl}">
@@ -465,7 +465,7 @@ async function openPreview(filename, category, size) {
             const text = await res.text();
             body.innerHTML = `
                 <div style="width:100%; display:flex; justify-content:flex-end; margin-bottom:8px;">
-                    <button class="btn-secondary" onclick="copyPreviewText()">📋 Copy Text</button>
+                    <button class="btn-secondary" onclick="copyPreviewText()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Text</button>
                 </div>
                 <pre id="previewTextContent"><code>${escapeHtml(text)}</code></pre>`;
         } catch (e) {
@@ -474,7 +474,7 @@ async function openPreview(filename, category, size) {
     } else {
         body.innerHTML = `
             <div style="text-align:center; padding:30px;">
-                <div style="font-size:48px; margin-bottom:12px;">📄</div>
+                <div style="margin-bottom:12px;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></div>
                 <h3>${escapeHtml(filename)}</h3>
                 <p style="color:var(--text-sub); margin:8px 0 20px 0;">${formatSize(size)}</p>
                 <div style="display:flex; gap:10px; justify-content:center;">
@@ -519,7 +519,7 @@ function renderClipboard(text) {
     if (text && text.trim().length > 0) {
         display.innerHTML = `
             <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%; font-size:12px;">${escapeHtml(text)}</span>
-            <button class="btn-secondary" onclick="copySharedClipboard()" style="padding:4px 10px; font-size:11px;">📋 Copy</button>
+            <button class="btn-secondary" onclick="copySharedClipboard()" style="padding:4px 10px; font-size:11px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
         `;
         display.dataset.raw = text;
     } else {
@@ -560,35 +560,47 @@ async function sendClipboard() {
 }
 
 // --- HOST ACTIONS ---
-async function deleteFile(filename, folder) {
-    if (!confirm(`Delete "${filename}"?`)) return;
-
-    try {
-        const res = await fetch('/api/delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: filename, folder: folder })
-        });
-        if (res.ok) {
-            showToast(`Deleted ${filename}`, '🗑️');
-            loadFiles();
-        } else {
-            showToast('Failed to delete file', '❌');
+function deleteFile(filename, folder) {
+    showPyShareConfirm({
+        title: "PyShare",
+        message: `Are you sure you want to delete "${filename}"?`,
+        confirmText: "Delete",
+        isDanger: true,
+        onConfirm: async () => {
+            try {
+                const res = await fetch('/api/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: filename, folder: folder })
+                });
+                if (res.ok) {
+                    showToast(`Deleted ${filename}`, '🗑️');
+                    loadFiles();
+                } else {
+                    showToast('Failed to delete file', '❌');
+                }
+            } catch (e) {
+                showToast('Error deleting file', '❌');
+            }
         }
-    } catch (e) {
-        showToast('Error deleting file', '❌');
-    }
+    });
 }
 
 function disconnectServer() {
-    if (confirm("Stop PyShare server? All connections will be terminated.")) {
-        fetch('/shutdown').finally(() => {
-            document.body.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;color:#ef4444;text-align:center;font-family:sans-serif;padding:20px;">
-                <div style="font-size:64px;margin-bottom:16px;">🛑</div>
-                <h2>PyShare Server Stopped</h2>
-                <p style="color:#94a3b8;margin-top:8px;">You can now safely close this window.</p>
-            </div>`;
-        });
-    }
+    showPyShareConfirm({
+        title: "PyShare",
+        message: "Stop PyShare server? All connections will be terminated.",
+        confirmText: "Stop Server",
+        isDanger: true,
+        onConfirm: () => {
+            fetch('/shutdown').finally(() => {
+                document.body.innerHTML = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;color:#ef4444;text-align:center;font-family:sans-serif;padding:20px;">
+                    <div style="margin-bottom:16px;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg></div>
+                    <h2>PyShare Server Stopped</h2>
+                    <p style="color:#94a3b8;margin-top:8px;">You can now safely close this window.</p>
+                </div>`;
+            });
+        }
+    });
 }

@@ -259,22 +259,64 @@
 
         <!-- Top Navbar -->
         <nav class="navbar">
-            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
-            <div class="logo">
-                <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
-                PyShare
+            <div class="nav-left">
+                <button class="icon-btn theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+                    <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
             </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-                <button class="icon-btn" onclick="location.reload()" title="Refresh">🔄</button>
-                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
-                <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
-                <button class="icon-btn" onclick="document.getElementById('clipboardModal').classList.add('open')" title="Shared Clipboard">📋</button>
+            <div class="nav-center">
+                <div class="logo">
+                    <img src="app_icon.png" alt="PyShare" class="logo-img">
+                    <span class="logo-text">PyShare</span>
+                </div>
+            </div>
+            <div class="nav-right">
+                <div class="nav-dropdown">
+                    <button class="icon-btn nav-menu-btn" id="navMenuBtn" onclick="toggleNavMenu(event)" aria-label="Menu" title="Menu">
+                        <svg class="menu-icon-bars" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div class="nav-dropdown-menu" id="navDropdownMenu">
+                        <button class="nav-dropdown-item" onclick="location.reload()">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                            <span>Refresh App</span>
+                        </button>
+                        <button class="nav-dropdown-item" onclick="document.getElementById('clipboardModal').classList.add('open'); closeNavMenu();">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            <span>Shared Clipboard</span>
+                        </button>
+                        <a href="/guide.html" class="nav-dropdown-item">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            <span>How-To Guide</span>
+                        </a>
+                        <button class="nav-dropdown-item" onclick="openFeedbackModal(); closeNavMenu();">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                            <span>Help &amp; Feedback</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </nav>
 
         <!-- SCREEN 1: LANDING MODE SELECTOR (Host or Join) -->
         <div id="screenLanding" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 20px 0;">
-            <div style="font-size: 40px; margin-bottom: 12px;">⚡</div>
+            <div style="margin-bottom: 12px;"><svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
             <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 6px;">Instant Web Transfer</h2>
             <p style="color: var(--text-sub); font-size: 13px; max-width: 440px; line-height: 1.5;">
                 Direct peer-to-peer file transfer in your browser. Works on <strong>PC, Mac, iPhone, Android &amp; Tablets</strong> with zero app downloads or installs!
@@ -283,7 +325,7 @@
             <div class="p2p-landing-grid">
                 <!-- Card 1: Be Host (Share) -->
                 <div class="mode-select-card" onclick="startHostMode()">
-                    <div class="mode-icon">📤</div>
+                    <div class="mode-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                     <h3 style="font-size: 17px; font-weight: 700;">Create Room</h3>
                     <p style="font-size: 12px; color: var(--text-sub);">Show QR code &amp; PIN to share files from this device</p>
                     <button class="btn-primary" style="pointer-events: none; padding: 8px 18px; font-size: 12px; margin-top: 4px;">
@@ -293,7 +335,7 @@
 
                 <!-- Card 2: Join Room (Receive) -->
                 <div class="mode-select-card" onclick="startJoinMode()">
-                    <div class="mode-icon">📥</div>
+                    <div class="mode-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
                     <h3 style="font-size: 17px; font-weight: 700;">Join Room</h3>
                     <p style="font-size: 12px; color: var(--text-sub);">Scan QR code or enter 4-digit PIN to receive files</p>
                     <button class="btn-secondary" style="pointer-events: none; padding: 8px 18px; font-size: 12px; margin-top: 4px;">
@@ -305,11 +347,11 @@
             <!-- Data-Saver Notice & Offline Mode Callout -->
             <div style="margin-top: 20px; font-size: 12px; color: var(--text-sub); max-width: 440px; line-height: 1.5; background: var(--callout-bg); border: 1px solid var(--callout-border); border-top: 1px solid var(--border-specular); border-radius: 14px; padding: 14px 16px; text-align: left; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-sm);">
                 <div style="display: flex; gap: 8px; align-items: flex-start;">
-                    <span style="font-size: 14px; line-height: 1.2;">📶</span>
+                    <span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></span>
                     <span><strong>Data-Saver Notice:</strong> Web mode uses ~50 KB internet for the PIN handshake. On the same Wi-Fi / Hotspot, file transfers stay direct P2P and consume <strong>0 MB mobile data</strong>!</span>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 6px;">
-                    <span style="font-size: 14px; line-height: 1.2;">⚡</span>
+                    <span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
                     <span><strong>Want 100% offline sharing with Mobile Data OFF?</strong> Use the <a href="/guide.html" style="color:var(--accent-blue); text-decoration: underline;">PyShare Desktop App</a> — works offline with zero internet!</span>
                 </div>
             </div>
@@ -343,11 +385,11 @@
                         </div>
 
                         <div id="hostConnectedBadge" style="display: none; margin-top: 10px; align-items: center; gap: 6px; font-size: 12px; color: var(--accent-green); background: rgba(16,185,129,0.1); border: 1px solid var(--accent-green); border-radius: 20px; padding: 4px 12px;">
-                            <span>✅ Peer Connected! Ready to send files.</span>
+                            <span>Peer Connected! Ready to send files.</span>
                         </div>
 
                         <button class="btn-secondary" onclick="copyShareLink()" style="margin-top: 12px; font-size: 11px; padding: 6px 14px; border-radius: 8px;">
-                            📋 Copy Share Link
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Share Link
                         </button>
                     </div>
                 </div>
@@ -356,7 +398,7 @@
                 <div class="p2p-right-panel">
                     <!-- Upload Dropzone -->
                     <div class="client-upload-card card-panel" id="hostDropZone" onclick="document.getElementById('hostFileInput').click()" style="padding: 24px 16px;">
-                        <div class="cloud-icon" style="font-size: 40px; margin-bottom: 8px;">☁️</div>
+                        <div class="cloud-icon" style="margin-bottom: 8px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></div>
                         <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 4px;">Send Files to Peer</h3>
                         <p style="font-size: 11px; color: var(--text-sub); margin-bottom: 12px;">Drag &amp; drop files here, or click to browse</p>
                         <button class="btn-primary" type="button" style="pointer-events: none; padding: 8px 20px; font-size: 12px;">
@@ -370,7 +412,7 @@
                         <!-- Shared Files List (Sent by Host) -->
                         <div class="card-panel" style="padding: 16px; flex: 1; display: flex; flex-direction: column; min-height: 200px;">
                             <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                <span>📤 Shared by You</span>
+                                <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Shared by You</span>
                             </h3>
                             <ul id="hostSharedFileList" class="file-list" style="max-height: 35vh; overflow-y: auto;">
                                 <li class="empty-state">No files shared yet</li>
@@ -380,7 +422,7 @@
                         <!-- Received Files List (Sent by Peer) -->
                         <div class="card-panel" style="padding: 16px; flex: 1; display: flex; flex-direction: column; min-height: 200px;">
                             <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                <span>📥 Received from Peer</span>
+                                <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> Received from Peer</span>
                             </h3>
                             <ul id="receivedFileList" class="file-list" style="max-height: 35vh; overflow-y: auto;">
                                 <li class="empty-state">No files received yet</li>
@@ -393,7 +435,7 @@
 
         <!-- SCREEN 3: KEYPAD PIN ENTRY (Join Mode) -->
         <div id="screenKeypad" style="display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; padding: 20px 0;">
-            <div style="font-size: 36px; margin-bottom: 8px;">🔑</div>
+            <div style="margin-bottom: 8px;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
             <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">Enter Host Room PIN</h2>
             <p style="color: var(--text-sub); font-size: 12px; margin-bottom: 20px;">Type on your keyboard or tap the keypad below</p>
 
@@ -413,7 +455,7 @@
                 <button class="keypad-btn" onclick="keypadAdd('9')">9</button>
                 <button class="keypad-btn" onclick="keypadClear()" style="font-size: 15px; color: var(--accent-red);">C</button>
                 <button class="keypad-btn" onclick="keypadAdd('0')">0</button>
-                <button class="keypad-btn" onclick="keypadBack()" style="font-size: 18px;">⌫</button>
+                <button class="keypad-btn" onclick="keypadBack()" style="font-size: 18px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>
             </div>
         </div>
 
@@ -432,7 +474,7 @@
                 <!-- Left Panel: Send to Host Card -->
                 <div class="p2p-left-panel">
                     <div class="client-upload-card card-panel" id="clientDropZone" onclick="document.getElementById('clientFileInput').click()" style="padding: 24px 16px; height: 100%; box-sizing: border-box;">
-                        <div class="cloud-icon" style="font-size: 40px; margin-bottom: 8px;">☁️</div>
+                        <div class="cloud-icon" style="margin-bottom: 8px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></div>
                         <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 4px;">Send Files to Host</h3>
                         <p style="font-size: 11px; color: var(--text-sub); margin-bottom: 12px;">Drag &amp; drop files here, or click to browse</p>
                         <button class="btn-primary" type="button" style="pointer-events: none; padding: 8px 20px; font-size: 12px;">
@@ -448,7 +490,7 @@
                         <!-- Host's Files Available for Download -->
                         <div class="card-panel" style="padding: 16px; flex: 1; display: flex; flex-direction: column; min-height: 200px;">
                             <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                <span>📂 Files Shared by Host</span>
+                                <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg> Files Shared by Host</span>
                             </h3>
                             <ul id="peerCatalogList" class="file-list" style="max-height: 35vh; overflow-y: auto;">
                                 <li class="empty-state">Waiting for Host to share files...</li>
@@ -458,7 +500,7 @@
                         <!-- Received Files List -->
                         <div class="card-panel" style="padding: 16px; flex: 1; display: flex; flex-direction: column; min-height: 200px;">
                             <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                <span>📥 Downloaded Files</span>
+                                <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> Downloaded Files</span>
                             </h3>
                             <ul id="receivedFileListClient" class="file-list" style="max-height: 35vh; overflow-y: auto;">
                                 <li class="empty-state">No files downloaded yet</li>
@@ -475,7 +517,7 @@
     <div id="clipboardModal" class="modal-backdrop" onclick="if(event.target===this) this.classList.remove('open')">
         <div class="modal-box" style="max-width: 420px;">
             <div class="modal-header">
-                <span class="modal-title-text">📋 Shared Clipboard</span>
+                <span class="modal-title-text"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Shared Clipboard</span>
                 <button class="icon-btn" onclick="document.getElementById('clipboardModal').classList.remove('open')" style="width:34px; height:34px;" title="Close">✕</button>
             </div>
             <div style="padding: 18px; display: flex; flex-direction: column; gap: 12px;">
@@ -495,7 +537,7 @@
     <div id="floatingQueue" class="floating-queue">
         <div class="floating-queue-header">
             <span style="display:flex; align-items:center; gap:6px;">
-                <span style="font-size:14px;">⚡</span>
+                <span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
                 <span id="queueOverallStatus">Transfer Queue</span>
             </span>
             <div style="display:flex; align-items:center; gap:8px;">
@@ -516,7 +558,7 @@
             <div id="previewModalBody" class="modal-content-area" style="max-height: calc(85vh - 120px);"></div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closePreview()">Close</button>
-                <a id="previewDownloadBtn" href="#" class="btn-primary" style="padding:10px 20px; font-size:13px;">⬇️ Download</a>
+                <a id="previewDownloadBtn" href="#" class="btn-primary" style="padding:10px 20px; font-size:13px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</a>
             </div>
         </div>
     </div>

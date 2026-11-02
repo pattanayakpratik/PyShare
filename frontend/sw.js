@@ -4,7 +4,6 @@
 
 const CACHE_NAME = 'pyshare-shell-v4.9.1';
 const PRECACHE_RESOURCES = [
-  '/',
   '/guide.html',
   '/manifest.json',
   '/styles.css',
@@ -39,6 +38,7 @@ self.addEventListener('fetch', (event) => {
 
   // Dynamic endpoints must bypass cache completely
   if (
+    event.request.mode === 'navigate' ||
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/view/') ||
     url.pathname.startsWith('/download/') ||
@@ -48,7 +48,6 @@ self.addEventListener('fetch', (event) => {
   ) {
     return;
   }
-
   // Network first with cache fallback
   event.respondWith(
     fetch(event.request)

@@ -32,10 +32,10 @@ function copyHostIp() {
         navigator.clipboard.writeText(fullUrl).then(() => {
             showToast(`Server URL copied: ${fullUrl}`, '📋');
         }).catch(() => {
-            prompt('Copy PyShare URL:', fullUrl);
+            showToast(`Server URL: ${fullUrl}`, '📋');
         });
     } else {
-        prompt('Copy PyShare URL:', fullUrl);
+        showToast(`Server URL: ${fullUrl}`, '📋');
     }
 }
 window.copyHostIp = copyHostIp;
@@ -166,14 +166,14 @@ function updateTunnelUI(data) {
     if (!titleEl || !btnEl) return;
 
     if (data.status === 'starting' || data.status === 'downloading') {
-        iconEl.innerText = '⏳';
+        iconEl.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>';
         titleEl.innerText = data.status === 'downloading' ? 'Downloading Engine...' : 'Starting Tunnel...';
         subEl.innerText = 'Securing public HTTPS route...';
         btnEl.disabled = true;
         btnTextEl.innerText = 'Connecting...';
     } else if (data.status === 'active' && data.url) {
         currentTunnelUrl = data.url;
-        iconEl.innerText = '🌐';
+        iconEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
         titleEl.innerText = 'Public Internet Mode';
         titleEl.style.color = 'var(--accent-green)';
         subEl.innerText = 'Accessible via 4G/5G mobile data worldwide';
@@ -190,7 +190,7 @@ function updateTunnelUI(data) {
         }
     } else {
         currentTunnelUrl = null;
-        iconEl.innerText = '🏠';
+        iconEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
         titleEl.innerText = 'Local Wi-Fi Mode';
         titleEl.style.color = 'inherit';
         subEl.innerText = 'Works on same Wi-Fi / Hotspot';

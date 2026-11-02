@@ -3,7 +3,7 @@
    Direct Device-to-Device • Zero App Install • Works across any browser
    ========================================================================== */
 
-const CHUNK_SIZE = 64 * 1024; // 64KB chunk slice for optimal WebRTC throughput
+const CHUNK_SIZE = 60 * 1024; // 60KB chunk slice for optimal WebRTC throughput
 let peer = null;
 let activeConnections = [];
 let currentPin = "";
@@ -279,14 +279,14 @@ function setupConnectionHandlers(conn) {
         activeConnections.push(conn);
         
         if (isHost) {
-            updateConnectionStatus('Connected to Client Peer! ⚡', 'green');
+            updateConnectionStatus('Connected to Client Peer!', 'green');
             document.getElementById('hostConnectedBadge').style.display = 'flex';
             showToast('Peer connected! Ready to transfer.', '✅');
             
             // Sync current shared files list with newly connected client
             syncSharedFilesToPeer(conn);
         } else {
-            updateClientStatus('Connected to Host! ⚡', 'green');
+            updateClientStatus('Connected to Host!', 'green');
             showToast('Connected! Ready to transfer.', '✅');
         }
     });
@@ -814,7 +814,7 @@ function renderQueueItem(id, filename, totalSize, direction) {
     }
     el.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
-            <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(filename)}">${direction === 'upload' ? '📤' : '📥'} ${escapeHtml(filename)}</span>
+            <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(filename)}">${direction === 'upload' ? '↑' : '↓'} ${escapeHtml(filename)}</span>
             <span id="q_status_${id}" style="color:var(--accent-cyan); font-family:monospace; font-size:11px;">0% • ${formatSize(totalSize)}</span>
         </div>
         <div style="height:6px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden;">
@@ -857,7 +857,7 @@ function markQueueDone(id) {
         bar.style.width = '100%';
         bar.style.background = 'var(--accent-green)';
     }
-    if (status) status.innerText = '✅ Complete';
+    if (status) status.innerText = 'Complete';
 
     // Reset speed calculation for subsequent transfers
     lastSpeedLoaded = 0;
@@ -918,8 +918,8 @@ function renderReceivedFilesUI() {
                     <div class="file-size">${formatSize(f.size)}</div>
                 </div>
                 <div class="file-actions">
-                    <button class="action-circle-btn" onclick="openPreviewBlobById('${encodeURIComponent(f.id)}')" title="Preview">👁️</button>
-                    <a href="${f.url}" download="${escapeHtml(f.name)}" class="action-circle-btn" title="Download">⬇</a>
+                    <button class="action-circle-btn" onclick="openPreviewBlobById('${encodeURIComponent(f.id)}')" title="Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                    <a href="${f.url}" download="${escapeHtml(f.name)}" class="action-circle-btn" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
                 </div>
             </li>
         `).join('');
@@ -941,24 +941,24 @@ function renderPeerCatalog(files) {
         const isTransferring = !!activeTransfers[f.id];
         const isPending = pendingFileRequests.has(f.id);
 
-        let btnContent = '⬇ Download';
+        let btnContent = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download';
         let btnClass = 'btn-primary';
         let btnDisabled = '';
         let btnStyle = 'padding:4px 10px; font-size:11px; border-radius:8px;';
 
         if (isDownloaded) {
-            btnContent = '✅ Downloaded';
+            btnContent = 'Downloaded';
             btnClass = 'btn-secondary';
             btnStyle += ' color:var(--accent-green); border-color:var(--accent-green);';
         } else if (isTransferring) {
             const tr = activeTransfers[f.id];
             const pct = tr ? Math.min(100, Math.round((tr.receivedBytes / (tr.meta?.size || 1)) * 100)) : 0;
-            btnContent = `⏳ ${pct}%`;
+            btnContent = `${pct}%`;
             btnClass = 'btn-secondary';
             btnDisabled = 'disabled';
             btnStyle += ' opacity:0.7; cursor:not-allowed;';
         } else if (isPending) {
-            btnContent = '⏳ Requesting...';
+            btnContent = 'Requesting...';
             btnClass = 'btn-secondary';
             btnDisabled = 'disabled';
             btnStyle += ' opacity:0.7; cursor:not-allowed;';
@@ -989,13 +989,13 @@ function updateCatalogButtonState(fileId, state, pct = 0) {
         btn.className = 'btn-secondary';
         btn.style.opacity = '0.7';
         btn.style.cursor = 'not-allowed';
-        btn.innerHTML = '⏳ Requesting...';
+        btn.innerHTML = 'Requesting...';
     } else if (state === 'downloading') {
         btn.disabled = true;
         btn.className = 'btn-secondary';
         btn.style.opacity = '0.7';
         btn.style.cursor = 'not-allowed';
-        btn.innerHTML = `⏳ ${pct}%`;
+        btn.innerHTML = `${pct}%`;
     } else if (state === 'downloaded') {
         btn.disabled = false;
         btn.className = 'btn-secondary';
@@ -1003,7 +1003,7 @@ function updateCatalogButtonState(fileId, state, pct = 0) {
         btn.style.cursor = 'pointer';
         btn.style.color = 'var(--accent-green)';
         btn.style.borderColor = 'var(--accent-green)';
-        btn.innerHTML = '✅ Downloaded';
+        btn.innerHTML = 'Downloaded';
     } else {
         btn.disabled = false;
         btn.className = 'btn-primary';
@@ -1011,7 +1011,7 @@ function updateCatalogButtonState(fileId, state, pct = 0) {
         btn.style.cursor = 'pointer';
         btn.style.color = '';
         btn.style.borderColor = '';
-        btn.innerHTML = '⬇ Download';
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download';
     }
 }
 
@@ -1048,7 +1048,7 @@ function openPreviewBlob(filename, category, url, size) {
     } else if (category === 'audio') {
         body.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px;">
-                <div style="font-size:48px;">🎵</div>
+                <div><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
                 <div style="font-weight:600; font-size:15px;">${escapeHtml(filename)}</div>
                 <audio controls autoplay style="width:100%; max-width:400px;">
                     <source src="${url}">
@@ -1057,7 +1057,7 @@ function openPreviewBlob(filename, category, url, size) {
     } else {
         body.innerHTML = `
             <div style="text-align:center; padding:30px;">
-                <div style="font-size:48px; margin-bottom:12px;">📄</div>
+                <div style="margin-bottom:12px;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></div>
                 <h3>${escapeHtml(filename)}</h3>
                 <p style="color:var(--text-sub); margin:8px 0 20px 0;">${formatSize(size)}</p>
                 <a href="${url}" download="${escapeHtml(filename)}" class="btn-primary" style="display:inline-block; padding:10px 20px;">Download File</a>
@@ -1082,7 +1082,7 @@ function renderClipboardText(text) {
     if (text && text.trim().length > 0) {
         display.innerHTML = `
             <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%; font-size:12px;">${escapeHtml(text)}</span>
-            <button class="btn-secondary" onclick="copyClipboardText()" style="padding:4px 10px; font-size:11px;">📋 Copy</button>
+            <button class="btn-secondary" onclick="copyClipboardText()" style="padding:4px 10px; font-size:11px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
         `;
     } else {
         display.innerHTML = `<span style="color:var(--text-sub); font-size:12px;">Clipboard is empty.</span>`;

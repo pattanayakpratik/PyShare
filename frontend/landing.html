@@ -240,17 +240,63 @@
 
         <!-- Top Navbar -->
         <nav class="navbar">
-            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
-            <div class="logo">
-                <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
-                PyShare
+            <div class="nav-left">
+                <button class="icon-btn theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+                    <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <button class="icon-btn" onclick="location.reload()" title="Refresh">🔄</button>
-                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
-                <a href="/guide.html" class="icon-btn" title="How-To Guide" style="text-decoration:none;">❓</a>
-                <a href="/p2p" class="icon-btn" title="Web Transfer (Browser Mode)" style="text-decoration:none;">🌐</a>
-                <button class="icon-btn" onclick="disconnectServer()" style="color:var(--accent-red); border-color:rgba(239,68,68,0.4);" title="Shutdown Server">🛑</button>
+            <div class="nav-center">
+                <div class="logo">
+                    <img src="app_icon.png" alt="PyShare" class="logo-img">
+                    <span class="logo-text">PyShare</span>
+                </div>
+            </div>
+            <div class="nav-right">
+                <div class="nav-dropdown">
+                    <button class="icon-btn nav-menu-btn" id="navMenuBtn" onclick="toggleNavMenu(event)" aria-label="Menu" title="Menu">
+                        <svg class="menu-icon-bars" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div class="nav-dropdown-menu" id="navDropdownMenu">
+                        <button class="nav-dropdown-item" onclick="location.reload()">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                            <span>Refresh App</span>
+                        </button>
+                        <a href="/p2p" class="nav-dropdown-item">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                            <span>Web Transfer</span>
+                        </a>
+                        <a href="/guide.html" class="nav-dropdown-item">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            <span>How-To Guide</span>
+                        </a>
+                        <button class="nav-dropdown-item" onclick="openFeedbackModal(); closeNavMenu();">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                            <span>Help &amp; Feedback</span>
+                        </button>
+                        <div class="nav-dropdown-divider"></div>
+                        <button class="nav-dropdown-item danger" onclick="disconnectServer(); closeNavMenu();">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                            <span>Shutdown Server</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </nav>
 
@@ -261,11 +307,11 @@
                 <div class="status-pill" onclick="copyHostIp()" style="cursor: pointer;" title="Click to copy server URL">
                     <span class="status-dot"></span>
                     <span>Server IP: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">Detecting...</strong></span>
-                    <span style="font-size:11px; opacity:0.6; margin-left:4px;">📋</span>
+                    <span style="opacity:0.6; margin-left:4px; display:inline-flex; vertical-align:middle;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>
                 </div>
             </div>
 
-            <div style="font-size: 42px; margin-bottom: 12px;">⚡</div>
+            <div style="margin-bottom: 12px;"><svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
             <h1 style="font-size: 26px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px;">PyShare File Transfer Studio</h1>
             <p style="color: var(--text-sub); font-size: 14px; max-width: 520px; line-height: 1.5; margin-bottom: 8px;">
                 High-speed local network file transfer between PC, Mac, iPhone, Android &amp; Tablets with zero cloud uploads.
@@ -274,7 +320,7 @@
             <div class="landing-grid">
                 <!-- Card 1: Create Room (Host Mode) -->
                 <a href="/host" class="mode-select-card">
-                    <div class="mode-icon">📤</div>
+                    <div class="mode-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                     <h2 style="font-size: 20px; font-weight: 700; color: var(--text-main); margin: 0;">Create Room</h2>
                     <p style="font-size: 13px; color: var(--text-sub); line-height: 1.4; margin: 0;">Be the Host — Show QR code &amp; PIN to stage and share files from this PC</p>
                     <div class="btn-primary" style="margin-top: 10px; padding: 10px 24px; font-size: 13px; font-weight: 700; border-radius: 9999px;">
@@ -284,7 +330,7 @@
 
                 <!-- Card 2: Join Room (Client Mode) -->
                 <div class="mode-select-card" onclick="openJoinScreen()">
-                    <div class="mode-icon">📥</div>
+                    <div class="mode-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
                     <h2 style="font-size: 20px; font-weight: 700; color: var(--text-main); margin: 0;">Join Room</h2>
                     <p style="font-size: 13px; color: var(--text-sub); line-height: 1.4; margin: 0;">Be the Client — Enter 4-digit PIN to receive and download files from Host</p>
                     <div class="btn-secondary" style="margin-top: 10px; padding: 10px 24px; font-size: 13px; font-weight: 700; border-radius: 9999px;">
@@ -296,11 +342,11 @@
             <!-- Callout / Feature Badges -->
             <div style="margin-top: 28px; font-size: 12px; color: var(--text-sub); max-width: 560px; line-height: 1.5; background: var(--callout-bg); border: 1px solid var(--callout-border); border-top: 1px solid var(--border-specular); border-radius: 14px; padding: 14px 18px; text-align: left; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-sm);">
                 <div style="display: flex; gap: 8px; align-items: flex-start;">
-                    <span style="font-size: 14px; line-height: 1.2;">📶</span>
+                    <span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></span>
                     <span><strong>100% Offline Local Wi-Fi &amp; Hotspot:</strong> File transfers stay completely inside your local network with gigabit speed and <strong>0 MB internet data consumed</strong>!</span>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 6px;">
-                    <span style="font-size: 14px; line-height: 1.2;">🌐</span>
+                    <span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                     <span><strong>Zero-Install Web Mode?</strong> Open <a href="/p2p" style="color:var(--accent-blue); text-decoration: underline; font-weight: 600;">Instant Web Transfer</a> for peer-to-peer browser sharing.</span>
                 </div>
             </div>
@@ -312,7 +358,7 @@
                 <span>←</span> <span>Back to Room Options</span>
             </button>
 
-            <div style="font-size: 38px; margin-bottom: 8px;">🔑</div>
+            <div style="margin-bottom: 8px;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
             <h2 style="font-size: 22px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">Enter Host Room PIN</h2>
             <p style="color: var(--text-sub); font-size: 13px; margin-bottom: 20px;">Type the 4-digit PIN displayed on the Host screen</p>
 
@@ -330,7 +376,7 @@
                 <button class="keypad-btn" onclick="add('9')">9</button>
                 <button class="keypad-btn" onclick="clearPin()" style="font-size: 16px; color: #8292ab;">C</button>
                 <button class="keypad-btn" onclick="add('0')">0</button>
-                <button class="keypad-btn" onclick="back()" style="font-size: 18px; color: #8292ab;">⌫</button>
+                <button class="keypad-btn" onclick="back()" style="font-size: 18px; color: #8292ab;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>
                 <button class="key-btn-submit" onclick="submitPin()">Connect</button>
             </div>
 
@@ -338,7 +384,7 @@
             <div style="margin-top: 18px; width: 100%; max-width: 290px; text-align: center;">
                 <details style="font-size: 12px; color: var(--text-sub); text-align: left;">
                     <summary style="cursor: pointer; padding: 4px; color: #60a5fa; font-weight: 500;">
-                        🌐 Connect to another Host IP (Optional)
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Connect to another Host IP (Optional)
                     </summary>
                     <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
                         <input type="text" id="customHostInput" placeholder="e.g. 192.168.0.150:8010" style="width: 100%; padding: 8px 12px; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-main); font-size: 12px; font-family: monospace;">
@@ -402,18 +448,24 @@
         }
 
         function disconnectServer() {
-            if (confirm("Stop PyShare server? All connections will be terminated.")) {
-                fetch("/shutdown").finally(() => {
-                    window.close();
-                    document.body.innerHTML = `
-                        <div style="display:flex;height:100vh;align-items:center;justify-content:center;background:#060913;color:#f8fafc;font-family:sans-serif;text-align:center;">
-                            <div>
-                                <h1 style="font-size:24px;margin-bottom:8px;">🛑 PyShare Server Stopped</h1>
-                                <p style="color:#94a3b8;font-size:14px;">The local server has terminated safely. You can close this window.</p>
-                            </div>
-                        </div>`;
-                });
-            }
+            showPyShareConfirm({
+                title: "PyShare",
+                message: "Stop PyShare server? All connections will be terminated.",
+                confirmText: "Stop Server",
+                isDanger: true,
+                onConfirm: () => {
+                    fetch("/shutdown").finally(() => {
+                        window.close();
+                        document.body.innerHTML = `
+                            <div style="display:flex;height:100vh;align-items:center;justify-content:center;background:#060913;color:#f8fafc;font-family:sans-serif;text-align:center;">
+                                <div>
+                                    <h1 style="font-size:24px;margin-bottom:8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg> PyShare Server Stopped</h1>
+                                    <p style="color:#94a3b8;font-size:14px;">The local server has terminated safely. You can close this window.</p>
+                                </div>
+                            </div>`;
+                    });
+                }
+            });
         }
 
         // Screen switching

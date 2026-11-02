@@ -312,22 +312,43 @@
 
         <!-- Top Navbar -->
         <nav class="navbar" style="padding: 8px 0;">
-            <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
-            <div class="logo">
-                <img src="app_icon.png" alt="PyShare" style="width:28px; height:28px; border-radius:6px; object-fit:contain;">
-                PyShare Guide
+            <div class="nav-left">
+                <button class="icon-btn theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+                    <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback">💬</button>
+            <div class="nav-center">
+                <div class="logo">
+                    <img src="app_icon.png" alt="PyShare" class="logo-img">
+                    <span class="logo-text">PyShare Guide</span>
+                </div>
+            </div>
+            <div class="nav-right">
+                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback" style="margin-right: 4px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </button>
                 <a href="/" class="btn-primary" style="padding: 6px 14px; font-size: 12px; text-decoration: none;">
-                    Open App ⚡
+                    Open App <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 </a>
             </div>
         </nav>
 
         <!-- Hero Header -->
         <div class="guide-hero">
-            <span class="guide-hero-icon">📖</span>
+            <span class="guide-hero-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
             <h1 class="guide-hero-title">How to Use PyShare</h1>
             <p class="guide-hero-sub">
                 Fast, private, local file transfer and clipboard hub. Featuring direct drag &amp; drop file staging, standalone native desktop app (PC), and zero-install web transfer (iPhone, Android, Mac, Linux).
@@ -336,7 +357,7 @@
 
         <!-- Section 1: Quick Start in 3 Steps -->
         <div class="section-header">
-            <span>🚀</span> Quick Start (Host to Client in 3 Steps)
+            <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span> Quick Start (Host to Client in 3 Steps)
         </div>
 
         <!-- Step 1 -->
@@ -374,7 +395,7 @@
 
         <!-- Callout Tip -->
         <div class="tip-callout">
-            <span class="tip-callout-icon">💡</span>
+            <span class="tip-callout-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A7 7 0 1 0 7.5 11.5c.76.76 1.23 1.52 1.41 2.5"/></svg></span>
             <div class="tip-callout-text">
                 <strong>Two Seamless Ways to Use PyShare:</strong><br>
                 • <strong>Instant Web Mode:</strong> Run 100% inside any browser on PC, Mac, iPhone, iPad, or Android with <strong>zero software downloads</strong>.<br>
@@ -384,15 +405,15 @@
 
         <!-- Section 2: The 3 Ways to Connect -->
         <div class="section-header">
-            <span>🌐</span> 3 Ways to Connect Any Device
+            <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span> 3 Ways to Connect Any Device
         </div>
 
         <div class="method-grid">
             <!-- Mode 1: Local Wi-Fi (Desktop App) -->
             <div class="method-card">
-                <span class="method-icon">💻</span>
+                <span class="method-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                 <span class="method-title">Native Desktop App</span>
-                <span class="badge-fast">⚡ 50–100 MB/s</span>
+                <span class="badge-fast"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> 50–100 MB/s</span>
                 <p class="method-desc">
                     Standalone <code>PyShare.exe</code> on PC. Runs natively in its own window. Dual Host &amp; Client modes, direct file staging, and 100% offline local Wi-Fi transfers with Mobile Data OFF.
                 </p>
@@ -400,7 +421,7 @@
 
             <!-- Mode 2: Public Internet Mode -->
             <div class="method-card">
-                <span class="method-icon">🌐</span>
+                <span class="method-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                 <span class="method-title">Internet Mode</span>
                 <span class="badge-anywhere">4G / 5G Anywhere</span>
                 <p class="method-desc">
@@ -410,7 +431,7 @@
 
             <!-- Mode 3: 100% Web P2P -->
             <div class="method-card">
-                <span class="method-icon">⚡</span>
+                <span class="method-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
                 <span class="method-title">100% Web Transfer</span>
                 <span class="badge-p2p">Zero Downloads</span>
                 <p class="method-desc">
@@ -421,12 +442,12 @@
 
         <!-- Section 3: Key Features -->
         <div class="section-header">
-            <span>✨</span> Core Features & Superpowers
+            <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg></span> Core Features & Superpowers
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
             <div class="faq-card">
-                <div class="faq-q"><span>⚡</span> Direct File Staging (No Folder Duplication!)</div>
+                <div class="faq-q"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span> Direct File Staging (No Folder Duplication!)</div>
                 <div class="faq-a">
                     In PyShare, you <strong>do not need to copy files into a shared folder</strong> or expose your hard drive. On Host (Desktop App or Web), simply <strong>drag &amp; drop files or folders from anywhere on your PC</strong> into the "Add to Shared" dropzone, or click <strong>"Select Files" / "Select Folders"</strong>.<br>
                     Your files are staged on-demand directly from their original location on disk without duplicating storage. You can add more files or remove staged items anytime with 1 click!
@@ -434,15 +455,15 @@
             </div>
 
             <div class="faq-card">
-                <div class="faq-q"><span>📂</span> Receiving Files &amp; Custom Download Folder</div>
+                <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg></span> Receiving Files &amp; Custom Download Folder</div>
                 <div class="faq-a">
                     When client devices send files to your Host PC, they are automatically saved into your designated <strong>Received_Files</strong> folder (default: <code>Desktop/PyShare_Files/Received_Files</code>).<br>
-                    In the Desktop App, you can click <strong>📁 Change</strong> to choose any download folder on your computer, and click <strong>📂 Open</strong> to view received files instantly in Windows File Explorer.
+                    In the Desktop App, you can click <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Change</strong> to choose any download folder on your computer, and click <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg> Open</strong> to view received files instantly in Windows File Explorer.
                 </div>
             </div>
 
             <div class="faq-card">
-                <div class="faq-q"><span>🖥️</span> Dual Mode Desktop App (Host &amp; Client)</div>
+                <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> Dual Mode Desktop App (Host &amp; Client)</div>
                 <div class="faq-a">
                     The standalone desktop app gives you two modes in one window:<br>
                     • <strong>Host Mode:</strong> Generates a local transfer hub with dynamic QR code, rotating PIN, 1-click clipboard push, and direct file staging.<br>
@@ -451,28 +472,28 @@
             </div>
 
             <div class="faq-card">
-                <div class="faq-q"><span>👁️</span> In-App Media Lightbox Previews</div>
+                <div class="faq-q"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span> In-App Media Lightbox Previews</div>
                 <div class="faq-a">
                     Tap any photo, video, song, or text file to preview it instantly in full resolution! Videos play with smooth HTML5 scrubbing, audio files play in an integrated player, and code/text files include a 1-click <strong>Copy Text</strong> button.
                 </div>
             </div>
 
             <div class="faq-card">
-                <div class="faq-q"><span>📋</span> Universal Shared Clipboard</div>
+                <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span> Universal Shared Clipboard</div>
                 <div class="faq-a">
-                    Tap the 📋 icon in the navbar. Type text or paste links to beam them across all connected devices in real time. On Host, click <strong>"Push Host Clipboard"</strong> to send your clipboard with 1 click!
+                    Tap the clipboard icon in the navbar. Type text or paste links to beam them across all connected devices in real time. On Host, click <strong>"Push Host Clipboard"</strong> to send your clipboard with 1 click!
                 </div>
             </div>
 
             <div class="faq-card">
-                <div class="faq-q"><span>📦</span> Download All as ZIP</div>
+                <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> Download All as ZIP</div>
                 <div class="faq-a">
-                    Need to download 20 photos or an entire folder at once? Click the <strong>📦 ZIP All</strong> button to stream the whole folder in an optimized, zero-RAM compressed archive.
+                    Need to download 20 photos or an entire folder at once? Click the <strong>ZIP All</strong> button to stream the whole folder in an optimized, zero-RAM compressed archive.
                 </div>
             </div>
 
             <div class="faq-card">
-                <div class="faq-q"><span>📱</span> Progressive Web App (PWA)</div>
+                <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span> Progressive Web App (PWA)</div>
                 <div class="faq-a">
                     On your iPhone (Safari) or Android (Chrome), tap <strong>Share → Add to Home Screen</strong>. PyShare will install as a full-screen mobile app without URL bars!
                 </div>
@@ -481,11 +502,11 @@
 
         <!-- Section 4: Troubleshooting & FAQ -->
         <div class="section-header">
-            <span>❓</span> Troubleshooting & FAQs
+            <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Troubleshooting & FAQs
         </div>
 
         <div class="faq-card">
-            <div class="faq-q"><span>💻</span> Do I have to download the PC app to use PyShare?</div>
+            <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> Do I have to download the PC app to use PyShare?</div>
             <div class="faq-a">
                 <strong>No!</strong> You can use PyShare completely from the web on both PC and mobile by opening Web Transfer mode (<a href="/p2p" style="color:var(--accent-blue);">pyshare.vercel.app</a>). No software download is required on any device.<br>
                 However, downloading the standalone <strong>PyShare Desktop App (<code>PyShare.exe</code>)</strong> gives you extra powers: runs completely in its own native Cyberpunk Glass window (zero browser dependencies or tabs), 100 MB/s local offline Wi-Fi speeds without consuming any internet, direct file staging from anywhere on your PC, customizable download folder for received files, and 1-click Windows clipboard sync.
@@ -493,7 +514,7 @@
         </div>
 
         <div class="faq-card" style="border-left: 3px solid var(--accent-violet);">
-            <div class="faq-q"><span>🤔</span> Why is there no "Open Folder" or "Change Folder" for choosing files to share?</div>
+            <div class="faq-q"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Why is there no "Open Folder" or "Change Folder" for choosing files to share?</div>
             <div class="faq-a">
                 Because PyShare uses its own <strong>Direct Staging architecture</strong>! Unlike older file servers that require you to put all your files into a dedicated shared directory or expose entire folders, PyShare lets you pick and stage files directly: just drag &amp; drop or click "Select Files" to stage individual files or folders from anywhere on your PC without copying or moving them.<br><br>
                 The <strong>"📁 Change"</strong> and <strong>"📂 Open"</strong> buttons exist strictly on the <strong>receiving/downloading side</strong> so you can configure where incoming files sent by client devices are stored on your computer.
@@ -501,7 +522,7 @@
         </div>
 
         <div class="faq-card" style="border-left: 3px solid var(--accent-green);">
-            <div class="faq-q"><span>📶</span> Does the Web version consume mobile data when sending large files (e.g., 3 GB)?</div>
+            <div class="faq-q"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></span> Does the Web version consume mobile data when sending large files (e.g., 3 GB)?</div>
             <div class="faq-a">
                 <strong>No, absolutely not!</strong> When both devices are on the same Wi-Fi router or Phone Hotspot, PyShare's WebRTC engine transfers the file <strong>directly between devices over local Wi-Fi radio waves</strong>.<br>
                 Internet data is only used for the initial 2-second PIN handshake (~50 KB to 100 KB). Transferring a 3 GB, 5 GB, or 10 GB file consumes <strong>0 MB of your mobile data balance</strong>!
@@ -509,7 +530,7 @@
         </div>
 
         <div class="faq-card" style="border-left: 3px solid var(--accent-blue);">
-            <div class="faq-q"><span>⚡</span> How do I share files 100% offline with Mobile Data turned OFF?</div>
+            <div class="faq-q"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span> How do I share files 100% offline with Mobile Data turned OFF?</div>
             <div class="faq-a">
                 If you have no internet or want your mobile data completely OFF, use the <strong>Native Desktop App</strong>:<br>
                 1. Turn on your <strong>Phone Hotspot</strong> (Mobile Data can stay <strong>OFF</strong>).<br>
@@ -522,7 +543,7 @@
         </div>
 
         <div class="faq-card">
-            <div class="faq-q"><span>⚠️</span> My phone says "Site can't be reached" after scanning QR code?</div>
+            <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> My phone says "Site can't be reached" after scanning QR code?</div>
             <div class="faq-a">
                 1. Make sure your phone is connected to the <strong>same Wi-Fi</strong> as your PC.<br>
                 2. If you are on university/college, airport, or hotel Wi-Fi, the router likely has <em>AP Isolation (Guest Mode)</em> turned on. <strong>Solution:</strong> Turn on your phone's Personal Hotspot and connect your PC to it, or click <strong>"🌐 Enable Internet"</strong> on your PC!
@@ -530,43 +551,44 @@
         </div>
 
         <div class="faq-card">
-            <div class="faq-q"><span>🔑</span> Why does the PIN keep changing?</div>
+            <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span> Why does the PIN keep changing?</div>
             <div class="faq-a">
                 The 4-digit PIN rotates every 30 seconds to prevent unauthorized devices on your Wi-Fi from guessing it. PyShare includes a 30-second dual-grace window, so if the PIN changes while you are typing it, your login still succeeds!
             </div>
         </div>
 
         <div class="faq-card">
-            <div class="faq-q"><span>📂</span> Where are received files saved on the Host?</div>
+            <div class="faq-q"><span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg></span> Where are received files saved on the Host?</div>
             <div class="faq-a">
                 All files sent to the Host are automatically saved into: <code>Desktop/PyShare_Files/Received_Files</code> by default.<br>
-                In the Desktop App, you can change this anytime by clicking <strong>📁 Change</strong>, or open the folder immediately with <strong>📂 Open</strong>. Files you choose to share from the Host are staged directly from their current location on-the-fly without being copied into a shared directory.
+                In the Desktop App, you can change this anytime by clicking <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Change</strong>, or open the folder immediately with <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg> Open</strong>. Files you choose to share from the Host are staged directly from their current location on-the-fly without being copied into a shared directory.
             </div>
         </div>
 
         <div class="faq-card">
-            <div class="faq-q"><span>🛑</span> How do I shut down the server?</div>
+            <div class="faq-q"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg></span> How do I shut down the server?</div>
             <div class="faq-a">
-                Click the red <strong>🛑</strong> button in the top right corner of the host dashboard, or press <code>Ctrl + C</code> in your terminal. All active connections and tunnels will close safely.
+                Click the red <strong>Stop</strong> button in the top right corner of the host dashboard, or press <code>Ctrl + C</code> in your terminal. All active connections and tunnels will close safely.
             </div>
         </div>
 
         <!-- Feedback & Help Support Card -->
         <div style="margin-top: 36px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(168, 85, 247, 0.1)); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; text-align: center;">
-            <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
+            <div style="margin-bottom: 8px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
             <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Have a Problem or Feature Idea?</h3>
             <p style="color: var(--text-sub); font-size: 13px; max-width: 480px; margin: 0 auto 16px; line-height: 1.5;">
                 We are actively improving PyShare. If you encountered any bugs, have questions, or want to suggest new features, share your thoughts!
             </p>
             <button class="btn-primary" onclick="openFeedbackModal()" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; font-size: 13px; border-radius: 10px;">
-                <span>💬</span> Give Feedback &amp; Report Issue
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="btn-svg-icon" style="margin-right:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Give Feedback &amp; Report Issue</span>
             </button>
         </div>
 
         <!-- Bottom Action CTA -->
         <div style="text-align: center; margin-top: 40px;">
             <a href="/" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; font-size: 14px; text-decoration: none; border-radius: 12px;">
-                <span>🚀</span> Ready? Return to PyShare
+                <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span> Ready? Return to PyShare
             </a>
         </div>
 

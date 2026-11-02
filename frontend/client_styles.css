@@ -26,28 +26,15 @@ body {
     transition: max-width 0.25s ease, padding 0.25s ease;
 }
 
-/* Navbar Flex Layout */
+/* Navbar Layout (3-Column Grid: Left, Center, Right) */
 .client-navbar {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     width: 100%;
     padding: 8px 0;
-    gap: 8px;
-}
-
-.nav-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-.nav-right {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
+    position: relative;
+    z-index: 1000;
 }
 
 /* Client Content Grid (Mobile default: column, Desktop: 2-column studio) */
@@ -73,7 +60,7 @@ body {
 @media (min-width: 1024px) {
     .app-container {
         max-width: 1160px;
-        padding: 24px 32px;
+        padding: 20px 32px 40px 32px;
         gap: 20px;
     }
     .client-content-grid {

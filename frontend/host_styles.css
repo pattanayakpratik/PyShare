@@ -6,27 +6,32 @@
     width: 100%;
     max-width: 1560px;
     margin: 0 auto;
-    padding: 20px 24px;
+    padding: 14px 24px 36px 24px;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    box-sizing: border-box;
 }
 
 @media (min-width: 1100px) {
     .app-container {
         display: grid;
-        grid-template-columns: 340px 380px 1fr;
+        grid-template-columns: 330px 370px 1fr;
         grid-template-rows: auto auto 1fr;
         grid-template-areas:
             "nav nav nav"
             "stat stat stat"
             "col-send col-connect col-files";
-        height: 95vh;
-        gap: 20px;
+        height: calc(100vh - 48px);
+        max-height: calc(100vh - 48px);
+        min-height: 580px;
+        gap: 16px;
+        padding: 12px 24px 28px 24px;
+        box-sizing: border-box;
     }
 
     .navbar { grid-area: nav; }
-    .status-bar { grid-area: stat; }
+    .status-bar { grid-area: stat; margin: 0; }
     .col-send { grid-area: col-send; }
     .col-connect { grid-area: col-connect; }
     .col-files { grid-area: col-files; }
@@ -37,6 +42,7 @@
         display: flex;
         flex-direction: column;
         gap: 20px;
+        padding-bottom: 48px;
     }
 }
 
@@ -54,7 +60,7 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 32px 24px;
+    padding: 24px 20px;
     cursor: pointer;
     box-shadow: var(--shadow-card);
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -88,8 +94,8 @@
 }
 
 .upload-main-icon {
-    font-size: 56px;
-    margin-bottom: 20px;
+    font-size: 52px;
+    margin-bottom: 14px;
     filter: drop-shadow(0 0 18px rgba(0, 240, 255, 0.45));
     animation: neonFloat 3.5s ease-in-out infinite alternate;
 }
@@ -109,7 +115,7 @@
 .upload-subheading {
     font-size: 14px;
     color: var(--text-sub);
-    margin-bottom: 28px;
+    margin-bottom: 20px;
 }
 
 /* --- COLUMN 2: CONNECT DEVICE HUB --- */
@@ -117,8 +123,8 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 24px;
-    gap: 16px;
+    padding: 18px 20px;
+    gap: 10px;
     align-items: center;
     text-align: center;
     background: var(--card-bg);
@@ -129,10 +135,11 @@
     -webkit-backdrop-filter: var(--glass-blur);
     box-shadow: var(--shadow-card);
     box-sizing: border-box;
+    overflow: hidden;
 }
 
 .hub-title {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -141,8 +148,8 @@
 
 .qr-white-card {
     background: #ffffff;
-    padding: 14px;
-    border-radius: 20px;
+    padding: 10px;
+    border-radius: 18px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(0, 240, 255, 0.35);
     border: 2px solid rgba(0, 240, 255, 0.3);
     display: inline-flex;
@@ -157,13 +164,13 @@
 }
 
 .qr-code-img {
-    width: 150px;
-    height: 150px;
+    width: 130px;
+    height: 130px;
     display: block;
 }
 
 .qr-caption {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-sub);
 }
 
@@ -174,7 +181,7 @@
     border: 1px solid var(--border-color);
     border-top: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 16px;
-    padding: 12px 18px;
+    padding: 8px 16px;
     position: relative;
     overflow: hidden;
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -210,13 +217,13 @@
 }
 
 .pin-number-text {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 800;
     letter-spacing: 8px;
     color: var(--accent-cyan);
     text-shadow: 0 0 16px rgba(0, 240, 255, 0.5);
     text-align: center;
-    margin: 4px 0 2px 0;
+    margin: 2px 0;
     font-family: 'Consolas', monospace;
 }
 
@@ -224,10 +231,17 @@
 .hub-bottom-card {
     width: 100%;
     flex: 1;
-    min-height: 160px;
+    min-height: 140px;
     background: var(--input-bg);
     border: 1px solid var(--border-color);
     border-top: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
+}
     border-radius: 16px;
     display: flex;
     flex-direction: column;
@@ -316,7 +330,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 18px 22px;
+    padding: 16px 20px;
     overflow: hidden;
     min-height: 0;
     background: var(--card-bg);
@@ -333,7 +347,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .panel-title {
