@@ -27,7 +27,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 UninstallDisplayIcon={app}\{#MyAppExeName}
 VersionInfoVersion=4.9.1.0
 VersionInfoCompany={#MyAppPublisher}
-VersionInfoDescription=PyShare - Local & P2P Quick Share Installer
+VersionInfoDescription=PyShare - Local & P2P File Sharing Studio Installer
 VersionInfoCopyright=Copyright (c) 2026 {#MyAppPublisher}
 
 [Languages]

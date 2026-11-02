@@ -36,9 +36,10 @@
 
         <!-- Centered Status Indicator -->
         <div class="status-bar">
-            <div class="status-pill">
+            <div class="status-pill" onclick="copyHostIp()" style="cursor: pointer;" title="Click to copy server URL">
                 <span class="status-dot"></span>
-                <span>Server IP: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">...</strong></span>
+                <span>Server IP: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">Detecting...</strong></span>
+                <span style="font-size:11px; opacity:0.6; margin-left:4px;">📋</span>
             </div>
         </div>
 

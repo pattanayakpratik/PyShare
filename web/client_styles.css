@@ -1,16 +1,21 @@
 /* ==========================================================================
-   PyShare Client Styles - Exact Mobile-First App Aesthetics
+   PyShare Client Styles - Exact Mobile-First App Aesthetics & Responsiveness
    ========================================================================== */
+
+* {
+    box-sizing: border-box;
+}
 
 body {
     overflow-x: hidden;
     margin: 0;
     padding: 0;
+    width: 100%;
 }
 
 .app-container {
     width: 100%;
-    max-width: 480px;
+    max-width: 500px;
     margin: 0 auto;
     padding: 14px 16px;
     display: flex;
@@ -18,13 +23,49 @@ body {
     gap: 14px;
     min-height: 100vh;
     box-sizing: border-box;
-    transition: max-width 0.25s ease;
+    transition: max-width 0.25s ease, padding 0.25s ease;
+}
+
+/* Navbar Flex Layout */
+.client-navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 0;
+    gap: 8px;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* Client Content Grid (Mobile default: column, Desktop: 2-column studio) */
+.client-content-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    flex: 1;
 }
 
 @media (min-width: 768px) {
     .app-container {
         max-width: 820px;
         padding: 20px 24px;
+        gap: 18px;
+    }
+    .client-content-grid {
         gap: 18px;
     }
 }
@@ -38,19 +79,19 @@ body {
     .client-content-grid {
         display: grid;
         grid-template-columns: 380px 1fr;
-        gap: 20px;
+        gap: 24px;
         align-items: stretch;
         flex: 1;
     }
     .client-upload-card {
-        height: 100%;
-        min-height: 340px;
+        height: auto;
+        min-height: 380px;
     }
 }
 
 @media (max-width: 480px) {
     .app-container {
-        padding: 12px 14px;
+        padding: 10px 12px;
         gap: 12px;
     }
     .icon-btn {
@@ -59,12 +100,41 @@ body {
         font-size: 14px;
         border-radius: 10px;
     }
+    .nav-right {
+        gap: 4px;
+    }
     .logo {
-        font-size: 16px;
+        font-size: 18px;
         gap: 6px;
     }
-    .navbar {
-        padding: 6px 0;
+    .client-upload-card {
+        padding: 20px 14px;
+    }
+    .cloud-icon {
+        font-size: 40px;
+        margin-bottom: 6px;
+    }
+    .client-upload-title {
+        font-size: 17px;
+    }
+    .client-upload-sub {
+        font-size: 12px;
+        margin-bottom: 14px;
+    }
+}
+
+@media (max-width: 380px) {
+    .icon-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+        border-radius: 8px;
+    }
+    .logo-text {
+        display: none;
+    }
+    .nav-right {
+        gap: 3px;
     }
 }
 

@@ -17,7 +17,7 @@ VSVersionInfo(
           '040904B0',
           [
             StringStruct('CompanyName', 'Pratik Pattanayak'),
-            StringStruct('FileDescription', 'PyShare — Standalone Native Desktop Quick Share & P2P Engine'),
+            StringStruct('FileDescription', 'PyShare — Standalone Native Desktop File Transfer & P2P Studio'),
             StringStruct('FileVersion', '4.9.1.0'),
             StringStruct('InternalName', 'PyShare'),
             StringStruct('LegalCopyright', 'Copyright (c) 2026 Pratik Pattanayak (@pattanayakpratik). All rights reserved.'),

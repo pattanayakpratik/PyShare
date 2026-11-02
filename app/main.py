@@ -555,7 +555,7 @@ def list_dir(path):
         pass
     return data
 
-# --- QUICK SHARE STAGED FILES REGISTRY ---
+# --- DIRECT STAGED FILES REGISTRY ---
 # Zero-copy sharing: files stream directly from their original disk paths
 STAGED_FILES = {}  # filename -> dict(name, path, size, mtime, category, ext)
 STAGED_LOCK = threading.RLock()
@@ -726,7 +726,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if not filename or filename.endswith('.part') or filename.endswith('.tmp'):
             return None
 
-        # 1. Check Staged Files (Quick Share: Zero-RAM copy, stream direct from original path)
+        # 1. Check Staged Files (Direct Staging: Zero-RAM copy, stream direct from original path)
         with STAGED_LOCK:
             if filename in STAGED_FILES:
                 fp = STAGED_FILES[filename]["path"]
@@ -768,12 +768,17 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
     def is_authenticated(self):
         """Check if client is authenticated via session token cookie or direct host access."""
-        if self.is_host_client():
-            return True
         token = self.get_session_token()
         if token:
             with state_lock:
-                return token in SESSIONS
+                if token in SESSIONS:
+                    return True
+
+        # Host machine automatic bypass applies ONLY when managing host routes, NOT client mode!
+        req_path = urllib.parse.urlparse(self.path).path.rstrip('/')
+        if req_path not in ('/client', '/client.html') and not req_path.startswith('/client'):
+            if self.is_host_client():
+                return True
         return False
 
     def is_host_client(self):
@@ -816,12 +821,15 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if os.path.exists(qr_path):
                 with open(qr_path, "rb") as f:
                     content = f.read()
-                self.send_response(200) 
-                self.send_header("Content-Type", "image/png")
-                self.send_header("Content-Length", str(len(content)))
-                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                self.end_headers()
-                self.wfile.write(content)
+                try:
+                    self.send_response(200) 
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Content-Length", str(len(content)))
+                    self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    self.end_headers()
+                    self.wfile.write(content)
+                except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                    pass
             else:
                 self.send_error(404, "QR Code not ready")
             return
@@ -852,6 +860,17 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(content)
                 return
+
+        # 3. PUBLIC SERVER INFO (Physical LAN IP, Port, is_host)
+        if self.path == '/api/info' or self.path.startswith('/api/info?'):
+            ip = get_ip()
+            self.send_json({
+                "ip": ip,
+                "port": ACTUAL_PORT,
+                "url": f"http://{ip}:{ACTUAL_PORT}",
+                "is_host": self.is_host_client()
+            })
+            return
 
         asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
         raw_clean = urllib.parse.unquote(self.path.split('?')[0]).lstrip('/')
@@ -925,9 +944,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # 4. AUTHENTICATED ROUTES
         
         # A. Serve Dashboard (Host or Client)
-        if self.path == '/' or self.path.startswith('/?'):
-            is_host = self.is_host_client()
-            page_file = "host.html" if is_host else "client.html"
+        parsed_dash_path = urllib.parse.urlparse(self.path).path.rstrip('/')
+        if parsed_dash_path in ('', '/host', '/host.html', '/client', '/client.html'):
+            if parsed_dash_path in ('/client', '/client.html'):
+                page_file = "client.html"
+            elif parsed_dash_path in ('/host', '/host.html'):
+                page_file = "host.html" if self.is_host_client() else "client.html"
+            else:
+                page_file = "host.html" if self.is_host_client() else "client.html"
             file_path = os.path.join(ASSET_DIR, page_file)
 
             if os.path.exists(file_path):
@@ -957,6 +981,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
             # Send initial state snapshot immediately
             try:
+                # 0. Server info snapshot
+                ip = get_ip()
+                srv_json = json.dumps({"ip": ip, "port": ACTUAL_PORT, "url": f"http://{ip}:{ACTUAL_PORT}", "is_host": self.is_host_client()})
+                self.wfile.write(f"event: server_info\ndata: {srv_json}\n\n".encode('utf-8'))
+
                 # 1. File list snapshot
                 files_json = json.dumps(get_files_data())
                 self.wfile.write(f"event: files\ndata: {files_json}\n\n".encode('utf-8'))
@@ -1034,7 +1063,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/api/pin':
             if self.is_host_client():
                 ttl = max(0, int(NEXT_CHANGE - time.time()))
-                self.send_json({"pin": CURRENT_PIN, "ttl": ttl})
+                ip = get_ip()
+                self.send_json({
+                    "pin": CURRENT_PIN,
+                    "ttl": ttl,
+                    "ip": ip,
+                    "port": ACTUAL_PORT,
+                    "url": f"http://{ip}:{ACTUAL_PORT}"
+                })
             else:
                 self.send_error(403, "Forbidden")
             return
@@ -1535,6 +1571,12 @@ def launch_desktop_app(url):
 class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        exc_type, _, _ = sys.exc_info()
+        if exc_type in (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            return
+        super().handle_error(request, client_address)
 
     def server_bind(self):
         try:

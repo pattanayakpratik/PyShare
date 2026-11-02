@@ -2,9 +2,6 @@
 import os
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-ctk_datas = collect_data_files('customtkinter')
-ctk_submodules = collect_submodules('customtkinter')
-
 spec_dir = os.path.dirname(os.path.abspath(SPEC))
 root_dir = os.path.abspath(os.path.join(spec_dir, ".."))
 web_dir = os.path.join(root_dir, "web")
@@ -29,7 +26,11 @@ for wf in web_files:
         datas.append((full_path, 'web'))
         datas.append((full_path, '.'))
 
-datas += ctk_datas
+# Collect webview data and submodules
+webview_datas = collect_data_files('webview')
+webview_submodules = [s for s in collect_submodules('webview') if 'android' not in s]
+
+datas += webview_datas
 
 a = Analysis(
     [os.path.join(spec_dir, 'app_gui.py')],
@@ -38,20 +39,21 @@ a = Analysis(
     datas=datas,
     hiddenimports=[
         'ifaddr',
-        'customtkinter',
         'PIL',
         'requests',
         'zeroconf',
         'png',
         'pyqrcode',
-        'darkdetect',
-        'windnd',
+        'bottle',
+        'proxy_tools',
+        'clr',
+        'pythonnet',
         'main'
-    ] + ctk_submodules,
+    ] + webview_submodules,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['tkinter', 'customtkinter'],
     noarchive=False,
     optimize=0,
 )

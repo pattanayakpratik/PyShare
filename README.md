@@ -40,7 +40,7 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 | **Internet / Mobile Data** | Brief handshake (~50 KB) • **0 MB for files on same Wi-Fi** | ❌ **0% Internet needed (Works with Mobile Data OFF)** |
 | **Network** | Any Wi-Fi, Hotspot, 4G/5G | 100% Offline Wi-Fi LAN / Hotspot + Cloudflare Tunnel |
 | **Transfer Speed** | Peer-to-Peer WebRTC DataChannels | Ultra-fast Local Stream (**50–100 MB/s**) |
-| **File Storage** | Direct in-browser download & Lightbox | Auto-saved to customizable `Received_Files`; shared files staged via Quick Share |
+| **File Storage** | Direct in-browser download & Lightbox | Auto-saved to customizable `Received_Files`; shared files staged directly on-the-fly |
 | **Clipboard** | Synced Web Clipboard modal | Native 1-click Windows OS Clipboard Push |
 
 > [!TIP]
@@ -54,7 +54,7 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 ## 📸 Screenshots
 
 ### 🖥️ Native Desktop Application (Cyberpunk Neon Liquid Glass — Zero Browser Dependencies)
-The standalone Windows desktop app runs completely natively without launching any browser tabs or web processes. It includes the exact **Cyberpunk Neon Liquid Glass** studio design, **Dual Host & Client Mode**, and the **Quick Share Drag & Drop staging engine**.
+The standalone Windows desktop app runs completely natively without launching any browser tabs or web processes. It includes the exact **Cyberpunk Neon Liquid Glass** studio design, **Dual Host & Client Mode**, and the **Direct Drag & Drop staging engine**.
 
 <p align="center">
   <img src="Screenshots/desktop_host.png" alt="PyShare Native Desktop Host Studio" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
@@ -133,7 +133,7 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 - 🖥️ **Native CustomTkinter Desktop Application (Zero Browser Dependencies):**
   - Standalone Windows executable (`PyShare.exe`) that runs 100% natively without opening any external browser window (no Chromium, Edge, or web tabs).
   - Pixel-perfect reproduction of the **Cyberpunk Neon Liquid Glass** design system: deep cosmic obsidian backdrop (`#060913`), frosted liquid glass cards (`#0d1424`), glowing neon cyan borders (`#00f0ff`), and pure white rounded QR code card.
-- ⚡ **True Google Quick Share Staging Engine:**
+- ⚡ **Direct File Staging Engine:**
   - **Share specific files, not whole folders:** Drag and drop files from Windows Explorer or click `Select Files` to choose what to share.
   - **Zero File Duplication:** Files stream directly from their original disk paths on-the-fly without copy delay.
   - **Dedicated Download Destination:** Clear separation between file choosing (drag & drop staging without folder clutter) and file downloading (customizable `Received_Files` directory with 1-click `📂 Open Folder` in Windows Explorer).
@@ -219,7 +219,7 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 ## ⚡ Key Features
 
 - **🎨 Modern Dark Navy Studio Aesthetic:** Clean, balanced interface matching desktop workstation standards and touch-friendly mobile conventions.
-- **⚡ True Quick Share Engine:** Drag & drop or select files and folders from anywhere on your PC without copying or duplicating them into a shared folder, plus customizable `Received_Files` storage for incoming downloads.
+- **⚡ Direct File Staging Engine:** Drag & drop or select files and folders from anywhere on your PC without copying or duplicating them into a shared folder, plus customizable `Received_Files` storage for incoming downloads.
 - **⚡ Zero Configuration:** Auto-detects your primary physical network adapter (skips virtual/WSL bridges), finds open ports (8010–8020), and launches your browser on startup.
 - **🔒 Rotating PIN Security:** Dual-grace 30-second PIN rollover prevents unauthorized access while ensuring no accidental lockouts during typing.
 - **🛡️ 100% Private:** In local mode, all data travels straight across your Wi-Fi or phone hotspot without touching any external cloud servers.
@@ -233,7 +233,7 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 ```text
 PyShare/
 ├── app/                  # 💻 Standalone Native Desktop App & Backend Engine
-│   ├── app_gui.py        # Native CustomTkinter GUI Studio (Cyberpunk Glass & Quick Share Engine)
+│   ├── app_gui.py        # Native Desktop GUI Studio (Cyberpunk Glass & Direct Staging Engine)
 │   ├── main.py           # HTTP Server, SSE Push Engine, Range Streaming, Cloudflare Tunnel & mDNS
 │   ├── app_icon.ico      # Windows application icon
 │   ├── app_icon.png      # Application branding icon
@@ -309,7 +309,7 @@ flowchart TD
 3. Enter the **4-digit PIN** displayed on the Host screen.
 
 ### 3. Share Files &amp; Clipboard
-* **Quick Share from Host:** In the Host Studio (Desktop App or Web), drag & drop any files or folders from anywhere on your PC directly into the dropzone (or click **Select Files / Folders**). PyShare stages your files instantly without copying or duplicating them on disk!
+* **Direct File Staging (Host):** In the Host Studio (Desktop App or Web), drag & drop any files or folders from anywhere on your PC directly into the dropzone (or click **Select Files / Folders**). PyShare stages your files instantly without copying or duplicating them on disk!
 * **Send to Host (Client):** On the Client device, tap **Browse Files** or drag files into the upload zone. Files are saved directly into the Host's configured **Received_Files** folder (default: `Desktop/PyShare_Files/Received_Files`, customizable anytime via **📁 Change** in the Desktop App).
 * **Download from Host:** Tap any staged file to preview, download individually, or tap **📦 ZIP All** to stream all shared files as a compressed archive.
 * **Universal Clipboard:** Tap **📋** in the top navigation bar to view, copy, or beam text. On Host, click **"📋 Push Host Clipboard"** to send your Windows clipboard instantly!

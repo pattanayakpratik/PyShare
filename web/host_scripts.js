@@ -6,9 +6,39 @@ window.isHostSession = true;
 
 // Set Host Address in Status Pill
 const hostIpEl = document.getElementById('host-ip');
-if (hostIpEl) {
-    hostIpEl.innerText = window.location.host;
+
+function updateServerDisplay(ip, port) {
+    if (hostIpEl && ip && port) {
+        hostIpEl.innerText = `${ip}:${port}`;
+    }
 }
+
+// Fetch real physical Wi-Fi IP from server (ignores local loopback 127.0.0.1)
+fetch('/api/info')
+    .then(r => r.json())
+    .then(data => {
+        if (data && data.ip && data.port) {
+            updateServerDisplay(data.ip, data.port);
+        }
+    })
+    .catch(() => {});
+
+function copyHostIp() {
+    if (!hostIpEl) return;
+    const addr = hostIpEl.innerText.trim();
+    if (!addr || addr === '...' || addr === 'Detecting...') return;
+    const fullUrl = `http://${addr}/`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(fullUrl).then(() => {
+            showToast(`Server URL copied: ${fullUrl}`, '📋');
+        }).catch(() => {
+            prompt('Copy PyShare URL:', fullUrl);
+        });
+    } else {
+        prompt('Copy PyShare URL:', fullUrl);
+    }
+}
+window.copyHostIp = copyHostIp;
 
 // Host uploads land directly into Shared_Files
 window.handleFilesCustom = function(files) {
@@ -40,6 +70,16 @@ async function syncPCClipboard() {
 function setupHostSSE(es) {
     if (!es) return;
 
+    // 0. Live Server Info (Physical IP push)
+    es.addEventListener('server_info', (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            if (data && data.ip && data.port) {
+                updateServerDisplay(data.ip, data.port);
+            }
+        } catch (err) {}
+    });
+
     // 1. Live PIN & Grace Period Countdown (Pushed every second from server)
     es.addEventListener('pin', (e) => {
         try {
@@ -47,6 +87,10 @@ function setupHostSSE(es) {
             const pinEl = document.getElementById('live-pin');
             const timerTextEl = document.getElementById('pin-timer-text');
             const timerBarEl = document.getElementById('pin-timer-bar');
+
+            if (data.ip && data.port) {
+                updateServerDisplay(data.ip, data.port);
+            }
 
             if (pinEl) pinEl.innerText = data.pin;
             if (timerTextEl) timerTextEl.innerText = data.ttl + 's';

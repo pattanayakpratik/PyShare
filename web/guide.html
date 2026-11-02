@@ -330,7 +330,7 @@
             <span class="guide-hero-icon">📖</span>
             <h1 class="guide-hero-title">How to Use PyShare</h1>
             <p class="guide-hero-sub">
-                Fast, private, local file transfer and clipboard hub. Featuring Google Quick Share drag &amp; drop file staging, standalone native desktop app (PC), and zero-install web transfer (iPhone, Android, Mac, Linux).
+                Fast, private, local file transfer and clipboard hub. Featuring direct drag &amp; drop file staging, standalone native desktop app (PC), and zero-install web transfer (iPhone, Android, Mac, Linux).
             </p>
         </div>
 
@@ -378,7 +378,7 @@
             <div class="tip-callout-text">
                 <strong>Two Seamless Ways to Use PyShare:</strong><br>
                 • <strong>Instant Web Mode:</strong> Run 100% inside any browser on PC, Mac, iPhone, iPad, or Android with <strong>zero software downloads</strong>.<br>
-                • <strong>Standalone Native Desktop App (<code>PyShare.exe</code>):</strong> Runs in its own dedicated Cyberpunk Neon Glass window with <strong>zero browser dependencies</strong>, 100% offline local transfers up to 100 MB/s (works with Mobile Data OFF), and pure Quick Share drag &amp; drop staging!
+                • <strong>Standalone Native Desktop App (<code>PyShare.exe</code>):</strong> Runs in its own dedicated Cyberpunk Neon Glass window with <strong>zero browser dependencies</strong>, 100% offline local transfers up to 100 MB/s (works with Mobile Data OFF), and zero-copy direct drag &amp; drop file staging!
             </div>
         </div>
 
@@ -394,7 +394,7 @@
                 <span class="method-title">Native Desktop App</span>
                 <span class="badge-fast">⚡ 50–100 MB/s</span>
                 <p class="method-desc">
-                    Standalone <code>PyShare.exe</code> on PC. Runs natively in its own window. Dual Host &amp; Client modes, Quick Share file staging, and 100% offline local Wi-Fi transfers with Mobile Data OFF.
+                    Standalone <code>PyShare.exe</code> on PC. Runs natively in its own window. Dual Host &amp; Client modes, direct file staging, and 100% offline local Wi-Fi transfers with Mobile Data OFF.
                 </p>
             </div>
 
@@ -426,9 +426,9 @@
 
         <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
             <div class="faq-card">
-                <div class="faq-q"><span>⚡</span> Quick Share File Staging (No Folder Duplication!)</div>
+                <div class="faq-q"><span>⚡</span> Direct File Staging (No Folder Duplication!)</div>
                 <div class="faq-a">
-                    PyShare works exactly like Google Quick Share: you <strong>do not need to copy files into a shared folder</strong> or expose your hard drive. On Host (Desktop App or Web), simply <strong>drag &amp; drop files or folders from anywhere on your PC</strong> into the "Add to Shared" dropzone, or click <strong>"Select Files" / "Select Folders"</strong>.<br>
+                    In PyShare, you <strong>do not need to copy files into a shared folder</strong> or expose your hard drive. On Host (Desktop App or Web), simply <strong>drag &amp; drop files or folders from anywhere on your PC</strong> into the "Add to Shared" dropzone, or click <strong>"Select Files" / "Select Folders"</strong>.<br>
                     Your files are staged on-demand directly from their original location on disk without duplicating storage. You can add more files or remove staged items anytime with 1 click!
                 </div>
             </div>
@@ -445,7 +445,7 @@
                 <div class="faq-q"><span>🖥️</span> Dual Mode Desktop App (Host &amp; Client)</div>
                 <div class="faq-a">
                     The standalone desktop app gives you two modes in one window:<br>
-                    • <strong>Host Mode:</strong> Generates a local transfer hub with dynamic QR code, rotating PIN, 1-click clipboard push, and Quick Share staging.<br>
+                    • <strong>Host Mode:</strong> Generates a local transfer hub with dynamic QR code, rotating PIN, 1-click clipboard push, and direct file staging.<br>
                     • <strong>Client Mode:</strong> Connect to any other PyShare host on your network. Search shared files with real-time filtering, preview media, download directly to your PC, or send files to the host!
                 </div>
             </div>
@@ -488,14 +488,14 @@
             <div class="faq-q"><span>💻</span> Do I have to download the PC app to use PyShare?</div>
             <div class="faq-a">
                 <strong>No!</strong> You can use PyShare completely from the web on both PC and mobile by opening Web Transfer mode (<a href="/p2p" style="color:var(--accent-blue);">pyshare.vercel.app</a>). No software download is required on any device.<br>
-                However, downloading the standalone <strong>PyShare Desktop App (<code>PyShare.exe</code>)</strong> gives you extra powers: runs completely in its own native Cyberpunk Glass window (zero browser dependencies or tabs), 100 MB/s local offline Wi-Fi speeds without consuming any internet, Quick Share file staging from anywhere on your PC, customizable download folder for received files, and 1-click Windows clipboard sync.
+                However, downloading the standalone <strong>PyShare Desktop App (<code>PyShare.exe</code>)</strong> gives you extra powers: runs completely in its own native Cyberpunk Glass window (zero browser dependencies or tabs), 100 MB/s local offline Wi-Fi speeds without consuming any internet, direct file staging from anywhere on your PC, customizable download folder for received files, and 1-click Windows clipboard sync.
             </div>
         </div>
 
         <div class="faq-card" style="border-left: 3px solid var(--accent-violet);">
             <div class="faq-q"><span>🤔</span> Why is there no "Open Folder" or "Change Folder" for choosing files to share?</div>
             <div class="faq-a">
-                Because PyShare uses the <strong>Google Quick Share model</strong>! Unlike older file servers that require you to put all your files into a dedicated shared directory or expose entire folders, PyShare lets you pick and stage files directly: just drag &amp; drop or click "Select Files" to stage individual files or folders from anywhere on your PC without copying or moving them.<br><br>
+                Because PyShare uses its own <strong>Direct Staging architecture</strong>! Unlike older file servers that require you to put all your files into a dedicated shared directory or expose entire folders, PyShare lets you pick and stage files directly: just drag &amp; drop or click "Select Files" to stage individual files or folders from anywhere on your PC without copying or moving them.<br><br>
                 The <strong>"📁 Change"</strong> and <strong>"📂 Open"</strong> buttons exist strictly on the <strong>receiving/downloading side</strong> so you can configure where incoming files sent by client devices are stored on your computer.
             </div>
         </div>
@@ -540,7 +540,7 @@
             <div class="faq-q"><span>📂</span> Where are received files saved on the Host?</div>
             <div class="faq-a">
                 All files sent to the Host are automatically saved into: <code>Desktop/PyShare_Files/Received_Files</code> by default.<br>
-                In the Desktop App, you can change this anytime by clicking <strong>📁 Change</strong>, or open the folder immediately with <strong>📂 Open</strong>. Files you choose to share from the Host are staged directly from their current location via Quick Share without being copied into a shared directory.
+                In the Desktop App, you can change this anytime by clicking <strong>📁 Change</strong>, or open the folder immediately with <strong>📂 Open</strong>. Files you choose to share from the Host are staged directly from their current location on-the-fly without being copied into a shared directory.
             </div>
         </div>
 
