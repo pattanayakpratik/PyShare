@@ -8,3 +8,6 @@ app
 Screenshots
 run.py
 requirements.txt
+backend/
+installer/
+__pycache__/
