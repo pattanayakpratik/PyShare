@@ -821,6 +821,106 @@ def get_asset_dir():
 ASSET_DIR = get_asset_dir()
 
 
+def parse_user_agent(ua):
+    """Extract human-readable device and browser name from User-Agent string."""
+    if not ua:
+        return {"device": "Unknown Device", "browser": "Browser", "icon": "laptop"}
+
+    ua_lower = ua.lower()
+
+    # Browser detection
+    if "edg/" in ua_lower or "edge/" in ua_lower:
+        browser = "Edge"
+    elif "opr/" in ua_lower or "opera" in ua_lower:
+        browser = "Opera"
+    elif "chrome/" in ua_lower or "crios/" in ua_lower:
+        browser = "Chrome"
+    elif "firefox/" in ua_lower or "fxios/" in ua_lower:
+        browser = "Firefox"
+    elif "safari/" in ua_lower:
+        browser = "Safari"
+    elif "curl/" in ua_lower:
+        browser = "Curl"
+    else:
+        browser = "Browser"
+
+    # Device detection
+    if "iphone" in ua_lower:
+        device = "iPhone"
+        icon = "smartphone"
+    elif "ipad" in ua_lower:
+        device = "iPad"
+        icon = "tablet"
+    elif "android" in ua_lower:
+        device = "Android Device"
+        icon = "smartphone"
+        m = re.search(r';\s*([^;]+?)\s*(?:Build/|\))', ua)
+        if m:
+            cand = m.group(1).strip()
+            if cand and not cand.lower().startswith(("k", "wv", "u;")):
+                device = cand
+    elif "windows" in ua_lower:
+        device = "Windows PC"
+        icon = "laptop"
+    elif "macintosh" in ua_lower or "mac os" in ua_lower:
+        device = "Mac"
+        icon = "laptop"
+    elif "linux" in ua_lower:
+        device = "Linux PC"
+        icon = "laptop"
+    elif "cros" in ua_lower:
+        device = "Chromebook"
+        icon = "laptop"
+    else:
+        device = "Device"
+        icon = "smartphone"
+
+    return {"device": device, "browser": browser, "icon": icon}
+
+
+def get_connected_peers():
+    """Return list of active connected peers (filtered for sessions active within 24h)."""
+    now = time.time()
+    peers = []
+    with state_lock:
+        expired = []
+        for token, sess in list(SESSIONS.items()):
+            if isinstance(sess, dict):
+                created_at = sess.get("created_at", 0)
+                if (now - created_at) >= 86400:
+                    expired.append(token)
+                else:
+                    last_seen = sess.get("last_seen", created_at)
+                    peers.append({
+                        "id": sess.get("id", token[:8]),
+                        "ip": sess.get("ip", "Unknown"),
+                        "device": sess.get("device", "Device"),
+                        "browser": sess.get("browser", "Browser"),
+                        "icon": sess.get("icon", "laptop"),
+                        "created_at": created_at,
+                        "last_seen": last_seen,
+                        "active": (now - last_seen) < 120
+                    })
+            else:
+                if (now - sess) >= 86400:
+                    expired.append(token)
+                else:
+                    peers.append({
+                        "id": token[:8],
+                        "ip": "Unknown",
+                        "device": "Client Device",
+                        "browser": "Browser",
+                        "icon": "smartphone",
+                        "created_at": sess,
+                        "last_seen": sess,
+                        "active": (now - sess) < 120
+                    })
+        for t in expired:
+            SESSIONS.pop(t, None)
+    peers.sort(key=lambda p: p["last_seen"], reverse=True)
+    return peers
+
+
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     disable_nagle_algorithm = True
@@ -914,8 +1014,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if token:
             with state_lock:
                 if token in SESSIONS:
-                    created_at = SESSIONS[token]
+                    sess = SESSIONS[token]
+                    created_at = sess.get("created_at", 0) if isinstance(sess, dict) else sess
                     if (time.time() - created_at) < 86400:
+                        if isinstance(sess, dict):
+                            sess["last_seen"] = time.time()
                         return True
                     else:
                         SESSIONS.pop(token, None)
@@ -1160,6 +1263,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     with TUNNEL_LOCK:
                         tun_json = json.dumps({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
                     self.wfile.write(f"event: tunnel\ndata: {tun_json}\n\n".encode('utf-8'))
+
+                # 5. Connected peers snapshot (Host only)
+                if self.is_host_client():
+                    peers_json = json.dumps(get_connected_peers())
+                    self.wfile.write(f"event: peers\ndata: {peers_json}\n\n".encode('utf-8'))
                 self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError, Exception):
                 remove_sse_subscriber(q)
@@ -1227,6 +1335,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 })
             else:
                 self.send_error(403, "Forbidden")
+            return
+
+        # Connected Peers Endpoint (Host Only)
+        if self.path == '/api/peers':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            self.send_json({"peers": get_connected_peers()})
             return
 
         # E. API: Files List
@@ -1526,16 +1642,27 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     login_attempts.pop(client_ip, None)
 
                 token = secrets.token_hex(16)
+                ua = self.headers.get("User-Agent", "")
+                ua_info = parse_user_agent(ua)
+                now_ts = time.time()
                 with state_lock:
-                    now_ts = time.time()
-                    SESSIONS[token] = now_ts
+                    SESSIONS[token] = {
+                        "id": token[:8],
+                        "ip": client_ip,
+                        "device": ua_info["device"],
+                        "browser": ua_info["browser"],
+                        "icon": ua_info["icon"],
+                        "created_at": now_ts,
+                        "last_seen": now_ts
+                    }
                     if len(SESSIONS) > 500:
                         cutoff = now_ts - 86400
-                        expired = [t for t, ts in SESSIONS.items() if ts <= cutoff]
+                        expired = [t for t, s in SESSIONS.items() if (s.get("created_at", s) if isinstance(s, dict) else s) <= cutoff]
                         for t in expired:
                             SESSIONS.pop(t, None)
-                add_event(f"Device connected: {client_ip}")
-                trigger_desktop_notification("PyShare — Device Connected", f"Client connected: {client_ip}")
+                add_event(f"Device connected: {client_ip} ({ua_info['device']} · {ua_info['browser']})")
+                trigger_desktop_notification("PyShare — Device Connected", f"{ua_info['device']} connected ({client_ip})")
+                broadcast_sse("peers", get_connected_peers())
 
                 body_bytes = b"OK"
                 self.send_response(200)
@@ -1685,6 +1812,39 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 else:
                     self.send_error(404, "File not found")
                     return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
+        # Handle Peer Disconnect / Session Revocation (/api/peers/disconnect - Host Only)
+        if self.path == '/api/peers/disconnect':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body) if body else {}
+                target_id = str(data.get("id", "")).strip()
+                target_ip = str(data.get("ip", "")).strip()
+                removed = 0
+                with state_lock:
+                    to_remove = []
+                    for t, s in list(SESSIONS.items()):
+                        s_id = s.get("id") if isinstance(s, dict) else t[:8]
+                        s_ip = s.get("ip") if isinstance(s, dict) else None
+                        if target_id and s_id == target_id:
+                            to_remove.append(t)
+                        elif target_ip and s_ip == target_ip:
+                            to_remove.append(t)
+                    for t in to_remove:
+                        SESSIONS.pop(t, None)
+                        removed += 1
+                if removed > 0:
+                    add_event(f"Revoked device access ({target_id or target_ip})")
+                    broadcast_sse("peers", get_connected_peers())
+                self.send_json({"status": "ok", "removed": removed})
+                return
             except Exception as e:
                 self.send_error(500, str(e))
                 return

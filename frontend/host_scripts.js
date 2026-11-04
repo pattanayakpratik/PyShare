@@ -245,6 +245,127 @@ function setupHostSSE(es) {
             updateTunnelUI(data);
         } catch (err) {}
     });
+
+    // 5. Active Connected Peers Real-time Inspector
+    es.addEventListener('peers', (e) => {
+        try {
+            const peers = JSON.parse(e.data);
+            renderPeers(peers);
+        } catch (err) {}
+    });
+}
+
+// --- ACTIVE CONNECTED PEERS INSPECTOR ---
+let currentPeers = [];
+
+function getDeviceIcon(iconType) {
+    if (iconType === 'smartphone') {
+        return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`;
+    }
+    if (iconType === 'tablet') {
+        return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`;
+    }
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="2" y1="20" x2="22" y2="20"/></svg>`;
+}
+
+function formatTimeAgo(ts) {
+    if (!ts) return '';
+    const diff = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+    if (diff < 15) return 'Active now';
+    if (diff < 60) return `${diff}s ago`;
+    const mins = Math.floor(diff / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    return `${hours}h ago`;
+}
+
+function renderPeers(peers) {
+    if (!Array.isArray(peers)) return;
+    currentPeers = peers;
+    const badge = document.getElementById('peerCount');
+    if (badge) badge.innerText = peers.length;
+
+    const list = document.getElementById('peersList');
+    const emptyState = document.getElementById('peersEmptyState');
+    if (!list) return;
+
+    if (peers.length === 0) {
+        list.innerHTML = '';
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+
+    list.innerHTML = peers.map(p => {
+        const isRecent = p.active;
+        const iconSvg = getDeviceIcon(p.icon);
+        const timeAgo = formatTimeAgo(p.last_seen);
+        const pId = escapeHtml(p.id);
+        const pIp = escapeHtml(p.ip);
+        const pDevice = escapeHtml(p.device);
+        const pBrowser = escapeHtml(p.browser);
+
+        return `
+            <div class="peer-card" id="peer-${pId}">
+                <div class="peer-info">
+                    <div class="peer-icon-box">
+                        ${iconSvg}
+                        <span class="peer-status-dot ${isRecent ? 'active' : 'idle'}" title="${isRecent ? 'Active now' : 'Idle'}"></span>
+                    </div>
+                    <div class="peer-details">
+                        <div class="peer-title">
+                            ${pDevice} <span style="font-weight:400; font-size:11px; color:var(--text-sub);">(${pBrowser})</span>
+                        </div>
+                        <div class="peer-meta">
+                            <span class="peer-ip-badge">${pIp}</span>
+                            <span>• ${timeAgo}</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-peer-revoke" onclick="disconnectPeer('${pId}', '${pIp}')" title="Revoke device session">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Revoke
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+async function fetchPeers() {
+    try {
+        const res = await fetch('/api/peers');
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.peers) {
+                renderPeers(data.peers);
+            }
+        }
+    } catch (e) {}
+}
+
+async function disconnectPeer(id, ip) {
+    if (!confirm(`Revoke access for this device (${ip})?`)) return;
+    try {
+        const res = await fetch('/api/peers/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, ip })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast('Device access revoked', '🔒');
+            currentPeers = currentPeers.filter(p => p.id !== id);
+            renderPeers(currentPeers);
+        } else {
+            showToast('Failed to revoke device', '❌');
+        }
+    } catch (e) {
+        showToast('Network error revoking device', '❌');
+    }
 }
 
 // --- CLOUDFLARE PUBLIC INTERNET TUNNEL CONTROLLER ---
@@ -344,6 +465,9 @@ function copyTunnelUrl() {
     } catch (e) {}
 })();
 
+// Initial Connected Peers Check
+fetchPeers();
+
 // Bind to SSE when ready or immediately if already active
 if (window.globalSSE) {
     setupHostSSE(window.globalSSE);
@@ -356,6 +480,7 @@ if (window.globalSSE) {
 // Gentle Fallback Heartbeat (Every 15s instead of 1s aggressive polling)
 setInterval(async () => {
     try {
+        fetchPeers();
         const res = await fetch('/api/updates');
         if (!res.ok) return;
         const data = await res.json();

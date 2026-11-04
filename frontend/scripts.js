@@ -508,6 +508,10 @@ function setupDragDrop() {
 async function loadFiles() {
     try {
         const res = await fetch('/api/files');
+        if (res.status === 401) {
+            window.location.reload();
+            return;
+        }
         if (!res.ok) return;
         const data = await res.json();
         pcFiles = data.host || data.pc || [];
@@ -649,6 +653,10 @@ function copyPreviewText() {
 async function loadClipboard() {
     try {
         const res = await fetch('/api/text');
+        if (res.status === 401) {
+            window.location.reload();
+            return;
+        }
         if (res.ok) {
             const data = await res.json();
             renderClipboard(data.text);

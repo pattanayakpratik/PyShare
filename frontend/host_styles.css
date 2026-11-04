@@ -318,6 +318,135 @@
     word-break: break-word;
 }
 
+/* --- CONNECTED DEVICES PEER INSPECTOR --- */
+.peer-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 8px 12px;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
+.peer-card:hover {
+    border-color: rgba(0, 240, 255, 0.4);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.peer-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.peer-icon-box {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-cyan);
+    flex-shrink: 0;
+}
+
+.peer-status-dot {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-card);
+}
+
+.peer-status-dot.active {
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+}
+
+.peer-status-dot.idle {
+    background: #f59e0b;
+}
+
+.peer-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    text-align: left;
+}
+
+.peer-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.peer-meta {
+    font-size: 11px;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 1px;
+}
+
+.peer-ip-badge {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 10px;
+    color: var(--text-sub);
+}
+
+.btn-peer-revoke {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #ef4444;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.btn-peer-revoke:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #ef4444;
+    color: #fff;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="light"] .peer-icon-box {
+    background: rgba(37, 99, 235, 0.08);
+    border-color: rgba(37, 99, 235, 0.25);
+    color: #2563eb;
+}
+
+[data-theme="light"] .peer-ip-badge {
+    background: rgba(0, 0, 0, 0.06);
+}
+
 /* --- COLUMN 3: DUAL FILE PANELS --- */
 .col-files {
     display: flex;
