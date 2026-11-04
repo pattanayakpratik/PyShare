@@ -151,12 +151,16 @@
 
                 <!-- Receiving Progress (Active only when client uploads) -->
                 <div id="rx-container" style="display:none; width:100%; background:rgba(16,185,129,0.1); border:1px solid var(--accent-green); border-radius:10px; padding:10px; text-align:left;">
-                    <div style="font-size:11px; margin-bottom:5px; font-weight:700; display:flex; justify-content:space-between;">
+                    <div style="font-size:11px; margin-bottom:5px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
                         <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Receiving from Client...</span>
-                        <span id="rx-filename" style="opacity:0.8;">file.ext</span>
+                        <span id="rx-filename" style="opacity:0.8; max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">file.ext</span>
                     </div>
-                    <div style="height:5px; background:rgba(255,255,255,0.1); border-radius:99px; overflow:hidden;">
+                    <div style="height:5px; background:rgba(255,255,255,0.1); border-radius:99px; overflow:hidden; margin-bottom:5px;">
                         <div id="rx-bar" style="height:100%; width:0%; background:var(--accent-green); transition:width 0.15s ease;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-sub); font-family:monospace;">
+                        <span id="rx-stats">0% &bull; calculating...</span>
+                        <span id="rx-eta">--:-- left</span>
                     </div>
                 </div>
 
@@ -258,7 +262,10 @@
     <div id="floatingQueue" class="floating-queue">
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700;">
             <span id="queueOverallStatus">Uploading Files...</span>
-            <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
+                <button type="button" onclick="document.getElementById('floatingQueue').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); cursor:pointer; font-size:14px; padding:2px 6px;" title="Minimize Queue">✕</button>
+            </div>
         </div>
         <div id="queueItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
     </div>

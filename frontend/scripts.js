@@ -173,6 +173,86 @@ function formatSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + units[i];
 }
 
+function formatEta(seconds) {
+    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '00:00';
+    if (seconds >= 3600) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+async function extractFilesFromDataTransfer(dataTransfer) {
+    if (!dataTransfer) return [];
+    const items = dataTransfer.items;
+    if (!items || !items.length) {
+        return Array.from(dataTransfer.files || []);
+    }
+
+    const files = [];
+
+    async function traverseDirectory(entry, path = "") {
+        if (entry.isFile) {
+            return new Promise((resolve) => {
+                entry.file((file) => {
+                    if (path) {
+                        try {
+                            Object.defineProperty(file, 'webkitRelativePath', {
+                                value: path + file.name,
+                                writable: false
+                            });
+                        } catch (e) {}
+                    }
+                    files.push(file);
+                    resolve();
+                }, () => resolve());
+            });
+        } else if (entry.isDirectory) {
+            const dirReader = entry.createReader();
+            const readBatch = () => {
+                return new Promise((resolve) => {
+                    dirReader.readEntries(async (entries) => {
+                        if (!entries || !entries.length) {
+                            resolve();
+                        } else {
+                            for (const child of entries) {
+                                await traverseDirectory(child, path + entry.name + "/");
+                            }
+                            await readBatch();
+                            resolve();
+                        }
+                    }, () => resolve());
+                });
+            };
+            await readBatch();
+        }
+    }
+
+    const promises = [];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (typeof item.webkitGetAsEntry === 'function') {
+            const entry = item.webkitGetAsEntry();
+            if (entry) {
+                promises.push(traverseDirectory(entry));
+                continue;
+            }
+        }
+        const file = item.getAsFile ? item.getAsFile() : null;
+        if (file) files.push(file);
+    }
+
+    if (promises.length > 0) {
+        await Promise.all(promises);
+    }
+
+    return files.length > 0 ? files : Array.from(dataTransfer.files || []);
+}
+
 function getSmartIcon(category, ext) {
     switch (category) {
         case 'image': return '🖼️';
@@ -189,7 +269,7 @@ function getSmartIcon(category, ext) {
     }
 }
 
-// --- MULTI-FILE UPLOAD QUEUE ---
+// --- MULTI-FILE UPLOAD QUEUE WITH LIVE SPEED, ETA & CANCELLATION ---
 class UploadQueueManager {
     constructor() {
         this.queue = [];
@@ -208,7 +288,8 @@ class UploadQueueManager {
                 id: 'upl_' + Math.random().toString(36).substr(2, 9),
                 file: file,
                 url: uploadUrl,
-                status: 'pending'
+                status: 'pending',
+                xhr: null
             };
             this.queue.push(item);
             this.renderQueueItem(item);
@@ -225,15 +306,53 @@ class UploadQueueManager {
         el.id = item.id;
         el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; display:flex; flex-direction:column; gap:4px;";
         el.innerHTML = `
-            <div style="display:flex; justify-content:space-between; font-size:11px;">
-                <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">${escapeHtml(item.file.name)}</span>
-                <span id="${item.id}_status" style="color:var(--text-sub);">${formatSize(item.file.size)}</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span id="${item.id}_status" style="color:var(--text-sub); font-family:monospace; font-size:10px;">${formatSize(item.file.size)}</span>
+                    <button id="${item.id}_cancel" class="icon-btn" onclick="uploadManager.cancelItem('${item.id}')" style="width:18px; height:18px; padding:0; border:none; background:transparent; color:var(--text-muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;" title="Cancel Upload" aria-label="Cancel">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
             </div>
             <div style="height:4px; background:rgba(255,255,255,0.1); border-radius:99px; overflow:hidden;">
                 <div id="${item.id}_bar" style="height:100%; width:0%; background:var(--accent-blue); transition:width 0.15s ease;"></div>
             </div>
         `;
         list.appendChild(el);
+    }
+
+    cancelItem(id) {
+        const item = this.queue.find(i => i.id === id);
+        if (!item) return;
+
+        if (item.status === 'uploading') {
+            if (item.xhr) {
+                try {
+                    item.xhr.abort();
+                } catch (e) {}
+            }
+            item.status = 'cancelled';
+            this.activeUploads = Math.max(0, this.activeUploads - 1);
+            const statusEl = document.getElementById(`${item.id}_status`);
+            if (statusEl) statusEl.innerText = 'Cancelled';
+            const cancelBtn = document.getElementById(`${item.id}_cancel`);
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            const barEl = document.getElementById(`${item.id}_bar`);
+            if (barEl) {
+                barEl.style.width = '100%';
+                barEl.style.background = 'var(--accent-red, #ef4444)';
+            }
+            showToast(`Cancelled: ${item.file.name}`, '⚠️');
+            this.processNext();
+        } else if (item.status === 'pending') {
+            item.status = 'cancelled';
+            const statusEl = document.getElementById(`${item.id}_status`);
+            if (statusEl) statusEl.innerText = 'Removed';
+            const cancelBtn = document.getElementById(`${item.id}_cancel`);
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            this.processNext();
+        }
     }
 
     processNext() {
@@ -270,38 +389,52 @@ class UploadQueueManager {
 
         const statusEl = document.getElementById(`${item.id}_status`);
         const barEl = document.getElementById(`${item.id}_bar`);
+        const cancelBtn = document.getElementById(`${item.id}_cancel`);
         const speedEl = document.getElementById('queueSpeed');
 
         const xhr = new XMLHttpRequest();
+        item.xhr = xhr;
+
         let lastLoaded = 0;
         let lastTime = Date.now();
         let lastProgressTime = 0;
+        let smoothedSpeed = 0;
 
         xhr.open('POST', item.url);
         xhr.setRequestHeader('X-File-Name', encodeURIComponent(item.file.name));
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
 
         xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
+            if (e.lengthComputable && item.status === 'uploading') {
                 const now = Date.now();
                 if (e.loaded < e.total && now - lastProgressTime < 100) return;
                 lastProgressTime = now;
                 const pct = Math.round((e.loaded / e.total) * 100);
                 if (barEl) barEl.style.width = pct + '%';
+
                 const timeDiff = (now - lastTime) / 1000;
-                if (timeDiff >= 0.5) {
-                    const speed = (e.loaded - lastLoaded) / timeDiff;
-                    if (speedEl) speedEl.innerText = `${formatSize(speed)}/s`;
+                if (timeDiff >= 0.25) {
+                    const curSpeed = (e.loaded - lastLoaded) / timeDiff;
+                    smoothedSpeed = smoothedSpeed === 0 ? curSpeed : (0.7 * smoothedSpeed + 0.3 * curSpeed);
                     lastLoaded = e.loaded;
                     lastTime = now;
                 }
 
-                if (statusEl) statusEl.innerText = `${pct}% • ${formatSize(e.loaded)}`;
+                const remBytes = Math.max(0, e.total - e.loaded);
+                const etaSec = smoothedSpeed > 0 ? Math.round(remBytes / smoothedSpeed) : 0;
+                const speedText = smoothedSpeed > 0 ? `${formatSize(smoothedSpeed)}/s` : 'calculating...';
+                const etaText = etaSec > 0 ? ` • ${formatEta(etaSec)} left` : '';
+
+                if (speedEl) speedEl.innerText = speedText;
+                if (statusEl) statusEl.innerText = `${pct}% • ${speedText}${etaText}`;
             }
         };
 
         xhr.onload = () => {
-            this.activeUploads--;
+            if (item.status === 'cancelled') return;
+            this.activeUploads = Math.max(0, this.activeUploads - 1);
+            if (cancelBtn) cancelBtn.style.display = 'none';
+
             if (xhr.status === 200) {
                 item.status = 'done';
                 if (barEl) {
@@ -320,11 +453,17 @@ class UploadQueueManager {
         };
 
         xhr.onerror = () => {
-            this.activeUploads--;
+            if (item.status === 'cancelled') return;
+            this.activeUploads = Math.max(0, this.activeUploads - 1);
+            if (cancelBtn) cancelBtn.style.display = 'none';
             item.status = 'error';
             if (statusEl) statusEl.innerText = 'Network Error';
             showToast(`Upload error: ${item.file.name}`, '❌');
             this.processNext();
+        };
+
+        xhr.onabort = () => {
+            if (cancelBtn) cancelBtn.style.display = 'none';
         };
 
         xhr.send(item.file);
@@ -348,13 +487,16 @@ function setupDragDrop() {
     dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'), false);
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'), false);
 
-    dropZone.addEventListener('drop', (e) => {
+    dropZone.addEventListener('drop', async (e) => {
         dropZone.classList.remove('dragover');
-        if (e.dataTransfer && e.dataTransfer.files) {
-            if (window.handleFilesCustom) {
-                window.handleFilesCustom(e.dataTransfer.files);
-            } else {
-                handleFiles(e.dataTransfer.files);
+        if (e.dataTransfer) {
+            const extractedFiles = await extractFilesFromDataTransfer(e.dataTransfer);
+            if (extractedFiles && extractedFiles.length > 0) {
+                if (window.handleFilesCustom) {
+                    window.handleFilesCustom(extractedFiles);
+                } else {
+                    handleFiles(extractedFiles);
+                }
             }
         }
     }, false);

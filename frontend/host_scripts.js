@@ -135,21 +135,56 @@ function setupHostSSE(es) {
         } catch (err) {}
     });
 
-    // 3. Incoming Mobile Upload Monitor (High-frequency throttled push)
+    // 3. Incoming Mobile Upload Monitor (High-frequency throttled push with Speed & ETA)
+    let lastRxLoaded = 0;
+    let lastRxTime = Date.now();
+    let rxSmoothedSpeed = 0;
+    let currentRxFile = '';
+
     es.addEventListener('upload', (e) => {
         try {
             const upload = JSON.parse(e.data);
             const rxBox = document.getElementById('rx-container');
             const rxBar = document.getElementById('rx-bar');
             const rxName = document.getElementById('rx-filename');
+            const rxStats = document.getElementById('rx-stats');
+            const rxEta = document.getElementById('rx-eta');
+
             if (rxBox && rxBar && rxName) {
                 if (upload) {
                     rxBox.style.display = 'block';
                     rxName.innerText = upload.filename;
+
+                    if (currentRxFile !== upload.filename) {
+                        currentRxFile = upload.filename;
+                        lastRxLoaded = upload.current;
+                        lastRxTime = Date.now();
+                        rxSmoothedSpeed = 0;
+                    }
+
                     const pct = Math.round((upload.current / upload.total) * 100);
                     rxBar.style.width = pct + "%";
+
+                    const now = Date.now();
+                    const timeDiff = (now - lastRxTime) / 1000;
+                    if (timeDiff >= 0.25) {
+                        const curSpeed = (upload.current - lastRxLoaded) / timeDiff;
+                        rxSmoothedSpeed = rxSmoothedSpeed === 0 ? curSpeed : (0.7 * rxSmoothedSpeed + 0.3 * curSpeed);
+                        lastRxLoaded = upload.current;
+                        lastRxTime = now;
+                    }
+
+                    const remBytes = Math.max(0, upload.total - upload.current);
+                    const etaSec = rxSmoothedSpeed > 0 ? Math.round(remBytes / rxSmoothedSpeed) : 0;
+                    const speedStr = rxSmoothedSpeed > 0 ? `${formatSize(rxSmoothedSpeed)}/s` : 'calculating...';
+                    const etaStr = etaSec > 0 ? `${formatEta(etaSec)} left` : '';
+
+                    if (rxStats) rxStats.innerText = `${pct}% • ${speedStr}`;
+                    if (rxEta) rxEta.innerText = etaStr;
                 } else {
                     rxBox.style.display = 'none';
+                    currentRxFile = '';
+                    rxSmoothedSpeed = 0;
                 }
             }
         } catch (err) {}
