@@ -1635,7 +1635,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             pin_input = params.get('pin', [''])[0].strip()
             
             with state_lock:
-                valid_pins = {CURRENT_PIN, PREVIOUS_PIN}
+                valid_pins = {p for p in (CURRENT_PIN, PREVIOUS_PIN) if p and p != "0000"}
             
             if pin_input in valid_pins and pin_input != "":
                 with login_lock:
