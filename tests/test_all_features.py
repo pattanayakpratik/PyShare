@@ -75,6 +75,8 @@ class TestPyShareAllFeatures(unittest.TestCase):
     # =========================================================================
     def test_01_named_mutex_single_instance(self):
         """Step 1.1: Verify Windows Named Mutex detects duplicate instances."""
+        if sys.platform != "win32":
+            self.skipTest("Named Mutex verification applies strictly to Windows platform")
         kernel32 = ctypes.windll.kernel32
         test_mutex_name = "Global\\PyShare_Test_Mutex_Verification"
         ERROR_ALREADY_EXISTS = 183
