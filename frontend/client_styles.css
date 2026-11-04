@@ -78,7 +78,7 @@ body {
 
 @media (max-width: 480px) {
     .app-container {
-        padding: 10px 12px;
+        padding: 10px 12px 32px 12px;
         gap: 12px;
     }
     .icon-btn {
@@ -95,18 +95,38 @@ body {
         gap: 6px;
     }
     .client-upload-card {
-        padding: 20px 14px;
+        padding: 18px 12px;
+        border-radius: 20px;
     }
     .cloud-icon {
-        font-size: 40px;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
     }
     .client-upload-title {
-        font-size: 17px;
+        font-size: 16px;
+        margin-bottom: 2px;
     }
     .client-upload-sub {
         font-size: 12px;
-        margin-bottom: 14px;
+        margin-bottom: 12px;
+    }
+    .client-files-panel {
+        padding: 14px 12px !important;
+        border-radius: 20px;
+    }
+    .client-panel-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .client-panel-header h3 {
+        font-size: 14px !important;
+    }
+    .client-panel-header .btn-secondary {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+    }
+    .file-row {
+        padding: 8px 10px;
+        gap: 8px;
     }
 }
 

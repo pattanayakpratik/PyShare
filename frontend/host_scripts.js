@@ -23,6 +23,20 @@ fetch('/api/info')
     })
     .catch(() => {});
 
+// Fetch initial PIN and status immediately on load (without waiting for SSE tick)
+fetch('/api/pin')
+    .then(r => r.json())
+    .then(data => {
+        if (data) {
+            const pinEl = document.getElementById('live-pin');
+            const timerTextEl = document.getElementById('pin-timer-text');
+            if (pinEl && data.pin) pinEl.innerText = data.pin;
+            if (timerTextEl && data.ttl) timerTextEl.innerText = data.ttl + 's';
+            if (data.ip && data.port) updateServerDisplay(data.ip, data.port);
+        }
+    })
+    .catch(() => {});
+
 function copyHostIp() {
     if (!hostIpEl) return;
     const addr = hostIpEl.innerText.trim();

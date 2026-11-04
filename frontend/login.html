@@ -208,6 +208,47 @@
             20%, 60% { transform: translateX(-8px); }
             40%, 80% { transform: translateX(8px); }
         }
+
+        @media (max-width: 400px) {
+            body {
+                padding: 12px;
+            }
+            .login-card {
+                padding: 24px 18px;
+                border-radius: 20px;
+                max-width: 300px;
+            }
+            .lock-icon {
+                font-size: 32px;
+                margin-bottom: 8px;
+            }
+            .login-title {
+                font-size: 20px;
+            }
+            .login-desc {
+                font-size: 12px;
+                margin-bottom: 16px;
+            }
+            .pin-dot-display {
+                font-size: 26px;
+                letter-spacing: 10px;
+                min-height: 48px;
+                margin-bottom: 16px;
+                padding: 8px;
+            }
+            .keypad-grid {
+                gap: 8px;
+            }
+            .key-btn {
+                height: 46px;
+                font-size: 17px;
+                border-radius: 12px;
+            }
+            .key-btn-submit {
+                padding: 12px 0;
+                font-size: 15px;
+            }
+        }
     </style>
 </head>
 <body>

@@ -1192,3 +1192,38 @@ body {
     }
 }
 
+@media (max-width: 480px) {
+    .modal-box {
+        width: calc(100vw - 24px);
+        max-width: 400px;
+        border-radius: 20px;
+    }
+    .modal-header {
+        padding: 14px 16px;
+    }
+    .modal-content-area {
+        padding: 14px 16px;
+    }
+    .file-row {
+        padding: 8px 10px;
+        gap: 8px;
+        border-radius: 12px;
+    }
+    .file-icon {
+        width: 30px;
+        height: 30px;
+        font-size: 20px;
+    }
+    .file-name {
+        font-size: 13px;
+    }
+    .file-meta {
+        font-size: 11px;
+    }
+    .action-circle-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+}
+

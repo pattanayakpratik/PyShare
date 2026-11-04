@@ -426,3 +426,76 @@
     border-bottom: 2px solid #2563eb;
     font-weight: 700;
 }
+
+/* Responsive Mobile & Tablet Rules for Host Studio */
+@media (max-width: 768px) {
+    .app-container {
+        padding: 10px 14px 40px 14px;
+        gap: 14px;
+        height: auto;
+        min-height: 100vh;
+    }
+    .upload-dropzone-card {
+        padding: 20px 14px;
+        border-radius: 20px;
+        min-height: 180px;
+    }
+    .upload-heading {
+        font-size: 18px;
+    }
+    .upload-subheading {
+        font-size: 12px;
+        margin-bottom: 12px;
+    }
+    .connect-hub-card {
+        padding: 14px 12px;
+        border-radius: 20px;
+        gap: 10px;
+    }
+    .qr-white-card {
+        padding: 8px;
+        border-radius: 16px;
+    }
+    .qr-code-img {
+        width: 110px;
+        height: 110px;
+    }
+    .pin-display-box {
+        padding: 8px 16px;
+        border-radius: 14px;
+    }
+    .pin-number-text {
+        font-size: 24px;
+        letter-spacing: 6px;
+    }
+    .panel-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .panel-title {
+        font-size: 15px;
+    }
+    .panel-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .panel-actions .btn-secondary {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+    .file-panel-card {
+        border-radius: 20px;
+        padding: 14px 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-container {
+        padding: 8px 10px 36px 10px;
+        gap: 10px;
+    }
+    .pin-number-text {
+        font-size: 22px;
+        letter-spacing: 5px;
+    }
+}

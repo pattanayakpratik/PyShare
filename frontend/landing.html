@@ -49,6 +49,31 @@
                 grid-template-columns: 1fr 1fr;
             }
         }
+        @media (max-width: 480px) {
+            .app-container {
+                padding: 10px 12px 32px 12px !important;
+            }
+            .landing-grid {
+                margin-top: 18px;
+                gap: 14px;
+            }
+            .mode-select-card {
+                padding: 22px 16px;
+                border-radius: 20px;
+                gap: 8px;
+            }
+            .mode-select-card h2 {
+                font-size: 18px !important;
+            }
+            .mode-select-card p {
+                font-size: 12px !important;
+            }
+            .mode-select-card .btn-primary,
+            .mode-select-card .btn-secondary {
+                padding: 8px 18px !important;
+                font-size: 12px !important;
+            }
+        }
         .mode-select-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
