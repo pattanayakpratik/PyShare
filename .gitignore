@@ -29,7 +29,7 @@ SharedFiles/From_PC/*
 # Ignore the folders created during the build process
 build/
 dist/
-installer/
+installer/*
 # Ignore auto-generated configuration files but keep project spec & version info
 *.spec
 !backend/PyShare.spec
