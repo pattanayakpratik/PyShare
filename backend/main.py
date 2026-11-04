@@ -50,6 +50,73 @@ UPLOAD_DIR = ""    # Received from Clients (Client Uploads)
 DOWNLOAD_DIR = ""  # Shared by Host (Host Shared Files)
 ACTUAL_PORT = START_PORT
 zc = None
+APP_VERSION = "4.9.2"
+DESKTOP_NOTIFY_HOOK = None
+LAST_UPDATE_CHECK = {"timestamp": 0, "data": None}
+
+def format_file_size(size_bytes):
+    try:
+        size = float(size_bytes)
+        if size < 1024:
+            return f"{int(size)} B"
+        elif size < 1024 * 1024:
+            return f"{size / 1024:.1f} KB"
+        elif size < 1024 * 1024 * 1024:
+            return f"{size / (1024 * 1024):.1f} MB"
+        else:
+            return f"{size / (1024 * 1024 * 1024):.2f} GB"
+    except Exception:
+        return f"{size_bytes} B"
+
+def trigger_desktop_notification(title, message):
+    if DESKTOP_NOTIFY_HOOK:
+        try:
+            DESKTOP_NOTIFY_HOOK(title, message)
+        except Exception:
+            pass
+
+def check_for_updates():
+    global LAST_UPDATE_CHECK
+    now = time.time()
+    if LAST_UPDATE_CHECK["data"] and (now - LAST_UPDATE_CHECK["timestamp"]) < 3600:
+        return LAST_UPDATE_CHECK["data"]
+    try:
+        url = "https://api.github.com/repos/pattanayakpratik/PyShare/releases/latest"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "PyShare-App",
+            "Accept": "application/vnd.github.v3+json"
+        })
+        with urllib.request.urlopen(req, timeout=4) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                tag_name = data.get("tag_name", "").lstrip("v")
+                html_url = data.get("html_url", "https://github.com/pattanayakpratik/PyShare/releases")
+                body = data.get("body", "")
+
+                def parse_version_tuple(v_str):
+                    parts = re.findall(r'\d+', v_str)
+                    return tuple(int(p) for p in parts[:3]) if parts else (0, 0, 0)
+
+                has_update = parse_version_tuple(tag_name) > parse_version_tuple(APP_VERSION)
+                result = {
+                    "current_version": APP_VERSION,
+                    "latest_version": tag_name,
+                    "has_update": has_update,
+                    "release_url": html_url,
+                    "release_notes": body[:600] if body else ""
+                }
+                LAST_UPDATE_CHECK = {"timestamp": now, "data": result}
+                return result
+    except Exception:
+        pass
+
+    return {
+        "current_version": APP_VERSION,
+        "latest_version": APP_VERSION,
+        "has_update": False,
+        "release_url": "https://github.com/pattanayakpratik/PyShare/releases",
+        "release_notes": ""
+    }
 
 # --- PERSISTENT USER CONFIGURATION ---
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".pyshare_config.json")
@@ -61,7 +128,12 @@ def get_default_directories():
         "shared_dir": os.path.join(base, "Shared_Files"),
         "received_dir": os.path.join(base, "Received_Files"),
         "client_download_dir": os.path.join(os.path.expanduser("~"), "Downloads"),
-        "theme": "dark"
+        "theme": "dark",
+        "window_width": 1240,
+        "window_height": 780,
+        "window_x": None,
+        "window_y": None,
+        "minimize_to_tray": True
     }
 
 def load_app_config():
@@ -895,6 +967,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "QR Code not ready")
             return
 
+        # Check for PyShare Application Updates (Public endpoint)
+        if self.path in ('/api/check_update', '/api/version'):
+            self.send_json(check_for_updates())
+            return
+
         # 2. SERVE P2P SUITE & USER GUIDE (No Auth Required)
         if self.path in ('/p2p', '/p2p/', '/p2p.html', '/index.html') or self.path.startswith(('/p2p?', '/p2p.html?', '/index.html?')):
             fp = os.path.join(ASSET_DIR, "index.html")
@@ -1442,6 +1519,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         for t in expired:
                             SESSIONS.pop(t, None)
                 add_event(f"Device connected: {client_ip}")
+                trigger_desktop_notification("PyShare — Device Connected", f"Client connected: {client_ip}")
 
                 body_bytes = b"OK"
                 self.send_response(200)
@@ -1636,6 +1714,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             
             msg = f"Added to Shared: {actual_fn}" if is_host_upload else f"File received: {actual_fn}"
             add_event(msg)
+            if not is_host_upload:
+                trigger_desktop_notification("PyShare — File Received", f"Received: {actual_fn} ({format_file_size(total_size)})")
             
             # Broadcast updated file lists immediately across all connected devices
             broadcast_sse("files", get_files_data())

@@ -315,6 +315,11 @@
                             <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                             <span>Help &amp; Feedback</span>
                         </button>
+                        <button class="nav-dropdown-item" onclick="checkForUpdates(true); closeNavMenu();">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                            <span>Check for Updates</span>
+                            <span class="update-badge" id="navUpdateBadge" style="display:none; margin-left:auto; background:var(--accent-cyan); color:#000; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px;">NEW</span>
+                        </button>
                         <div class="nav-dropdown-divider"></div>
                         <button class="nav-dropdown-item danger" onclick="disconnectServer(); closeNavMenu();">
                             <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>

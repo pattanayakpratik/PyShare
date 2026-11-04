@@ -570,3 +570,100 @@ document.addEventListener('keydown', (e) => {
 window.toggleNavMenu = toggleNavMenu;
 window.closeNavMenu = closeNavMenu;
 
+// ==========================================================================
+// In-App Update Checker & Release Modal
+// ==========================================================================
+
+function ensureUpdateModal(data) {
+    let modal = document.getElementById('updateModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'updateModal';
+        modal.className = 'modal-backdrop';
+        modal.onclick = (e) => {
+            if (e.target === modal) closeUpdateModal();
+        };
+        document.body.appendChild(modal);
+    }
+
+    const currentV = data.current_version || '4.9.2';
+    const latestV = data.latest_version || currentV;
+    const releaseUrl = data.release_url || 'https://github.com/pattanayakpratik/PyShare/releases';
+    const rawNotes = data.release_notes || 'A new updated version of PyShare is available for download with new features and performance enhancements.';
+    const notes = String(rawNotes).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    modal.innerHTML = `
+        <div class="modal-box" style="max-width: 480px; text-align: left;" onclick="event.stopPropagation()">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:24px;">🚀</span>
+                    <div>
+                        <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--text-main);">New Update Available</h3>
+                        <span style="font-size:12px; color:var(--accent-cyan); font-weight:600;">v${latestV} &bull; Current: v${currentV}</span>
+                    </div>
+                </div>
+                <button onclick="closeUpdateModal()" class="icon-btn" style="border:none; background:transparent; cursor:pointer;" aria-label="Close">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <div style="background:var(--card-bg-subtle, rgba(0,0,0,0.25)); border:1px solid var(--border-color); border-radius:12px; padding:12px 14px; font-size:13px; color:var(--text-muted); max-height:160px; overflow-y:auto; line-height:1.5; white-space:pre-wrap; margin-bottom:18px;">
+${notes}
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="closeUpdateModal()" style="padding:10px 16px; border-radius:12px; font-size:13px;">Later</button>
+                <a href="${releaseUrl}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="display:inline-flex; align-items:center; gap:6px; padding:10px 18px; border-radius:12px; font-size:13px; text-decoration:none; font-weight:600;" onclick="closeUpdateModal()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Download Installer</span>
+                </a>
+            </div>
+        </div>
+    `;
+
+    modal.classList.add('open');
+}
+
+function closeUpdateModal() {
+    const modal = document.getElementById('updateModal');
+    if (modal) modal.classList.remove('open');
+}
+
+async function checkForUpdates(manual = false) {
+    try {
+        const resp = await fetch('/api/check_update');
+        if (!resp.ok) {
+            if (manual) {
+                if (typeof showToast === 'function') showToast('Could not reach update server', '⚠️');
+                else alert('Could not check for updates');
+            }
+            return;
+        }
+        const data = await resp.json();
+        if (data && data.has_update) {
+            const badge = document.getElementById('navUpdateBadge');
+            if (badge) badge.style.display = 'inline-block';
+            ensureUpdateModal(data);
+        } else if (manual) {
+            const msg = `PyShare is up to date (v${data.current_version || '4.9.2'}) ✓`;
+            if (typeof showToast === 'function') showToast(msg, '✅');
+            else alert(msg);
+        }
+    } catch (e) {
+        if (manual) {
+            if (typeof showToast === 'function') showToast('Network error checking updates', '⚠️');
+            else alert('Network error checking updates');
+        }
+    }
+}
+
+// Register globals & auto-check silently on startup
+if (typeof window !== 'undefined') {
+    window.checkForUpdates = checkForUpdates;
+    window.closeUpdateModal = closeUpdateModal;
+    setTimeout(() => {
+        checkForUpdates(false);
+    }, 3000);
+}
+
+
