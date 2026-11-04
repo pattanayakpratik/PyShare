@@ -80,6 +80,41 @@ async function syncPCClipboard() {
     }
 }
 
+// Toggle between Rotating PIN & Static PIN
+async function togglePinMode() {
+    const isCurrentlyStatic = document.getElementById('pin-timer-text')?.innerText.includes('Static');
+    const newMode = isCurrentlyStatic ? 'rotating' : 'static';
+
+    let customPin = '';
+    if (newMode === 'static') {
+        const input = prompt("Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):", "");
+        if (input === null) return; // User cancelled
+        if (input && !/^\d{4}$/.test(input.trim())) {
+            showToast("PIN must be exactly 4 numeric digits", "⚠️");
+            return;
+        }
+        customPin = input.trim();
+    }
+
+    try {
+        const res = await fetch('/api/pin/mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: newMode, pin: customPin })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            const label = data.mode === 'static' ? `Static PIN set to ${data.pin} 🔒` : 'Switched to Auto-Rotating PIN 🔄';
+            showToast(label, '✅');
+            if (navigator.vibrate) navigator.vibrate(40);
+            const qrImg = document.querySelector('.qr-code-img');
+            if (qrImg) qrImg.src = '/qrcode.png?t=' + Date.now();
+        }
+    } catch (e) {
+        showToast("Error updating PIN mode", "❌");
+    }
+}
+
 // Setup Host SSE Real-time Listeners
 function setupHostSSE(es) {
     if (!es) return;
@@ -107,15 +142,28 @@ function setupHostSSE(es) {
             }
 
             if (pinEl) pinEl.innerText = data.pin;
-            if (timerTextEl) timerTextEl.innerText = data.ttl + 's';
+            if (timerTextEl) {
+                if (data.ttl < 0 || data.mode === 'static') {
+                    timerTextEl.innerText = 'Static 🔒';
+                    timerTextEl.title = 'Static PIN (Does not expire). Click to toggle.';
+                } else {
+                    timerTextEl.innerText = data.ttl + 's';
+                    timerTextEl.title = 'Rotating PIN (Expires in ' + data.ttl + 's). Click to toggle.';
+                }
+            }
             
             if (timerBarEl) {
-                const pct = (data.ttl / 30) * 100;
-                timerBarEl.style.width = pct + '%';
-                if (data.ttl < 5) {
-                    timerBarEl.style.background = 'var(--accent-red)';
+                if (data.ttl < 0 || data.mode === 'static') {
+                    timerBarEl.style.width = '100%';
+                    timerBarEl.style.background = 'var(--accent-cyan)';
                 } else {
-                    timerBarEl.style.background = 'var(--accent-blue)';
+                    const pct = (data.ttl / 30) * 100;
+                    timerBarEl.style.width = pct + '%';
+                    if (data.ttl < 5) {
+                        timerBarEl.style.background = 'var(--accent-red)';
+                    } else {
+                        timerBarEl.style.background = 'var(--accent-blue)';
+                    }
                 }
             }
         } catch (err) {}

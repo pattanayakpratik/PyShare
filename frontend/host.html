@@ -139,11 +139,14 @@
                     <span id="tunnel-url-text">https://...</span> <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
                 </div>
 
-                <!-- Live Rotating PIN Code -->
-                <div class="pin-display-box">
+                <!-- Live Rotating or Static PIN Code -->
+                <div class="pin-display-box" style="position:relative;">
                     <div class="pin-meta-row">
-                        <span>PIN CODE</span>
-                        <span id="pin-timer-text" class="pin-ttl-countdown">30s</span>
+                        <span id="pin-mode-label" style="display:inline-flex; align-items:center; gap:4px;">
+                            <span>PIN CODE</span>
+                            <button id="btnPinModeToggle" onclick="togglePinMode()" style="background:none; border:none; color:var(--accent-cyan); cursor:pointer; padding:0 4px; font-size:12px; display:inline-flex; align-items:center;" title="Toggle between Rotating and Static PIN" aria-label="PIN Settings"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+                        </span>
+                        <span id="pin-timer-text" class="pin-ttl-countdown" onclick="togglePinMode()" style="cursor:pointer;" title="Click to toggle Rotating vs Static PIN">30s</span>
                     </div>
                     <div id="live-pin" class="pin-number-text">----</div>
                     <div id="pin-timer-bar" class="pin-timer-line"></div>

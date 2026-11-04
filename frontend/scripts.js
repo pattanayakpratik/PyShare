@@ -442,10 +442,12 @@ class UploadQueueManager {
                     barEl.style.background = 'var(--accent-green)';
                 }
                 if (statusEl) statusEl.innerText = 'Done';
+                if (navigator.vibrate) navigator.vibrate(50);
                 showToast(`Saved: ${item.file.name}`, '✅');
             } else {
                 item.status = 'error';
                 if (statusEl) statusEl.innerText = 'Failed';
+                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
                 showToast(`Failed: ${item.file.name}`, '❌');
             }
             loadFiles();

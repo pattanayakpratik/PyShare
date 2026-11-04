@@ -133,7 +133,9 @@ def get_default_directories():
         "window_height": 780,
         "window_x": None,
         "window_y": None,
-        "minimize_to_tray": True
+        "minimize_to_tray": True,
+        "pin_mode": "rotating",
+        "static_pin": "1234"
     }
 
 def load_app_config():
@@ -178,21 +180,23 @@ def set_custom_received_dir(path):
     return False
 
 def init_directories():
-    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR
+    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, PIN_MODE, STATIC_PIN
     cfg = load_app_config()
     defs = get_default_directories()
     DOWNLOAD_DIR = os.path.abspath(cfg.get("shared_dir", defs["shared_dir"]))
     UPLOAD_DIR = os.path.abspath(cfg.get("received_dir", defs["received_dir"]))
     BASE_DIR = os.path.dirname(DOWNLOAD_DIR)
+    PIN_MODE = cfg.get("pin_mode", defs["pin_mode"])
+    STATIC_PIN = str(cfg.get("static_pin", defs["static_pin"])).strip()
     try:
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     except Exception:
         pass
 
-init_directories()
-
 # --- SECURITY & STATE ---
+PIN_MODE = "rotating"  # "rotating" or "static"
+STATIC_PIN = "1234"
 CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
 NEXT_CHANGE = 0    # Track timestamp when PIN rotates
@@ -412,17 +416,22 @@ mimetypes.add_type("application/manifest+json", ".json")
 
 # --- PIN MANAGER WITH REAL-TIME TICKER ---
 def pin_rotator():
-    """Rotates the 4-digit PIN every 30 seconds and broadcasts countdown every second to SSE clients."""
-    global CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE
+    """Manages 4-digit PIN: rotates every 30 seconds or stays fixed in static mode."""
+    global CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, PIN_MODE, STATIC_PIN
     while True:
         now = time.time()
         with state_lock:
-            if now >= NEXT_CHANGE:
+            if PIN_MODE == "static":
+                CURRENT_PIN = STATIC_PIN if (STATIC_PIN and len(STATIC_PIN) == 4 and STATIC_PIN.isdigit()) else "1234"
                 PREVIOUS_PIN = CURRENT_PIN
-                CURRENT_PIN = f"{random.randint(1000, 9999)}"
-                NEXT_CHANGE = now + 30
-            ttl = max(0, int(NEXT_CHANGE - now))
-            pin_data = {"pin": CURRENT_PIN, "ttl": ttl}
+                ttl = -1
+            else:
+                if now >= NEXT_CHANGE:
+                    PREVIOUS_PIN = CURRENT_PIN
+                    CURRENT_PIN = f"{random.randint(1000, 9999)}"
+                    NEXT_CHANGE = now + 30
+                ttl = max(0, int(NEXT_CHANGE - now))
+            pin_data = {"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE}
         broadcast_sse("pin", pin_data)
         time.sleep(1)
 
@@ -579,14 +588,18 @@ def get_qr_path():
     return os.path.join(target_dir, "qrcode.png")
 
 def generate_qr(url=None):
-    """Generates a dynamic QR Code pointing to the current server URL or tunnel URL."""
+    """Generates a dynamic QR Code pointing to current server URL with auto-login pin."""
     try:
         if url is None:
             if TUNNEL_URL:
-                url = TUNNEL_URL
+                base = TUNNEL_URL
             else:
                 ip = get_ip()
-                url = f"http://{ip}:{ACTUAL_PORT}"
+                base = f"http://{ip}:{ACTUAL_PORT}"
+            url = f"{base}/?pin={CURRENT_PIN}" if CURRENT_PIN and CURRENT_PIN != "0000" else base
+        elif "pin=" not in url and CURRENT_PIN and CURRENT_PIN != "0000":
+            sep = "&" if "?" in url else "/?"
+            url = f"{url}{sep}pin={CURRENT_PIN}"
         qr_path = get_qr_path()
 
         qr = pyqrcode.create(url)
@@ -1202,11 +1215,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # D. API: PIN (Host Only)
         if self.path == '/api/pin':
             if self.is_host_client():
-                ttl = max(0, int(NEXT_CHANGE - time.time()))
+                ttl = -1 if PIN_MODE == "static" else max(0, int(NEXT_CHANGE - time.time()))
                 ip = get_ip()
                 self.send_json({
                     "pin": CURRENT_PIN,
                     "ttl": ttl,
+                    "mode": PIN_MODE,
                     "ip": ip,
                     "port": ACTUAL_PORT,
                     "url": f"http://{ip}:{ACTUAL_PORT}"
@@ -1451,6 +1465,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return
 
     def do_POST(self):
+        global PIN_MODE, STATIC_PIN, CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE
+
         # Handle Server Shutdown via POST
         if self.path in ('/shutdown', '/api/stop', '/api/shutdown'):
             if not self.is_host_client():
@@ -1564,6 +1580,43 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             with TUNNEL_LOCK:
                 self.send_json({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
             return
+
+        # Handle PIN Mode Switch (/api/pin/mode - Host Only)
+        if self.path == '/api/pin/mode':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body)
+                new_mode = data.get("mode", "rotating")
+                custom_pin = str(data.get("pin", "")).strip()
+
+                with state_lock:
+                    if new_mode in ("static", "rotating"):
+                        PIN_MODE = new_mode
+                    if custom_pin and len(custom_pin) == 4 and custom_pin.isdigit():
+                        STATIC_PIN = custom_pin
+                    if PIN_MODE == "static":
+                        CURRENT_PIN = STATIC_PIN if (STATIC_PIN and len(STATIC_PIN) == 4) else "1234"
+                        PREVIOUS_PIN = CURRENT_PIN
+                    else:
+                        NEXT_CHANGE = time.time() + 30
+
+                cfg = load_app_config()
+                cfg["pin_mode"] = PIN_MODE
+                cfg["static_pin"] = STATIC_PIN
+                save_app_config(cfg)
+
+                generate_qr()
+                add_event(f"PIN Security Mode: {PIN_MODE.capitalize()} ({CURRENT_PIN})")
+
+                self.send_json({"status": "ok", "mode": PIN_MODE, "pin": CURRENT_PIN})
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
 
         # 3. HANDLE SHARED CLIPBOARD POST (/api/text)
         if self.path in ('/api/text', '/api/clipboard'):
