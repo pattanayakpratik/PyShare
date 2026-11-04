@@ -1,8 +1,8 @@
 # UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(4, 9, 1, 0),
-    prodvers=(4, 9, 1, 0),
+    filevers=(4, 9, 2, 0),
+    prodvers=(4, 9, 2, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -18,12 +18,12 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'Pratik Pattanayak'),
             StringStruct('FileDescription', 'PyShare — Standalone Native Desktop File Transfer & P2P Studio'),
-            StringStruct('FileVersion', '4.9.1.0'),
+            StringStruct('FileVersion', '4.9.2.0'),
             StringStruct('InternalName', 'PyShare'),
             StringStruct('LegalCopyright', 'Copyright (c) 2026 Pratik Pattanayak (@pattanayakpratik). All rights reserved.'),
             StringStruct('OriginalFilename', 'PyShare.exe'),
             StringStruct('ProductName', 'PyShare'),
-            StringStruct('ProductVersion', '4.9.1.0')
+            StringStruct('ProductVersion', '4.9.2.0')
           ]
         )
       ]

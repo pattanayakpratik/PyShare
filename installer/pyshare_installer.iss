@@ -1,5 +1,5 @@
 #define MyAppName "PyShare"
-#define MyAppVersion "4.9.1"
+#define MyAppVersion "4.9.2"
 #define MyAppPublisher "Pratik Pattanayak"
 #define MyAppURL "https://github.com/pattanayakpratik/PyShare"
 #define MyAppExeName "PyShare.exe"
@@ -25,7 +25,7 @@ WizardStyle=modern
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 UninstallDisplayIcon={app}\{#MyAppExeName}
-VersionInfoVersion=4.9.1.0
+VersionInfoVersion=4.9.2.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=PyShare - Local & P2P File Sharing Studio Installer
 VersionInfoCopyright=Copyright (c) 2026 {#MyAppPublisher}

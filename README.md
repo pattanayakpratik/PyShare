@@ -21,7 +21,7 @@
 
 <br/>
 
-[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [💾 **Download Windows Installer**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare-Setup-v4.9.1.exe) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
+[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [💾 **Download Windows Installer**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.2/PyShare-Setup-v4.9.2.exe) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
@@ -101,7 +101,7 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 
 **Windows Users:** Run PyShare directly as a single portable application — **zero Python setup required.**
 
-* **PyShare Setup (Windows Installer)** 👉 **[Download PyShare-Setup-v4.9.1.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare-Setup-v4.9.1.exe)** *(Installs into Program Files, creates Start Menu & Desktop shortcuts, and registers in Windows Settings Installed Apps)*
+* **PyShare Setup (Windows Installer)** 👉 **[Download PyShare-Setup-v4.9.2.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.2/PyShare-Setup-v4.9.2.exe)** *(Installs into Program Files, creates Start Menu & Desktop shortcuts, and registers in Windows Settings Installed Apps)*
 * **PyShare Portable (Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.exe)**
 * **PyShare Portable (ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.zip)**
 * **GitHub Releases** 👉 **[PyShare Releases](https://github.com/pattanayakpratik/PyShare/releases)**
@@ -112,6 +112,19 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 ---
 
 <span id="whats-new"></span>
+## 🆕 What's New in v4.9.2
+
+- 🎨 **Redesigned Responsive Header & Unified Navbar**:
+  - Re-architected mobile and desktop navigation bars across all screens (Host, Client, Landing, Web P2P) with centered brand logo and crisp vector SVG control buttons.
+  - Added streamlined hamburger navigation drawer on mobile viewports for clutter-free access to Guide, Feedback, Mode Switch, and Server controls.
+- 📱 **Mobile UI & Touch Scaling Polish**:
+  - Dynamic QR code and PIN scale responsiveness on narrow mobile viewports (< 480px) to prevent button wrapping and content overflow.
+  - Immediate PIN code and host IP resolution on Host dashboard initialization, eliminating handshake latency.
+- 📦 **Enhanced Windows Setup Installer**:
+  - Updated official installer (`PyShare-Setup-v4.9.2.exe`) packaging the latest responsive studio layouts, native desktop entry point, and optimized caching.
+
+---
+
 ## 🆕 What's New in v4.9.1
 
 - 📦 **Official Windows Setup Installer (`PyShare-Setup-v4.9.1.exe`)**:

@@ -1,8 +1,8 @@
 /* ==========================================================================
-   PyShare v4.9.1 - Progressive Web App Service Worker
+   PyShare v4.9.2 - Progressive Web App Service Worker
    ========================================================================== */
 
-const CACHE_NAME = 'pyshare-shell-v4.9.1';
+const CACHE_NAME = 'pyshare-shell-v4.9.2';
 const PRECACHE_RESOURCES = [
   '/guide.html',
   '/manifest.json',
