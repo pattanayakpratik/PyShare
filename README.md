@@ -14,6 +14,7 @@
 ![Cloudflare](https://img.shields.io/badge/Cloudflare-Internet%20Tunnel-f38020?style=for-the-badge&logo=cloudflare)
 ![Network](https://img.shields.io/badge/Network-Offline%20LAN%20%2B%20Worldwide-3b82f6?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-orange?style=for-the-badge)
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/pattanayakpratik/badge.svg)](https://hub.xerj.org/contributors/pattanayakpratik)
 
 <br/>
 
@@ -357,6 +358,14 @@ python run.py             # Native Cyberpunk Glass Desktop GUI Studio
 # 5. Build standalone Windows executable (PyShare.exe)
 pyinstaller --clean backend/PyShare.spec
 ```
+
+---
+
+## Recognition & Community
+
+PyShare's architecture and security hardening implementations are indexed by the [**XERJ Corpus Hub**](https://hub.xerj.org/contributors/pattanayakpratik) as a verified reference solution for autonomous coding agents worldwide.
+
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/pattanayakpratik/badge.svg)](https://hub.xerj.org/contributors/pattanayakpratik)
 
 ---
 
