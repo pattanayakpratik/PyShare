@@ -15,6 +15,7 @@ env/
 .claude/
 agent/
 skills-lock.json
+GEMINI.md
 
 # --- Project Specific ---
 qrcode.png
