@@ -55,7 +55,7 @@ fetch('/api/pin')
             const timerTextEl = document.getElementById('pin-timer-text');
             if (data.pin) lastDisplayedPin = data.pin;
             if (pinEl && data.pin) pinEl.innerText = data.pin;
-            if (timerTextEl && data.ttl) timerTextEl.innerText = data.ttl + 's';
+            if (timerTextEl) timerTextEl.innerText = (data.ttl < 0 || data.mode === 'static') ? 'Static' : (data.ttl + 's');
             if (data.ip && data.port) updateServerDisplay(data.ip, data.port);
         }
     })

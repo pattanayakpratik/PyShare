@@ -299,11 +299,18 @@ class TestPyShareAllFeatures(unittest.TestCase):
             data = json.loads(res.read().decode('utf-8'))
             self.assertEqual(data["mode"], "rotating")
 
-        # Verify frontend/host_scripts.js uses showPySharePrompt in togglePinMode
+        # Verify frontend/host_scripts.js uses showPySharePrompt in togglePinMode and avoids -1s flash
         host_js_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "host_scripts.js")
         with open(host_js_path, "r", encoding="utf-8") as f:
             host_js = f.read()
         self.assertIn("showPySharePrompt", host_js)
+        self.assertIn("(data.ttl < 0 || data.mode === 'static') ? 'Static' : (data.ttl + 's')", host_js)
+
+        # Verify backend/main.py initial SSE pin snapshot supports static mode
+        main_py_path = os.path.join(os.path.dirname(__file__), "..", "backend", "main.py")
+        with open(main_py_path, "r", encoding="utf-8") as f:
+            main_code = f.read()
+        self.assertIn('ttl = -1 if PIN_MODE == "static" else', main_code)
 
         print("  [PASS] Step 3.1: Static vs Rotating PIN toggle API verified")
 
@@ -796,6 +803,12 @@ class TestPyShareAllFeatures(unittest.TestCase):
         with urllib.request.urlopen(req_status2, timeout=3) as res:
             sdata2 = json.loads(res.read().decode('utf-8'))
             self.assertEqual(sdata2.get("status"), "declined")
+
+        # Verify frontend/login.html uses showPyShareAlert in knock wait and polling flow
+        login_html_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "login.html")
+        with open(login_html_path, "r", encoding="utf-8") as f:
+            login_html = f.read()
+        self.assertIn("showPyShareAlert", login_html)
 
         print("  [PASS] Step 4.7: Zero-click knock join request, host notification, and acceptance flow verified")
 

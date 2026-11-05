@@ -675,13 +675,25 @@
                     }
                 } else if (res.status === 429) {
                     const errTxt = await res.text();
-                    alert(errTxt || 'Too many requests. Please wait.');
+                    if (typeof showPyShareAlert === 'function') {
+                        showPyShareAlert(errTxt || 'Too many requests. Please wait.', 'Knock to Join');
+                    } else {
+                        alert(errTxt || 'Too many requests. Please wait.');
+                    }
                 } else {
-                    alert('Failed to send join request to Host.');
+                    if (typeof showPyShareAlert === 'function') {
+                        showPyShareAlert('Failed to send join request to Host.', 'Knock to Join');
+                    } else {
+                        alert('Failed to send join request to Host.');
+                    }
                 }
             } catch(e) {
                 if (btn) btn.disabled = false;
-                alert('Could not reach Host server.');
+                if (typeof showPyShareAlert === 'function') {
+                    showPyShareAlert('Could not reach Host server.', 'Knock to Join');
+                } else {
+                    alert('Could not reach Host server.');
+                }
             }
         }
 
@@ -699,7 +711,11 @@
                 if (knockSecondsRemaining <= 0) {
                     clearInterval(knockCountdownTimer);
                     cancelJoinRequest();
-                    alert('Host approval timed out.');
+                    if (typeof showPyShareAlert === 'function') {
+                        showPyShareAlert('Host approval timed out.', 'Join Request');
+                    } else {
+                        alert('Host approval timed out.');
+                    }
                 }
             }, 1000);
         }
@@ -732,12 +748,20 @@
                             clearInterval(joinPollTimer);
                             clearInterval(knockCountdownTimer);
                             hideKnockWaitModal();
-                            alert('The Host declined your join request.');
+                            if (typeof showPyShareAlert === 'function') {
+                                showPyShareAlert('The Host declined your join request.', 'Join Request');
+                            } else {
+                                alert('The Host declined your join request.');
+                            }
                         } else if (data.status === 'expired') {
                             clearInterval(joinPollTimer);
                             clearInterval(knockCountdownTimer);
                             hideKnockWaitModal();
-                            alert('Join request expired.');
+                            if (typeof showPyShareAlert === 'function') {
+                                showPyShareAlert('Join request expired.', 'Join Request');
+                            } else {
+                                alert('Join request expired.');
+                            }
                         }
                     }
                 } catch(e) {}

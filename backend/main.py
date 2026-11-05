@@ -1530,8 +1530,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 # 3. PIN snapshot (Host only)
                 if self.is_host_client():
                     with state_lock:
-                        ttl = max(0, int(NEXT_CHANGE - time.time()))
-                        pin_json = json.dumps({"pin": CURRENT_PIN, "ttl": ttl})
+                        ttl = -1 if PIN_MODE == "static" else max(0, int(NEXT_CHANGE - time.time()))
+                        pin_json = json.dumps({"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE})
                     self.wfile.write(f"event: pin\ndata: {pin_json}\n\n".encode('utf-8'))
 
                 # 4. Tunnel snapshot (Host only)
