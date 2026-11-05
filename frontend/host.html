@@ -176,7 +176,11 @@
                 <div class="hub-bottom-card">
                     <div class="hub-tabs">
                         <button id="tabBtnLog" class="hub-tab active" onclick="switchHubTab('log')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Live Log</button>
-                        <button id="tabBtnClip" class="hub-tab" onclick="switchHubTab('clip')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Quick Chat &amp; Clipboard</button>
+                        <button id="tabBtnClip" class="hub-tab" onclick="switchHubTab('clip')" style="position:relative;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 
+                            <span>Quick Chat</span>
+                            <span id="hostChatUnreadBadge" style="display:none; margin-left:6px; background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:9999px; box-shadow:0 0 8px rgba(239,68,68,0.5);">0</span>
+                        </button>
                         <button id="tabBtnPeers" class="hub-tab" onclick="switchHubTab('peers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Devices (<span id="peerCount">0</span>)</button>
                     </div>
 
@@ -195,7 +199,11 @@
                                 <span style="font-size:11px; color:var(--text-sub); font-weight:600;">Chat Stream</span>
                                 <span id="chatMessageCount" style="font-size:10px; background:rgba(0,240,255,0.12); color:var(--accent-cyan); padding:1px 6px; border-radius:9999px; font-weight:700; border:1px solid rgba(0,240,255,0.25);">0/30</span>
                             </div>
-                            <div style="display:flex; gap:6px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--text-sub); cursor:pointer; user-select:none;" title="Automatically copy incoming chat messages directly to Windows OS clipboard">
+                                    <input type="checkbox" id="toggleHostAutoClipboard" onchange="toggleHostAutoClipboardSync(this.checked)" style="cursor:pointer; accent-color:var(--accent-cyan);">
+                                    <span>OS Auto-Sync</span>
+                                </label>
                                 <button type="button" class="btn-secondary" onclick="clearChatStream()" style="padding:2px 8px; font-size:11px; border-radius:6px;" title="Clear all messages">Clear</button>
                                 <button type="button" class="btn-secondary" onclick="syncPCClipboard()" style="padding:2px 8px; font-size:11px; border-radius:6px;" title="Push current Host clipboard to all devices">Push OS Clipboard</button>
                             </div>
@@ -207,8 +215,12 @@
                         </div>
 
                         <!-- Chat Input Box -->
-                        <div style="display:flex; gap:6px;">
-                            <input type="text" id="clipboardInput" placeholder="Type message or paste URL..." style="flex:1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; color:var(--text-main); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') sendClipboard()">
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <input type="file" id="chatFileInput" style="display:none;" onchange="if(this.files[0]) uploadChatAttachment(this.files[0])">
+                            <button type="button" class="btn-secondary" onclick="document.getElementById('chatFileInput').click()" style="padding:6px 9px; display:inline-flex; align-items:center;" title="Attach file or screenshot">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                            </button>
+                            <input type="text" id="clipboardInput" placeholder="Type message or paste image (Ctrl+V)..." style="flex:1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; color:var(--text-main); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') sendClipboard()">
                             <button class="btn-primary" onclick="sendClipboard()" style="padding:6px 14px; font-size:12px; border-radius:8px;">Send</button>
                         </div>
                     </div>
@@ -371,9 +383,14 @@
             if (panePeers) panePeers.classList.toggle('active', tab === 'peers');
 
             if (tab === 'clip') {
+                window.isChatModalOpen = true;
+                if (typeof clearChatUnread === 'function') clearChatUnread();
                 loadClipboard();
-            } else if (tab === 'peers') {
-                if (typeof fetchPeers === 'function') fetchPeers();
+                const input = document.getElementById('clipboardInput');
+                if (input) setTimeout(() => input.focus(), 100);
+            } else {
+                window.isChatModalOpen = false;
+                if (tab === 'peers' && typeof fetchPeers === 'function') fetchPeers();
             }
         }
     </script>

@@ -90,7 +90,23 @@ function handleFilesHost(files) {
     uploadManager.addFiles(files, '/?dest=host');
 }
 
-// Host Clipboard Direct Sync
+// Host Clipboard Direct Sync & Auto-Sync Switch
+function toggleHostAutoClipboardSync(checked) {
+    try {
+        localStorage.setItem('pyshare_host_auto_clipboard', checked ? 'true' : 'false');
+        showToast(checked ? 'OS Clipboard Auto-Sync enabled' : 'OS Clipboard Auto-Sync disabled', checked ? 'check' : 'info');
+    } catch(e) {}
+}
+window.toggleHostAutoClipboardSync = toggleHostAutoClipboardSync;
+
+(function initHostAutoClipboard() {
+    const cb = document.getElementById('toggleHostAutoClipboard');
+    if (cb) {
+        const val = localStorage.getItem('pyshare_host_auto_clipboard');
+        cb.checked = (val !== 'false'); // Default to true
+    }
+})();
+
 async function syncPCClipboard() {
     try {
         const res = await fetch('/api/sync_clipboard');

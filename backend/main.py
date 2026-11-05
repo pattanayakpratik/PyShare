@@ -208,7 +208,7 @@ MAX_CHAT_HISTORY = 30
 CHAT_MESSAGES = deque(maxlen=MAX_CHAT_HISTORY)
 CHAT_COUNTER = 0
 
-def make_chat_message(text, sender, sender_id, is_host=False, device_type="device"):
+def make_chat_message(text, sender, sender_id, is_host=False, device_type="device", msg_type="text", attachment=None):
     global CHAT_COUNTER
     CHAT_COUNTER += 1
     now = time.time()
@@ -220,6 +220,8 @@ def make_chat_message(text, sender, sender_id, is_host=False, device_type="devic
         "sender_id": sender_id,
         "is_host": is_host,
         "device_type": device_type,
+        "msg_type": msg_type,
+        "attachment": attachment,
         "timestamp": int(now),
         "time_str": time_str
     }
@@ -2060,6 +2062,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
             snippet = (new_text[:35] + "...") if len(new_text) > 35 else new_text
             add_event(f"Chat from {sender_name}: {snippet}")
+            if not is_host:
+                trigger_desktop_notification(f"PyShare — {sender_name}", snippet)
             broadcast_sse("clipboard", clip_data)
             self.send_json({
                 "status": "ok",
@@ -2213,7 +2217,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # 5. HANDLE FILE UPLOAD (High-speed 256KB buffer + throttled progress lock)
         client_ip = self.get_client_ip()
         try:
-            is_host_upload = ("dest=host" in self.path) and self.is_host_client()
+            is_chat_upload = ("dest=chat" in self.path) or self.path.startswith("/api/chat/upload")
+            is_host_upload = (("dest=host" in self.path) and self.is_host_client()) or is_chat_upload
             target_dir = DOWNLOAD_DIR if is_host_upload else UPLOAD_DIR
 
             encoded_fn = self.headers.get('X-File-Name')
@@ -2286,6 +2291,63 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             clear_upload_status(client_ip)
             broadcast_sse("upload", None)
             
+            if is_chat_upload:
+                stage_file(out_path)
+                client_token = self.get_session_token()
+                if client_token and client_token in SESSIONS:
+                    sess = SESSIONS[client_token]
+                    sender_name = sess.get("nickname", sess.get("device", "Device")) if isinstance(sess, dict) else "Client Device"
+                    sender_id = sess.get("id", client_token[:8]) if isinstance(sess, dict) else client_token[:8]
+                    device_type = sess.get("device", "device") if isinstance(sess, dict) else "device"
+                    is_sender_host = False
+                elif self.is_host_client():
+                    sender_name = "Host (PC)"
+                    sender_id = "host"
+                    device_type = "desktop"
+                    is_sender_host = True
+                else:
+                    sender_name = "Client Device"
+                    sender_id = "client"
+                    device_type = "device"
+                    is_sender_host = False
+
+                is_img = any(actual_fn.lower().endswith(ext) for ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'))
+                msg_type = "image" if is_img else "file"
+                attachment_info = {
+                    "url": f"/download/{urllib.parse.quote(actual_fn)}",
+                    "preview_url": f"/download/{urllib.parse.quote(actual_fn)}",
+                    "name": actual_fn,
+                    "size": total_size,
+                    "is_image": is_img
+                }
+                chat_text = f"Shared an image: {actual_fn}" if is_img else f"Shared a file: {actual_fn}"
+                with state_lock:
+                    msg = make_chat_message(
+                        chat_text,
+                        sender_name,
+                        sender_id,
+                        is_host=is_sender_host,
+                        device_type=device_type,
+                        msg_type=msg_type,
+                        attachment=attachment_info
+                    )
+                    CHAT_MESSAGES.append(msg)
+                    SHARED_TEXT = chat_text
+                    TEXT_TIMESTAMP = int(time.time())
+                    clip_data = {
+                        "text": SHARED_TEXT,
+                        "timestamp": TEXT_TIMESTAMP,
+                        "messages": list(CHAT_MESSAGES),
+                        "new_message": msg
+                    }
+                broadcast_sse("clipboard", clip_data)
+                broadcast_sse("files", get_files_data())
+                if not is_sender_host:
+                    trigger_desktop_notification(f"PyShare — {sender_name}", chat_text)
+                
+                self.send_json({"status": "ok", "filename": actual_fn, "message": msg, "attachment": attachment_info})
+                return
+
             msg = f"Added to Shared: {actual_fn}" if is_host_upload else f"File received: {actual_fn}"
             add_event(msg)
             if not is_host_upload:

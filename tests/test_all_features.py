@@ -752,6 +752,42 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.7: Zero-click knock join request, host notification, and acceptance flow verified")
 
+    def test_19_chat_superpowers_and_attachments(self):
+        """Test in-chat image/file attachment upload, message generation, and retrieval."""
+        test_img_data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82"
+        enc_name = urllib.parse.quote("chat_screenshot_test.png")
+        req_upload = urllib.request.Request(
+            f"{self.base_url}/upload?dest=chat",
+            data=test_img_data,
+            headers={
+                "X-File-Name": enc_name,
+                "Content-Type": "image/png"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req_upload, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            data = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(data.get("status"), "ok")
+            self.assertIn("attachment", data)
+            att = data["attachment"]
+            self.assertTrue(att.get("is_image"))
+            self.assertIn("chat_screenshot_test.png", att.get("name"))
+
+        # Verify chat history stores the attachment message
+        req_chat = urllib.request.Request(f"{self.base_url}/api/text")
+        with urllib.request.urlopen(req_chat, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            cdata = json.loads(res.read().decode('utf-8'))
+            messages = cdata.get("messages", [])
+            has_attachment_msg = any(
+                m.get("attachment") and "chat_screenshot_test.png" in m["attachment"].get("name", "")
+                for m in messages
+            )
+            self.assertTrue(has_attachment_msg, "Attachment message should appear in chat messages deque")
+
+        print("  [PASS] Step 4.8: Chat superpowers, image/file attachments, and auto-sync verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)

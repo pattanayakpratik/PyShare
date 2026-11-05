@@ -81,6 +81,9 @@ function initSSE() {
             try {
                 const data = JSON.parse(e.data);
                 if (!data) return;
+                if (data.new_message) {
+                    handleIncomingChatMessage(data.new_message);
+                }
                 if (data.messages) {
                     renderClipboardChat(data.messages);
                 } else if (data.text) {
@@ -731,6 +734,132 @@ function copyPreviewText() {
 
 // --- SHARED CLIPBOARD & CHAT STREAM ---
 let chatMessagesCache = [];
+let unreadChatCount = 0;
+window.isChatModalOpen = false;
+
+function playChatChime() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+    } catch(e) {}
+}
+
+function handleIncomingChatMessage(msg) {
+    if (!msg) return;
+    const myNickname = (typeof currentClientNickname !== 'undefined' ? currentClientNickname : '') || localStorage.getItem('pyshare_device_name') || '';
+    const isSelf = Boolean(myNickname && msg.sender === myNickname);
+    if (!isSelf) {
+        playChatChime();
+        if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+        
+        // If chat modal or tab is not currently viewed, increment unread badge
+        if (!window.isChatModalOpen) {
+            unreadChatCount++;
+            updateChatUnreadBadges();
+        }
+
+        // If on Host and auto-sync is enabled, copy incoming peer text directly to OS clipboard
+        if (window.isHostSession && msg.text && localStorage.getItem('pyshare_host_auto_clipboard') !== 'false') {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(msg.text).catch(() => {});
+            }
+        }
+    }
+}
+window.handleIncomingChatMessage = handleIncomingChatMessage;
+
+function updateChatUnreadBadges() {
+    const directBadge = document.getElementById('clientChatDirectBadge');
+    const navBadge = document.getElementById('clientChatUnreadBadge');
+    const hostBadge = document.getElementById('hostChatUnreadBadge');
+    
+    [directBadge, navBadge, hostBadge].forEach(el => {
+        if (!el) return;
+        if (unreadChatCount > 0) {
+            el.innerText = unreadChatCount > 99 ? '99+' : unreadChatCount;
+            el.style.display = 'inline-flex';
+        } else {
+            el.style.display = 'none';
+        }
+    });
+}
+window.updateChatUnreadBadges = updateChatUnreadBadges;
+
+function clearChatUnread() {
+    unreadChatCount = 0;
+    updateChatUnreadBadges();
+}
+window.clearChatUnread = clearChatUnread;
+
+async function uploadChatAttachment(file, fallbackName) {
+    if (!file) return;
+    const filename = file.name || fallbackName || `chat_attachment_${Date.now()}.png`;
+    showToast(`Uploading ${filename}...`, 'info');
+    try {
+        const res = await fetch('/upload?dest=chat', {
+            method: 'POST',
+            headers: {
+                'X-File-Name': encodeURIComponent(filename),
+                'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+        });
+        if (res.ok) {
+            showToast('Attachment shared in chat!', 'chat');
+            loadClipboard();
+        } else {
+            showToast('Failed to upload attachment', 'error');
+        }
+    } catch(err) {
+        showToast('Error uploading attachment', 'error');
+    }
+}
+window.uploadChatAttachment = uploadChatAttachment;
+
+function setupChatPasteListener() {
+    document.addEventListener('paste', async (e) => {
+        const chatInput = document.getElementById('clipboardInput');
+        const modal = document.getElementById('clipboardModal');
+        const hubPane = document.getElementById('hubClipPane');
+        
+        // Only handle paste if user is typing in chat input or chat is currently visible
+        const isInputFocused = document.activeElement === chatInput;
+        const isChatVisible = (modal && modal.classList.contains('open')) || (hubPane && hubPane.classList.contains('active'));
+        if (!isInputFocused && !isChatVisible) return;
+
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData || !clipboardData.items) return;
+
+        for (let i = 0; i < clipboardData.items.length; i++) {
+            const item = clipboardData.items[i];
+            if (item.type.indexOf('image') !== -1) {
+                const blob = item.getAsFile();
+                if (blob) {
+                    e.preventDefault();
+                    uploadChatAttachment(blob, `screenshot_${Date.now()}.png`);
+                    return;
+                }
+            }
+        }
+    });
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupChatPasteListener);
+} else {
+    setupChatPasteListener();
+}
 
 function formatChatText(text) {
     if (!text) return '';
@@ -766,7 +895,7 @@ function renderClipboardChat(messages) {
     const listEl = document.getElementById('clipboardChatList');
     if (listEl) {
         if (chatMessagesCache.length === 0) {
-            listEl.innerHTML = `<div class="empty-state" style="padding: 24px 0; font-size: 13px; color: var(--text-sub);">No messages yet. Send a message or link below!</div>`;
+            listEl.innerHTML = `<div class="empty-state" style="padding: 24px 0; font-size: 13px; color: var(--text-sub);">No messages yet. Send a message, file, or paste screenshot!</div>`;
         } else {
             let html = '';
             const myNickname = (typeof currentClientNickname !== 'undefined' ? currentClientNickname : '') || localStorage.getItem('pyshare_device_name') || '';
@@ -776,6 +905,27 @@ function renderClipboardChat(messages) {
                 const timeText = msg.time_str || (msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
                 const rawEscapedAttr = (msg.text || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+                let attachmentHtml = '';
+                if (msg.attachment) {
+                    if (msg.attachment.is_image) {
+                        attachmentHtml = `
+                            <div class="chat-attachment-img-box" style="margin-top:6px; border-radius:10px; overflow:hidden; border:1px solid var(--border-color); max-width:240px; max-height:180px; background:rgba(0,0,0,0.25);">
+                                <img src="${escapeHtml(msg.attachment.preview_url || msg.attachment.url)}" alt="${escapeHtml(msg.attachment.name)}" style="width:100%; height:auto; max-height:180px; object-fit:contain; display:block; cursor:pointer;" onclick="window.open('${escapeHtml(msg.attachment.url)}', '_blank')">
+                            </div>
+                        `;
+                    } else {
+                        attachmentHtml = `
+                            <a href="${escapeHtml(msg.attachment.url)}" download="${escapeHtml(msg.attachment.name)}" class="chat-file-card" style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.2); border-radius:8px; margin-top:6px; text-decoration:none; color:inherit;">
+                                <span style="color:var(--accent-cyan); display:inline-flex;">${getToastSvg('save')}</span>
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(msg.attachment.name)}</div>
+                                    <div style="font-size:10px; color:var(--text-sub);">${formatSize(msg.attachment.size || 0)}</div>
+                                </div>
+                            </a>
+                        `;
+                    }
+                }
+
                 html += `
                     <div class="chat-msg-row ${roleClass}">
                         <div class="chat-msg-header">
@@ -784,6 +934,7 @@ function renderClipboardChat(messages) {
                         </div>
                         <div class="chat-bubble">
                             <div class="chat-text">${formatChatText(msg.text)}</div>
+                            ${attachmentHtml}
                             <button type="button" class="chat-copy-btn" onclick="copyChatMessage(this, '${rawEscapedAttr}')" title="Copy text">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                 <span>Copy</span>
