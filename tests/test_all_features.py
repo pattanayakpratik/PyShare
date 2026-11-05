@@ -1008,12 +1008,14 @@ class TestPyShareAllFeatures(unittest.TestCase):
         self.assertIn(test_shared, res_delete["deleted"])
         self.assertIn(test_received, res_delete["deleted"])
 
-        # 3. Verify Inno Setup installer script contains the uninstall prompt and DelTree
+        # 3. Verify Inno Setup installer script contains AppMutex, uninstall prompt, var keyword, and DelTree
         iss_path = os.path.join(os.path.dirname(__file__), "..", "installer", "pyshare_installer.iss")
         self.assertTrue(os.path.isfile(iss_path))
         with open(iss_path, "r", encoding="utf-8") as f:
             iss_content = f.read()
-        self.assertIn("CurUninstallStepChanged", iss_content)
+        self.assertIn("AppMutex=Global\\PyShare_Desktop_App_Mutex", iss_content)
+        self.assertIn("procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);", iss_content)
+        self.assertIn("var\n  DesktopFolder: String;", iss_content)
         self.assertIn("DelTree", iss_content)
         self.assertIn("PyShare_Files", iss_content)
 
