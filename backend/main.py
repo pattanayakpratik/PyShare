@@ -1,4 +1,5 @@
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
+from collections import deque
 import os
 import http.server
 import socketserver
@@ -203,6 +204,25 @@ NEXT_CHANGE = 0    # Track timestamp when PIN rotates
 SESSIONS = {}      # Stores authenticated client session tokens (token -> created_timestamp)
 SHARED_TEXT = ""   # In-memory shared clipboard / quick link
 TEXT_TIMESTAMP = 0 # Timestamp of last clipboard change
+MAX_CHAT_HISTORY = 30
+CHAT_MESSAGES = deque(maxlen=MAX_CHAT_HISTORY)
+CHAT_COUNTER = 0
+
+def make_chat_message(text, sender, sender_id, is_host=False, device_type="device"):
+    global CHAT_COUNTER
+    CHAT_COUNTER += 1
+    now = time.time()
+    time_str = datetime.datetime.fromtimestamp(now).strftime("%H:%M")
+    return {
+        "id": f"msg_{CHAT_COUNTER}_{int(now)}",
+        "text": text,
+        "sender": sender,
+        "sender_id": sender_id,
+        "is_host": is_host,
+        "device_type": device_type,
+        "timestamp": int(now),
+        "time_str": time_str
+    }
 state_lock = threading.Lock()
 events_queue = [] 
 upload_status = {}
@@ -1259,7 +1279,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 
                 # 2. Clipboard snapshot
                 with state_lock:
-                    clip_json = json.dumps({"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
+                    clip_json = json.dumps({
+                        "text": SHARED_TEXT,
+                        "timestamp": TEXT_TIMESTAMP,
+                        "messages": list(CHAT_MESSAGES)
+                    })
                 self.wfile.write(f"event: clipboard\ndata: {clip_json}\n\n".encode('utf-8'))
                 
                 # 3. PIN snapshot (Host only)
@@ -1310,12 +1334,20 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 clip_val = pyperclip.paste().strip()
                 if clip_val:
                     with state_lock:
+                        msg = make_chat_message(clip_val, "Host (PC)", "host", is_host=True, device_type="desktop")
+                        CHAT_MESSAGES.append(msg)
                         SHARED_TEXT = clip_val
                         TEXT_TIMESTAMP = int(time.time())
+                        clip_data = {
+                            "text": SHARED_TEXT,
+                            "timestamp": TEXT_TIMESTAMP,
+                            "messages": list(CHAT_MESSAGES),
+                            "new_message": msg
+                        }
                     snippet = (clip_val[:35] + "...") if len(clip_val) > 35 else clip_val
                     add_event(f"Synced Host Clipboard: {snippet}")
-                    broadcast_sse("clipboard", {"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
-                    self.send_json({"status": "ok", "text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
+                    broadcast_sse("clipboard", clip_data)
+                    self.send_json({"status": "ok", "text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP, "messages": list(CHAT_MESSAGES)})
                 else:
                     self.send_json({"status": "empty", "message": "Host clipboard is empty"})
             except Exception as e:
@@ -1374,12 +1406,13 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(data)
             return
 
-        # G. API: Shared Clipboard (GET)
+        # G. API: Shared Clipboard & Chat (GET)
         if self.path in ('/api/text', '/api/clipboard'):
             with state_lock:
                 data = {
                     "text": SHARED_TEXT,
-                    "timestamp": TEXT_TIMESTAMP
+                    "timestamp": TEXT_TIMESTAMP,
+                    "messages": list(CHAT_MESSAGES)
                 }
             self.send_json(data)
             return
@@ -1760,7 +1793,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, str(e))
                 return
 
-        # 3. HANDLE SHARED CLIPBOARD POST (/api/text)
+        # 3. HANDLE SHARED CLIPBOARD & CHAT POST (/api/text)
         if self.path in ('/api/text', '/api/clipboard'):
             global SHARED_TEXT, TEXT_TIMESTAMP
             length = int(self.headers.get('Content-Length', 0))
@@ -1770,13 +1803,49 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             try:
                 data = json.loads(body)
-                new_text = str(data.get("text", data.get("clipboard", ""))).strip()
+                new_text = str(data.get("text", data.get("clipboard", data.get("message", "")))).strip()
             except Exception:
                 new_text = body.strip()
 
+            if not new_text:
+                self.send_error(400, "Message cannot be empty")
+                return
+
+            # Determine sender attribution
+            client_token = self.get_session_token()
+            if client_token and client_token in SESSIONS:
+                sess = SESSIONS[client_token]
+                if isinstance(sess, dict):
+                    sender_name = sess.get("nickname", sess.get("device", "Device"))
+                    sender_id = sess.get("id", client_token[:8])
+                    device_type = sess.get("device", "device")
+                else:
+                    sender_name = "Client Device"
+                    sender_id = client_token[:8]
+                    device_type = "device"
+                is_host = False
+            elif self.is_host_client():
+                sender_name = "Host (PC)"
+                sender_id = "host"
+                device_type = "desktop"
+                is_host = True
+            else:
+                sender_name = "Client Device"
+                sender_id = "client"
+                device_type = "device"
+                is_host = False
+
             with state_lock:
+                msg = make_chat_message(new_text, sender_name, sender_id, is_host=is_host, device_type=device_type)
+                CHAT_MESSAGES.append(msg)
                 SHARED_TEXT = new_text
                 TEXT_TIMESTAMP = int(time.time())
+                clip_data = {
+                    "text": SHARED_TEXT,
+                    "timestamp": TEXT_TIMESTAMP,
+                    "messages": list(CHAT_MESSAGES),
+                    "new_message": msg
+                }
 
             # Direct sync to Windows OS clipboard
             try:
@@ -1785,9 +1854,34 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 pass
 
             snippet = (new_text[:35] + "...") if len(new_text) > 35 else new_text
-            add_event(f"Clipboard updated: {snippet}")
-            broadcast_sse("clipboard", {"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
-            self.send_json({"status": "ok", "timestamp": TEXT_TIMESTAMP})
+            add_event(f"Chat from {sender_name}: {snippet}")
+            broadcast_sse("clipboard", clip_data)
+            self.send_json({
+                "status": "ok",
+                "timestamp": TEXT_TIMESTAMP,
+                "message": msg,
+                "messages": list(CHAT_MESSAGES)
+            })
+            return
+
+        # HANDLE CHAT CLEAR (/api/chat/clear - Host Only)
+        if self.path == '/api/chat/clear':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            with state_lock:
+                CHAT_MESSAGES.clear()
+                SHARED_TEXT = ""
+                TEXT_TIMESTAMP = int(time.time())
+                clip_data = {
+                    "text": "",
+                    "timestamp": TEXT_TIMESTAMP,
+                    "messages": [],
+                    "cleared": True
+                }
+            add_event("Chat history cleared by Host")
+            broadcast_sse("clipboard", clip_data)
+            self.send_json({"status": "ok", "messages": []})
             return
 
         # 4. HANDLE FILE DELETION (/api/delete - Host Only)

@@ -553,6 +553,99 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.5: Device nickname login, client rename, and host rename verified")
 
+    def test_17_shared_clipboard_chat_stream_and_limits(self):
+        """Step 4.6: Verify 30-message rolling chat buffer, sender attribution, and clear endpoint."""
+        # 1. Host clears chat stream initially
+        req_clear = urllib.request.Request(f"{self.base_url}/api/chat/clear", data=b"", method="POST")
+        with urllib.request.urlopen(req_clear, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+
+        # 2. Login client device with custom nickname
+        with main.state_lock:
+            current_pin = main.CURRENT_PIN
+        ipad_ua = "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15"
+        login_body = urllib.parse.urlencode({"pin": current_pin, "nickname": "Pratik's iPad"}).encode('utf-8')
+        req_login = urllib.request.Request(
+            f"{self.base_url}/login",
+            data=login_body,
+            headers={"User-Agent": ipad_ua, "Content-Type": "application/x-www-form-urlencoded"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_login, timeout=3) as res:
+            set_cookie = res.headers.get("Set-Cookie", "")
+            token = re.search(r'pyshare_session=([a-f0-9]+)', set_cookie).group(1)
+        client_cookie = f"pyshare_session={token}"
+
+        # 3. Post 35 messages from client
+        for i in range(1, 36):
+            payload = json.dumps({"text": f"Message {i}"}).encode('utf-8')
+            req_post = urllib.request.Request(
+                f"{self.base_url}/api/text",
+                data=payload,
+                headers={"Cookie": client_cookie, "Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req_post, timeout=3) as res:
+                self.assertEqual(res.status, 200)
+
+        # 4. Fetch /api/text and verify rolling deque strictly limits to 30 messages
+        req_get = urllib.request.Request(f"{self.base_url}/api/text")
+        with urllib.request.urlopen(req_get, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            data = json.loads(res.read().decode('utf-8'))
+            self.assertIn("messages", data)
+            msgs = data["messages"]
+            self.assertEqual(len(msgs), 30, f"Expected 30 messages in ring buffer, found {len(msgs)}")
+            self.assertEqual(msgs[0]["text"], "Message 6", "Oldest messages 1-5 should have been evicted")
+            self.assertEqual(msgs[-1]["text"], "Message 35")
+            self.assertEqual(msgs[-1]["sender"], "Pratik's iPad")
+            self.assertFalse(msgs[-1]["is_host"])
+
+        # 5. Host posts message directly
+        host_msg_payload = json.dumps({"text": "Hello from Host PC!"}).encode('utf-8')
+        req_host_post = urllib.request.Request(
+            f"{self.base_url}/api/text",
+            data=host_msg_payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_host_post, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+
+        # Verify host message attribution
+        with urllib.request.urlopen(req_get, timeout=3) as res:
+            data = json.loads(res.read().decode('utf-8'))
+            msgs = data["messages"]
+            self.assertEqual(len(msgs), 30)
+            self.assertEqual(msgs[-1]["text"], "Hello from Host PC!")
+            self.assertEqual(msgs[-1]["sender"], "Host (PC)")
+            self.assertTrue(msgs[-1]["is_host"])
+
+        # 6. Non-host client blocked from clearing chat
+        req_client_clear = urllib.request.Request(
+            f"{self.base_url}/api/chat/clear",
+            data=b"",
+            headers={"Cookie": client_cookie, "X-Forwarded-For": "192.168.1.188"},
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req_client_clear, timeout=3) as res:
+                self.fail("Client should be blocked from clearing chat")
+        except urllib.error.HTTPError as err:
+            self.assertIn(err.code, (401, 403))
+
+        # 7. Host clears chat
+        with urllib.request.urlopen(req_clear, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            cdata = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(cdata["status"], "ok")
+
+        with urllib.request.urlopen(req_get, timeout=3) as res:
+            data = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(len(data.get("messages", [])), 0)
+
+        print("  [PASS] Step 4.6: Shared clipboard 30-message rolling chat buffer and controls verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)

@@ -81,10 +81,12 @@ function initSSE() {
             try {
                 const data = JSON.parse(e.data);
                 if (!data) return;
-                if (data.timestamp > lastClipboardTs) {
-                    renderClipboard(data.text);
-                    lastClipboardTs = data.timestamp;
+                if (data.messages) {
+                    renderClipboardChat(data.messages);
+                } else if (data.text) {
+                    renderClipboardChat([{ text: data.text, sender: "Clipboard", timestamp: data.timestamp }]);
                 }
+                lastClipboardTs = data.timestamp;
             } catch (err) {}
         });
 
@@ -650,7 +652,83 @@ function copyPreviewText() {
     }
 }
 
-// --- SHARED CLIPBOARD ---
+// --- SHARED CLIPBOARD & CHAT STREAM ---
+let chatMessagesCache = [];
+
+function formatChatText(text) {
+    if (!text) return '';
+    const escaped = escapeHtml(text);
+    return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="chat-link">$1</a>');
+}
+
+function copyChatMessage(btn, text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied to clipboard!', '📋');
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = `<span>✓</span> <span>Copied</span>`;
+            setTimeout(() => { btn.innerHTML = original; }, 1500);
+        }
+    }).catch(() => {
+        showToast('Failed to copy', '❌');
+    });
+}
+window.copyChatMessage = copyChatMessage;
+
+function renderClipboardChat(messages) {
+    chatMessagesCache = Array.isArray(messages) ? messages : [];
+    
+    // 1. Update count pill if present
+    const countEl = document.getElementById('chatMessageCount');
+    if (countEl) {
+        countEl.innerText = `${chatMessagesCache.length}/30`;
+    }
+
+    // 2. Render in chat list (#clipboardChatList)
+    const listEl = document.getElementById('clipboardChatList');
+    if (listEl) {
+        if (chatMessagesCache.length === 0) {
+            listEl.innerHTML = `<div class="empty-state" style="padding: 24px 0; font-size: 13px; color: var(--text-sub);">No messages yet. Send a message or link below!</div>`;
+        } else {
+            let html = '';
+            const myNickname = (typeof currentClientNickname !== 'undefined' ? currentClientNickname : '') || localStorage.getItem('pyshare_device_name') || '';
+            chatMessagesCache.forEach(msg => {
+                const isSelf = Boolean(myNickname && msg.sender === myNickname);
+                const roleClass = isSelf ? 'self' : (msg.is_host ? 'host' : 'peer');
+                const timeText = msg.time_str || (msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+                const rawEscapedAttr = (msg.text || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+                html += `
+                    <div class="chat-msg-row ${roleClass}">
+                        <div class="chat-msg-header">
+                            <span class="chat-sender-name">${escapeHtml(msg.sender || 'Device')}</span>
+                            <span class="chat-msg-time">${escapeHtml(timeText)}</span>
+                        </div>
+                        <div class="chat-bubble">
+                            <div class="chat-text">${formatChatText(msg.text)}</div>
+                            <button type="button" class="chat-copy-btn" onclick="copyChatMessage(this, '${rawEscapedAttr}')" title="Copy text">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+            listEl.scrollTop = listEl.scrollHeight;
+        }
+    }
+
+    // 3. Fallback for legacy single-item display if still present
+    const legacyDisplay = document.getElementById('clipboardCurrent');
+    if (legacyDisplay) {
+        const latest = chatMessagesCache.length > 0 ? chatMessagesCache[chatMessagesCache.length - 1].text : '';
+        renderClipboard(latest);
+    }
+}
+window.renderClipboardChat = renderClipboardChat;
+
 async function loadClipboard() {
     try {
         const res = await fetch('/api/text');
@@ -660,8 +738,12 @@ async function loadClipboard() {
         }
         if (res.ok) {
             const data = await res.json();
-            renderClipboard(data.text);
-            lastClipboardTs = data.timestamp;
+            if (data.messages) {
+                renderClipboardChat(data.messages);
+            } else if (data.text) {
+                renderClipboardChat([{ text: data.text, sender: "Clipboard", timestamp: data.timestamp }]);
+            }
+            lastClipboardTs = data.timestamp || 0;
         }
     } catch (e) {}
 }
@@ -704,11 +786,11 @@ async function sendClipboard() {
         });
         if (res.ok) {
             input.value = '';
-            showToast('Shared with devices!', '🚀');
+            showToast('Message sent!', '💬');
             loadClipboard();
         }
     } catch (e) {
-        showToast('Failed to share text', '❌');
+        showToast('Failed to send message', '❌');
     }
 }
 

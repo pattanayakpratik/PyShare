@@ -97,6 +97,7 @@ async function syncPCClipboard() {
         const data = await res.json();
         if (data.status === 'ok') {
             showToast('Host clipboard pushed to devices!', '📋');
+            if (typeof loadClipboard === 'function') loadClipboard();
         } else if (data.status === 'empty') {
             showToast('Host clipboard is empty', '⚠️');
         } else {
@@ -106,6 +107,41 @@ async function syncPCClipboard() {
         showToast('Error syncing host clipboard', '❌');
     }
 }
+
+// Clear Chat & Clipboard Stream (Host Only)
+async function clearChatStream() {
+    if (typeof showPyShareConfirm === 'function') {
+        showPyShareConfirm({
+            title: "Clear Chat Stream",
+            message: "Clear all messages in the quick chat stream for all connected devices?",
+            confirmText: "Clear All",
+            isDanger: true,
+            onConfirm: async () => {
+                try {
+                    const res = await fetch('/api/chat/clear', { method: 'POST' });
+                    if (res.ok) {
+                        showToast('Chat history cleared', '🗑️');
+                        if (typeof loadClipboard === 'function') loadClipboard();
+                    } else {
+                        showToast('Failed to clear chat', '❌');
+                    }
+                } catch (e) {
+                    showToast('Error clearing chat', '❌');
+                }
+            }
+        });
+    } else {
+        if (!confirm("Clear all chat messages?")) return;
+        try {
+            const res = await fetch('/api/chat/clear', { method: 'POST' });
+            if (res.ok) {
+                showToast('Chat history cleared', '🗑️');
+                if (typeof loadClipboard === 'function') loadClipboard();
+            }
+        } catch(e) {}
+    }
+}
+window.clearChatStream = clearChatStream;
 
 // Toggle between Rotating PIN & Static PIN
 async function togglePinMode() {

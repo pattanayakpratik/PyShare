@@ -176,7 +176,7 @@
                 <div class="hub-bottom-card">
                     <div class="hub-tabs">
                         <button id="tabBtnLog" class="hub-tab active" onclick="switchHubTab('log')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Live Log</button>
-                        <button id="tabBtnClip" class="hub-tab" onclick="switchHubTab('clip')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Quick Clipboard</button>
+                        <button id="tabBtnClip" class="hub-tab" onclick="switchHubTab('clip')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Quick Chat &amp; Clipboard</button>
                         <button id="tabBtnPeers" class="hub-tab" onclick="switchHubTab('peers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Devices (<span id="peerCount">0</span>)</button>
                     </div>
 
@@ -188,16 +188,29 @@
                         </div>
                     </div>
 
-                    <!-- Pane 2: Clipboard -->
-                    <div id="hubClipPane" class="hub-tab-pane" style="font-family:inherit;">
-                        <div id="clipboardCurrent" style="font-size:12px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; gap:6px;">
-                            <span style="color:var(--text-sub);">Clipboard is empty.</span>
+                    <!-- Pane 2: Quick Chat & Clipboard Stream -->
+                    <div id="hubClipPane" class="hub-tab-pane" style="font-family:inherit; display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:0 2px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size:11px; color:var(--text-sub); font-weight:600;">Chat Stream</span>
+                                <span id="chatMessageCount" style="font-size:10px; background:rgba(0,240,255,0.12); color:var(--accent-cyan); padding:1px 6px; border-radius:9999px; font-weight:700; border:1px solid rgba(0,240,255,0.25);">0/30</span>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="btn-secondary" onclick="clearChatStream()" style="padding:2px 8px; font-size:11px; border-radius:6px;" title="Clear all messages">Clear</button>
+                                <button type="button" class="btn-secondary" onclick="syncPCClipboard()" style="padding:2px 8px; font-size:11px; border-radius:6px;" title="Push current Host clipboard to all devices">Push OS Clipboard</button>
+                            </div>
                         </div>
-                        <div style="display:flex; gap:6px; margin-top:6px;">
-                            <input type="text" id="clipboardInput" placeholder="Type text or paste URL..." style="flex:1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; color:var(--text-main); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') sendClipboard()">
+
+                        <!-- Chat Messages List -->
+                        <div id="clipboardChatList" class="chat-stream-list" style="max-height:165px; min-height:95px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; padding:6px; background:var(--input-bg); border:1px solid var(--border-color); border-radius:10px;">
+                            <div class="empty-state" style="padding:16px 0; font-size:12px; color:var(--text-sub);">No messages yet.</div>
+                        </div>
+
+                        <!-- Chat Input Box -->
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" id="clipboardInput" placeholder="Type message or paste URL..." style="flex:1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; color:var(--text-main); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') sendClipboard()">
                             <button class="btn-primary" onclick="sendClipboard()" style="padding:6px 14px; font-size:12px; border-radius:8px;">Send</button>
                         </div>
-                        <button class="btn-secondary" onclick="syncPCClipboard()" style="margin-top:6px; width:100%; font-size:11px; padding:6px 10px; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px;" title="Sync current Host clipboard to all devices">Push Host Clipboard to Devices</button>
                     </div>
 
                     <!-- Pane 3: Connected Devices -->
