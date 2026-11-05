@@ -108,10 +108,11 @@ def start_native_app():
 
     # Load persisted window geometry
     cfg = main.load_app_config()
-    win_w = cfg.get("window_width", 1240)
-    win_h = cfg.get("window_height", 780)
-    win_x = cfg.get("window_x", None)
-    win_y = cfg.get("window_y", None)
+    win_w = max(1050, int(cfg.get("window_width") or 1240))
+    win_h = max(680, int(cfg.get("window_height") or 780))
+    raw_x, raw_y = cfg.get("window_x"), cfg.get("window_y")
+    win_x = int(raw_x) if (isinstance(raw_x, int) and -1000 < raw_x < 10000) else None
+    win_y = int(raw_y) if (isinstance(raw_y, int) and -1000 < raw_y < 10000) else None
 
     window = webview.create_window(
         title=WINDOW_TITLE,
@@ -132,10 +133,13 @@ def start_native_app():
     def save_geometry():
         try:
             cur_cfg = main.load_app_config()
-            cur_cfg["window_width"] = window.width
-            cur_cfg["window_height"] = window.height
-            cur_cfg["window_x"] = window.x
-            cur_cfg["window_y"] = window.y
+            if window.width and window.width >= 1050:
+                cur_cfg["window_width"] = window.width
+            if window.height and window.height >= 680:
+                cur_cfg["window_height"] = window.height
+            if window.x is not None and window.y is not None and -1000 < window.x < 10000 and -1000 < window.y < 10000:
+                cur_cfg["window_x"] = window.x
+                cur_cfg["window_y"] = window.y
             main.save_app_config(cur_cfg)
         except Exception:
             pass
@@ -155,7 +159,8 @@ def start_native_app():
 
     def on_window_closing():
         nonlocal first_minimize_notified
-        if not force_exit:
+        cur_cfg = main.load_app_config()
+        if not force_exit and cur_cfg.get("minimize_to_tray", True):
             save_geometry()
             try:
                 window.hide()
@@ -165,6 +170,7 @@ def start_native_app():
             except Exception:
                 pass
             return False
+        save_geometry()
         return True
 
     window.events.closing += on_window_closing

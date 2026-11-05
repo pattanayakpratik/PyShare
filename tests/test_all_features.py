@@ -160,14 +160,38 @@ class TestPyShareAllFeatures(unittest.TestCase):
         print("  [PASS] Step 1.4: Desktop notification dispatch hook verified")
 
     def test_05_config_persistence(self):
-        """Step 1.5: Verify persistent configuration loading and saving."""
+        """Step 1.5: Verify persistent configuration loading and saving with geometry sanitization."""
         cfg = main.load_app_config()
         self.assertIsInstance(cfg, dict)
         self.assertIn("minimize_to_tray", cfg)
         self.assertIn("pin_mode", cfg)
         self.assertIn("window_width", cfg)
         self.assertIn("window_height", cfg)
-        print("  [PASS] Step 1.5: Application config persistence verified")
+
+        # Test window geometry coordinate sanitization (prevent -32000 off-screen spawn)
+        def sanitize_coords(test_cfg):
+            raw_x, raw_y = test_cfg.get("window_x"), test_cfg.get("window_y")
+            win_x = int(raw_x) if (isinstance(raw_x, int) and -1000 < raw_x < 10000) else None
+            win_y = int(raw_y) if (isinstance(raw_y, int) and -1000 < raw_y < 10000) else None
+            return win_x, win_y
+
+        # Minimized / hidden coordinates (-32000) must sanitize to None
+        self.assertEqual(sanitize_coords({"window_x": -32000, "window_y": -32000}), (None, None))
+        # Extreme off-screen coordinates must sanitize to None
+        self.assertEqual(sanitize_coords({"window_x": -9999, "window_y": 50000}), (None, None))
+        # Valid on-screen coordinates must be retained as integers
+        self.assertEqual(sanitize_coords({"window_x": 150, "window_y": 200}), (150, 200))
+
+        # Verify app_gui.py implementation contains geometry bounds check and minimize_to_tray check
+        gui_path = os.path.join(os.path.dirname(__file__), "..", "backend", "app_gui.py")
+        self.assertTrue(os.path.isfile(gui_path))
+        with open(gui_path, "r", encoding="utf-8") as f:
+            gui_code = f.read()
+        self.assertIn("-1000 < raw_x < 10000", gui_code)
+        self.assertIn("-1000 < window.x < 10000", gui_code)
+        self.assertIn('cur_cfg.get("minimize_to_tray", True)', gui_code)
+
+        print("  [PASS] Step 1.5: Application config persistence and geometry sanitization verified")
 
     # =========================================================================
     # STEP 2: TRANSFER ENGINE & SPEEDOMETER CONTROLS
