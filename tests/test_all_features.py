@@ -278,7 +278,9 @@ class TestPyShareAllFeatures(unittest.TestCase):
         print("  [PASS] Step 3.1: Static vs Rotating PIN toggle API verified")
 
     def test_10_qr_code_instant_login_payload(self):
-        """Step 3.2: Verify QR code payload embeds current PIN parameter."""
+        """Step 3.2: Verify QR code payload embeds current PIN parameter and regenerates on rotation."""
+        with main.state_lock:
+            main.CURRENT_PIN = "5678"
         main.generate_qr()
         # Ensure qrcode.png exists and is accessible
         qr_file = main.get_qr_path()
@@ -290,7 +292,15 @@ class TestPyShareAllFeatures(unittest.TestCase):
         with urllib.request.urlopen(req, timeout=3) as res:
             self.assertEqual(res.status, 200)
             self.assertEqual(res.headers.get("Content-Type"), "image/png")
-        print("  [PASS] Step 3.2: QR code generation and instant-login embedding verified")
+
+        # Verify host_scripts.js refreshes QR code on PIN rotation
+        host_js_path = os.path.join(main.ASSET_DIR, "host_scripts.js")
+        with open(host_js_path, "r", encoding="utf-8") as f:
+            hjs = f.read()
+        self.assertIn("lastDisplayedPin", hjs, "Missing lastDisplayedPin in host_scripts.js")
+        self.assertIn("qrImg.src = '/qrcode.png?t='", hjs, "Missing dynamic QR image refresh in host_scripts.js")
+
+        print("  [PASS] Step 3.2: QR code generation, rotation regeneration, and instant-login embedding verified")
 
     def test_11_login_template_camera_scanner_elements(self):
         """Step 3.3: Verify login.html contains QR scanner modal and haptic triggers."""

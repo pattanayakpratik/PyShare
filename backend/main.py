@@ -532,8 +532,10 @@ mimetypes.add_type("application/manifest+json", ".json")
 def pin_rotator():
     """Manages 4-digit PIN: rotates every 30 seconds or stays fixed in static mode."""
     global CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, PIN_MODE, STATIC_PIN
+    last_qr_pin = None
     while True:
         now = time.time()
+        pin_changed = False
         with state_lock:
             if PIN_MODE == "static":
                 CURRENT_PIN = STATIC_PIN if (STATIC_PIN and len(STATIC_PIN) == 4 and STATIC_PIN.isdigit()) else "1234"
@@ -545,7 +547,12 @@ def pin_rotator():
                     CURRENT_PIN = f"{random.randint(1000, 9999)}"
                     NEXT_CHANGE = now + 30
                 ttl = max(0, int(NEXT_CHANGE - now))
+            if CURRENT_PIN != last_qr_pin:
+                last_qr_pin = CURRENT_PIN
+                pin_changed = True
             pin_data = {"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE}
+        if pin_changed:
+            generate_qr()
         broadcast_sse("pin", pin_data)
         time.sleep(1)
 

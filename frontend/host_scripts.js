@@ -46,12 +46,14 @@ fetch('/api/info')
     .catch(() => {});
 
 // Fetch initial PIN and status immediately on load (without waiting for SSE tick)
+let lastDisplayedPin = null;
 fetch('/api/pin')
     .then(r => r.json())
     .then(data => {
         if (data) {
             const pinEl = document.getElementById('live-pin');
             const timerTextEl = document.getElementById('pin-timer-text');
+            if (data.pin) lastDisplayedPin = data.pin;
             if (pinEl && data.pin) pinEl.innerText = data.pin;
             if (timerTextEl && data.ttl) timerTextEl.innerText = data.ttl + 's';
             if (data.ip && data.port) updateServerDisplay(data.ip, data.port);
@@ -221,6 +223,11 @@ function setupHostSSE(es) {
             }
 
             if (pinEl) pinEl.innerText = data.pin;
+            if (data.pin && data.pin !== lastDisplayedPin) {
+                lastDisplayedPin = data.pin;
+                const qrImg = document.querySelector('.qr-code-img');
+                if (qrImg) qrImg.src = '/qrcode.png?t=' + Date.now();
+            }
             if (timerTextEl) {
                 if (data.ttl < 0 || data.mode === 'static') {
                     timerTextEl.innerText = 'Static';
