@@ -775,6 +775,13 @@
             updateDisplay();
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, (m) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[m]));
+        }
+
         // Zero-Conf Local LAN Rooms Discovery Poller
         async function pollLanRooms() {
             try {

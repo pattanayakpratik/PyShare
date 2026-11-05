@@ -938,6 +938,14 @@ class TestPyShareAllFeatures(unittest.TestCase):
         self.assertIn("transport=tcp", p2p_code, "TCP TURN fallback relay missing in p2p.js")
         self.assertIn("getIceServers", p2p_code, "Dynamic ICE config helper missing in p2p.js")
 
+        # 5. Verify frontend/login.html contains escapeHtml definition used by pollLanRooms
+        login_html_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "login.html")
+        self.assertTrue(os.path.isfile(login_html_path))
+        with open(login_html_path, "r", encoding="utf-8") as f:
+            login_code = f.read()
+        self.assertIn("function escapeHtml(", login_code, "escapeHtml helper missing in login.html")
+        self.assertIn("pollLanRooms", login_code, "pollLanRooms helper missing in login.html")
+
         print("  [PASS] Step 4.10: LAN room auto-discovery beacon and WebRTC TURN relay fallback verified")
 
     def test_22_cross_platform_cloudflared_and_launcher(self):
