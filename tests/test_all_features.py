@@ -646,6 +646,112 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.6: Shared clipboard 30-message rolling chat buffer and controls verified")
 
+    def test_18_join_request_knock_and_host_approval_flow(self):
+        """Step 4.7: Verify zero-click knock join request, host notification, and acceptance flow."""
+        # 1. Client submits knock request
+        knock_payload = json.dumps({"nickname": "Visitor Pixel"}).encode('utf-8')
+        req_knock = urllib.request.Request(
+            f"{self.base_url}/api/join/request",
+            data=knock_payload,
+            headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8)"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_knock, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            data = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(data.get("status"), "pending")
+            request_id = data.get("request_id")
+            self.assertTrue(request_id)
+
+        # 2. Host checks pending requests
+        req_pending = urllib.request.Request(f"{self.base_url}/api/join/pending")
+        with urllib.request.urlopen(req_pending, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            pdata = json.loads(res.read().decode('utf-8'))
+            reqs = pdata.get("requests", [])
+            matched = [r for r in reqs if r.get("id") == request_id]
+            self.assertEqual(len(matched), 1)
+            self.assertEqual(matched[0]["nickname"], "Visitor Pixel")
+
+        # 3. Client checks status while pending
+        req_status = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id}")
+        with urllib.request.urlopen(req_status, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            sdata = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(sdata.get("status"), "pending")
+
+        # 4. Non-host blocked from responding
+        respond_payload = json.dumps({"id": request_id, "action": "accept"}).encode('utf-8')
+        req_fake_respond = urllib.request.Request(
+            f"{self.base_url}/api/join/respond",
+            data=respond_payload,
+            headers={"Content-Type": "application/json", "X-Forwarded-For": "192.168.1.199"},
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req_fake_respond, timeout=3) as res:
+                self.fail("Non-host should be forbidden from accepting join requests")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 403)
+
+        # 5. Host accepts the join request
+        req_host_respond = urllib.request.Request(
+            f"{self.base_url}/api/join/respond",
+            data=respond_payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_host_respond, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            rdata = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(rdata.get("status"), "ok")
+            self.assertEqual(rdata.get("action"), "accepted")
+
+        # 6. Client checks status again and receives session cookie
+        with urllib.request.urlopen(req_status, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            sdata = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(sdata.get("status"), "approved")
+            set_cookie = res.headers.get("Set-Cookie", "")
+            self.assertIn("pyshare_session=", set_cookie)
+            token = re.search(r'pyshare_session=([a-f0-9]+)', set_cookie).group(1)
+
+        # 7. Client uses the session cookie to access files
+        req_files = urllib.request.Request(
+            f"{self.base_url}/api/files",
+            headers={"Cookie": f"pyshare_session={token}"}
+        )
+        with urllib.request.urlopen(req_files, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+
+        # 8. Test decline flow
+        knock_payload2 = json.dumps({"nickname": "Declined Guest"}).encode('utf-8')
+        req_knock2 = urllib.request.Request(
+            f"{self.base_url}/api/join/request",
+            data=knock_payload2,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_knock2, timeout=3) as res:
+            request_id2 = json.loads(res.read().decode('utf-8'))["request_id"]
+
+        decline_payload = json.dumps({"id": request_id2, "action": "decline"}).encode('utf-8')
+        req_decline = urllib.request.Request(
+            f"{self.base_url}/api/join/respond",
+            data=decline_payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_decline, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+
+        req_status2 = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id2}")
+        with urllib.request.urlopen(req_status2, timeout=3) as res:
+            sdata2 = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(sdata2.get("status"), "declined")
+
+        print("  [PASS] Step 4.7: Zero-click knock join request, host notification, and acceptance flow verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)

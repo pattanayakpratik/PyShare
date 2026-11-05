@@ -223,9 +223,14 @@ def make_chat_message(text, sender, sender_id, is_host=False, device_type="devic
         "timestamp": int(now),
         "time_str": time_str
     }
-state_lock = threading.Lock()
+state_lock = threading.RLock()
 events_queue = [] 
 upload_status = {}
+
+# --- JOIN REQUESTS QUEUE (Host Approval / Knock-to-Enter) ---
+PENDING_JOIN_REQUESTS = {}  # request_id -> dict
+MAX_PENDING_REQUESTS = 10
+JOIN_REQUEST_TTL = 60       # seconds
 
 # --- RATE LIMITING & CONCURRENCY CONTROLS ---
 login_attempts = {}       # client_ip -> {"count": int, "lockout_until": float}
@@ -1388,6 +1393,67 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"peers": get_connected_peers()})
             return
 
+        # Check Join Request Status (/api/join/status?request_id=...)
+        if self.path.startswith('/api/join/status'):
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            req_id = params.get('request_id', [''])[0].strip() or params.get('id', [''])[0].strip()
+            
+            with state_lock:
+                req = PENDING_JOIN_REQUESTS.get(req_id)
+                if not req:
+                    self.send_json({"status": "expired", "message": "Request expired or not found"})
+                    return
+                
+                now = time.time()
+                if now > req.get("expires_at", 0):
+                    req["status"] = "expired"
+                    self.send_json({"status": "expired", "message": "Request expired"})
+                    return
+
+                status = req.get("status", "pending")
+                if status == "declined":
+                    self.send_json({"status": "declined", "message": "Host declined the request"})
+                    return
+
+                if status == "approved":
+                    token = req.get("token")
+                    cookie_header = f"pyshare_session={token}; Path=/; HttpOnly; SameSite=Lax"
+                    body_bytes = json.dumps({"status": "approved", "token": token}).encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(body_bytes)))
+                    self.send_header('Set-Cookie', cookie_header)
+                    self.end_headers()
+                    self.wfile.write(body_bytes)
+                    return
+
+                expires_in = max(0, int(req.get("expires_at", 0) - now))
+                self.send_json({"status": "pending", "expires_in": expires_in})
+                return
+
+        # List Pending Join Requests (/api/join/pending - Host Only)
+        if self.path == '/api/join/pending':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            now = time.time()
+            with state_lock:
+                pending = [
+                    {
+                        "id": r["id"],
+                        "nickname": r["nickname"],
+                        "device": r["device"],
+                        "browser": r["browser"],
+                        "ip": r["ip"],
+                        "expires_in": max(0, int(r["expires_at"] - now))
+                    }
+                    for r in PENDING_JOIN_REQUESTS.values()
+                    if r.get("status") == "pending" and r.get("expires_at", 0) > now
+                ]
+            self.send_json({"requests": pending})
+            return
+
         # E. API: Files List
         if self.path == '/api/files':
             self.send_json(get_files_data())
@@ -1735,6 +1801,145 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         remaining_tries = MAX_FAILED_ATTEMPTS - attempt_info["count"]
                         self.send_text(f"Invalid PIN ({remaining_tries} tries left)", status=401)
             return
+
+        # HANDLE JOIN REQUEST (/api/join/request - Client Knocking)
+        if self.path == '/api/join/request':
+            client_ip = self.get_client_ip()
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 2048:
+                self.send_error(400, "Bad Request")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            raw_nickname = ""
+            try:
+                data = json.loads(body) if body else {}
+                raw_nickname = data.get("nickname", data.get("device_name", ""))
+            except Exception:
+                params = urllib.parse.parse_qs(body)
+                raw_nickname = params.get('nickname', [''])[0].strip() or params.get('device_name', [''])[0].strip()
+
+            custom_nickname = re.sub(r'[\x00-\x1f\x7f]', '', raw_nickname)[:32].strip() if raw_nickname else ""
+            ua = self.headers.get("User-Agent", "")
+            ua_info = parse_user_agent(ua)
+            nickname = custom_nickname if custom_nickname else ua_info["device"]
+
+            now = time.time()
+            with state_lock:
+                # Cleanup expired join requests
+                expired_keys = [k for k, r in PENDING_JOIN_REQUESTS.items() if r.get("expires_at", 0) <= now or r.get("status") in ("expired", "cancelled")]
+                for k in expired_keys:
+                    PENDING_JOIN_REQUESTS.pop(k, None)
+
+                # Rate limiting: max 3 pending per IP
+                ip_pending = [r for r in PENDING_JOIN_REQUESTS.values() if r.get("ip") == client_ip and r.get("status") == "pending"]
+                if len(ip_pending) >= 3:
+                    self.send_text("Too many pending requests from your device. Please wait.", status=429)
+                    return
+
+                # Queue full check
+                if len(PENDING_JOIN_REQUESTS) >= MAX_PENDING_REQUESTS:
+                    self.send_text("Host request queue is full. Please try again shortly.", status=429)
+                    return
+
+                req_id = secrets.token_hex(16)
+                PENDING_JOIN_REQUESTS[req_id] = {
+                    "id": req_id,
+                    "nickname": nickname,
+                    "device": ua_info["device"],
+                    "browser": ua_info["browser"],
+                    "ip": client_ip,
+                    "status": "pending",
+                    "created_at": now,
+                    "expires_at": now + JOIN_REQUEST_TTL,
+                    "token": None
+                }
+
+            add_event(f"Join request from: {nickname} ({ua_info['browser']})")
+            trigger_desktop_notification("PyShare — Device Join Request", f"{nickname} wants to join your room")
+            broadcast_sse("join_request", {
+                "id": req_id,
+                "nickname": nickname,
+                "device": ua_info["device"],
+                "browser": ua_info["browser"],
+                "ip": client_ip,
+                "expires_in": JOIN_REQUEST_TTL
+            })
+
+            self.send_json({"status": "pending", "request_id": req_id, "expires_in": JOIN_REQUEST_TTL})
+            return
+
+        # HANDLE JOIN CANCEL (/api/join/cancel - Client Cancel)
+        if self.path == '/api/join/cancel':
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8', errors='ignore') if length else "{}"
+            try:
+                data = json.loads(body) if body else {}
+                req_id = data.get("id", data.get("request_id", ""))
+                with state_lock:
+                    if req_id in PENDING_JOIN_REQUESTS:
+                        PENDING_JOIN_REQUESTS[req_id]["status"] = "cancelled"
+                self.send_json({"status": "ok"})
+            except Exception as e:
+                self.send_error(500, str(e))
+            return
+
+        # HANDLE JOIN RESPOND (/api/join/respond - Host Only)
+        if self.path == '/api/join/respond':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 2048:
+                self.send_error(400, "Bad Request")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body) if body else {}
+                req_id = str(data.get("id", data.get("request_id", ""))).strip()
+                action = str(data.get("action", "")).strip().lower()
+
+                if not req_id or action not in ("accept", "decline"):
+                    self.send_error(400, "Invalid Request")
+                    return
+
+                req_nickname = ""
+                with state_lock:
+                    req = PENDING_JOIN_REQUESTS.get(req_id)
+                    if not req or req.get("status") != "pending":
+                        self.send_error(404, "Request not found or already resolved")
+                        return
+
+                    req_nickname = req.get("nickname", "Device")
+                    if action == "accept":
+                        token = secrets.token_hex(16)
+                        now_ts = time.time()
+                        SESSIONS[token] = {
+                            "id": token[:8],
+                            "nickname": req["nickname"],
+                            "ip": req["ip"],
+                            "device": req["device"],
+                            "browser": req["browser"],
+                            "created_at": now_ts,
+                            "last_seen": now_ts,
+                            "active": True
+                        }
+                        req["status"] = "approved"
+                        req["token"] = token
+                    else:
+                        req["status"] = "declined"
+
+                if action == "accept":
+                    add_event(f"Device joined (Host approved): {req_nickname}")
+                    trigger_desktop_notification("PyShare — Device Connected", f"{req_nickname} connected")
+                    broadcast_sse("peers", get_connected_peers())
+                    self.send_json({"status": "ok", "action": "accepted", "nickname": req_nickname})
+                else:
+                    add_event(f"Join request declined by Host: {req_nickname}")
+                    self.send_json({"status": "ok", "action": "declined"})
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
 
         # 2. CHECK AUTH FOR PROTECTED ACTIONS
         if not self.is_authenticated():

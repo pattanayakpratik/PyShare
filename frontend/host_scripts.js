@@ -316,6 +316,102 @@ function setupHostSSE(es) {
             renderPeers(peers);
         } catch (err) {}
     });
+
+    // 6. Incoming Device Join Requests (Knock Approval)
+    es.addEventListener('join_request', (e) => {
+        try {
+            const req = JSON.parse(e.data);
+            if (req && req.id) {
+                displayHostJoinRequest(req);
+            }
+        } catch (err) {}
+    });
+}
+
+// --- Host Join Request Handling ---
+let activeHostJoinRequest = null;
+let hostJoinReqCountdownTimer = null;
+
+function displayHostJoinRequest(req) {
+    activeHostJoinRequest = req;
+    const modal = document.getElementById('hostJoinRequestModal');
+    const nameEl = document.getElementById('joinReqDeviceName');
+    const infoEl = document.getElementById('joinReqDeviceInfo');
+    const timerEl = document.getElementById('joinReqTimer');
+    if (!modal) return;
+
+    if (nameEl) nameEl.innerText = req.nickname || 'Unknown Device';
+    if (infoEl) infoEl.innerText = `${req.browser || 'Browser'} on ${req.device || 'Device'} • IP: ${req.ip || 'Unknown'}`;
+
+    modal.style.display = 'flex';
+    showToast(`🔔 Device wants to join: ${req.nickname}`, '🔔');
+    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+
+    let secondsLeft = req.expires_in || 60;
+    if (timerEl) timerEl.innerText = `Auto-expires in ${secondsLeft}s`;
+
+    if (hostJoinReqCountdownTimer) clearInterval(hostJoinReqCountdownTimer);
+    hostJoinReqCountdownTimer = setInterval(() => {
+        secondsLeft--;
+        if (timerEl) timerEl.innerText = `Auto-expires in ${secondsLeft}s`;
+        if (secondsLeft <= 0) {
+            clearInterval(hostJoinReqCountdownTimer);
+            hideHostJoinRequestModal();
+        }
+    }, 1000);
+}
+
+function hideHostJoinRequestModal() {
+    const modal = document.getElementById('hostJoinRequestModal');
+    if (modal) modal.style.display = 'none';
+    if (hostJoinReqCountdownTimer) {
+        clearInterval(hostJoinReqCountdownTimer);
+        hostJoinReqCountdownTimer = null;
+    }
+    activeHostJoinRequest = null;
+}
+
+async function respondHostJoinRequest(action) {
+    if (!activeHostJoinRequest || !activeHostJoinRequest.id) {
+        hideHostJoinRequestModal();
+        return;
+    }
+    const reqId = activeHostJoinRequest.id;
+    const reqNickname = activeHostJoinRequest.nickname;
+    hideHostJoinRequestModal();
+
+    try {
+        const res = await fetch('/api/join/respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: reqId, action: action })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            if (action === 'accept') {
+                showToast(`✓ Allowed ${reqNickname} to connect!`, '🎉');
+                fetchPeers();
+            } else {
+                showToast(`✕ Declined request from ${reqNickname}`, '⛔');
+            }
+        }
+    } catch (e) {
+        showToast('Error responding to join request', '❌');
+    }
+}
+window.respondHostJoinRequest = respondHostJoinRequest;
+
+// Check for any currently pending join requests on Host load
+async function checkPendingJoinRequests() {
+    try {
+        const res = await fetch('/api/join/pending');
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.requests && data.requests.length > 0) {
+                displayHostJoinRequest(data.requests[0]);
+            }
+        }
+    } catch (e) {}
 }
 
 // --- ACTIVE CONNECTED PEERS INSPECTOR ---
@@ -597,8 +693,9 @@ function copyTunnelUrl() {
     } catch (e) {}
 })();
 
-// Initial Connected Peers Check
+// Initial Connected Peers & Pending Join Requests Check
 fetchPeers();
+checkPendingJoinRequests();
 
 // Bind to SSE when ready or immediately if already active
 if (window.globalSSE) {
@@ -613,6 +710,7 @@ if (window.globalSSE) {
 setInterval(async () => {
     try {
         fetchPeers();
+        checkPendingJoinRequests();
         const res = await fetch('/api/updates');
         if (!res.ok) return;
         const data = await res.json();

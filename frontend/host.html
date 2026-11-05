@@ -322,6 +322,25 @@
         </div>
     </div>
 
+    <!-- Host Incoming Join Request Approval Modal -->
+    <div id="hostJoinRequestModal" class="modal-backdrop" style="display:none; align-items:center; justify-content:center; padding:16px; z-index:10010;">
+        <div class="modal-box" style="max-width:380px; padding:24px; text-align:center; border-radius:24px; border:2px solid var(--accent-cyan); box-shadow:0 0 35px rgba(0,240,255,0.35); position:relative;">
+            <div style="font-size:38px; margin-bottom:8px;">🔔</div>
+            <h3 style="font-size:18px; font-weight:800; color:var(--text-main); margin-bottom:6px;">Device Wants to Join</h3>
+            <p style="font-size:13px; color:var(--text-sub); line-height:1.5; margin-bottom:14px;">
+                <strong id="joinReqDeviceName" style="color:var(--accent-cyan); font-size:16px;">Unknown Device</strong><br>
+                <span id="joinReqDeviceInfo" style="font-size:11px; opacity:0.85;"></span>
+            </p>
+            <div id="joinReqTimer" style="font-size:11px; color:var(--text-sub); margin-bottom:18px; font-family:monospace; font-weight:600;">
+                Auto-expires in 60s
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <button type="button" class="btn-secondary" onclick="respondHostJoinRequest('decline')" style="padding:10px 0; border-radius:12px; font-weight:700; border-color:rgba(239,68,68,0.4); color:#ef4444; font-size:13px;">✕ Decline</button>
+                <button type="button" class="btn-primary" onclick="respondHostJoinRequest('accept')" style="padding:10px 0; border-radius:12px; font-weight:700; font-size:13px;">✓ Accept &amp; Connect</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="scripts.js"></script>
     <script src="host_scripts.js"></script>
