@@ -205,32 +205,60 @@ function getSmartIcon(category, ext) {
 
 // --- PEERJS WEBRTC P2P MANAGER ---
 // Robust ICE configuration including STUN & free public TURN relays for symmetric NAT / CGNAT mobile data traversal
+function getIceServers() {
+    const defaultServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        // Public OpenRelay TURN fallback for Carrier-Grade NAT (CGNAT) traversal
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelay',
+            credential: 'openrelay'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelay',
+            credential: 'openrelay'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelay',
+            credential: 'openrelay'
+        }
+    ];
+
+    try {
+        const custom = localStorage.getItem('pyshare_custom_ice');
+        if (custom) {
+            const parsed = JSON.parse(custom);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return [...parsed, ...defaultServers];
+            }
+        }
+    } catch (e) {}
+
+    return defaultServers;
+}
+
 const PEER_CONFIG = {
     debug: 1,
     config: {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' },
-            // Public OpenRelay TURN fallback for Carrier-Grade NAT (CGNAT) traversal
-            {
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelay',
-                credential: 'openrelay'
-            },
-            {
-                urls: 'turn:openrelay.metered.ca:443',
-                username: 'openrelay',
-                credential: 'openrelay'
-            },
-            {
-                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                username: 'openrelay',
-                credential: 'openrelay'
-            }
-        ]
+        iceServers: getIceServers()
     }
+};
+
+window.getIceServers = getIceServers;
+window.setCustomIceServers = function(servers) {
+    try {
+        if (Array.isArray(servers)) {
+            localStorage.setItem('pyshare_custom_ice', JSON.stringify(servers));
+            PEER_CONFIG.config.iceServers = getIceServers();
+            return true;
+        }
+    } catch (e) {}
+    return false;
 };
 
 // Start as Mobile Host

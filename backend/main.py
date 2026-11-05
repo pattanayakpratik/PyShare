@@ -471,6 +471,117 @@ def start_pin_rotator():
     t = threading.Thread(target=pin_rotator, daemon=True)
     t.start()
 
+# --- ZERO-CONF LOCAL LAN ROOM AUTO-DISCOVERY BEACON ---
+DISCOVERY_PORT = 53535
+DISCOVERED_ROOMS = {}
+discovered_lock = threading.Lock()
+lan_discovery_running = True
+_discovery_thread_started = False
+
+def lan_discovery_worker():
+    """Background UDP beacon & listener for zero-conf PyShare room discovery on local subnet."""
+    global lan_discovery_running
+    sock = None
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.settimeout(1.0)
+        try:
+            sock.bind(("", DISCOVERY_PORT))
+        except Exception:
+            try:
+                sock.bind(("", 0))
+            except Exception:
+                return
+    except Exception:
+        return
+
+    last_broadcast_time = 0
+
+    while lan_discovery_running:
+        now = time.time()
+        # 1. Periodically broadcast our presence on the LAN (every 3 seconds)
+        if ACTUAL_PORT > 0 and (now - last_broadcast_time >= 3.0):
+            last_broadcast_time = now
+            try:
+                my_ip = get_ip()
+                payload = json.dumps({
+                    "app": "PyShare",
+                    "version": "4.0",
+                    "room": f"PyShare ({platform.node()})",
+                    "ip": my_ip,
+                    "port": ACTUAL_PORT,
+                    "device": platform.node(),
+                    "url": f"http://{my_ip}:{ACTUAL_PORT}"
+                }).encode('utf-8')
+                sock.sendto(payload, ("<broadcast>", DISCOVERY_PORT))
+            except Exception:
+                pass
+
+        # 2. Listen for discovery queries or announcements from peer PyShare instances
+        try:
+            data, addr = sock.recvfrom(2048)
+            if not data:
+                continue
+            if data == b"PYSHARE_DISCOVER":
+                if ACTUAL_PORT > 0:
+                    my_ip = get_ip()
+                    resp_payload = json.dumps({
+                        "app": "PyShare",
+                        "version": "4.0",
+                        "room": f"PyShare ({platform.node()})",
+                        "ip": my_ip,
+                        "port": ACTUAL_PORT,
+                        "device": platform.node(),
+                        "url": f"http://{my_ip}:{ACTUAL_PORT}"
+                    }).encode('utf-8')
+                    sock.sendto(resp_payload, addr)
+            else:
+                try:
+                    info = json.loads(data.decode('utf-8', errors='ignore'))
+                    if isinstance(info, dict) and info.get("app") == "PyShare":
+                        peer_ip = info.get("ip") or addr[0]
+                        peer_port = info.get("port")
+                        my_ip = get_ip()
+                        if not (peer_ip == my_ip and peer_port == ACTUAL_PORT):
+                            room_key = f"{peer_ip}:{peer_port}"
+                            with discovered_lock:
+                                DISCOVERED_ROOMS[room_key] = {
+                                    "room": info.get("room", f"PyShare ({peer_ip})"),
+                                    "ip": peer_ip,
+                                    "port": peer_port,
+                                    "device": info.get("device", "Unknown Device"),
+                                    "url": info.get("url", f"http://{peer_ip}:{peer_port}"),
+                                    "last_seen": now
+                                }
+                except Exception:
+                    pass
+        except socket.timeout:
+            pass
+        except Exception:
+            pass
+
+        # 3. Clean up expired rooms (stale after 10s)
+        with discovered_lock:
+            stale_keys = [k for k, v in DISCOVERED_ROOMS.items() if now - v.get("last_seen", 0) > 10.0]
+            for k in stale_keys:
+                DISCOVERED_ROOMS.pop(k, None)
+
+    try:
+        sock.close()
+    except Exception:
+        pass
+
+def start_lan_discovery():
+    """Start LAN discovery beacon thread if not already running."""
+    global _discovery_thread_started
+    with discovered_lock:
+        if not _discovery_thread_started:
+            _discovery_thread_started = True
+            t = threading.Thread(target=lan_discovery_worker, daemon=True, name="LAN-Discovery")
+            t.start()
+
 # --- STATE MANAGEMENT ---
 def add_event(msg):
     with state_lock:
@@ -1429,6 +1540,15 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"peers": get_connected_peers()})
             return
 
+        # Discovered LAN Rooms (Zero-Conf LAN Auto-Discovery)
+        if self.path in ('/api/lan/rooms', '/api/rooms/discovered'):
+            start_lan_discovery()
+            now = time.time()
+            with discovered_lock:
+                active_rooms = [v for v in DISCOVERED_ROOMS.values() if now - v.get("last_seen", 0) <= 10.0]
+            self.send_json({"rooms": active_rooms, "count": len(active_rooms)})
+            return
+
         # Check Join Request Status (/api/join/status?request_id=...)
         if self.path.startswith('/api/join/status'):
             query = urllib.parse.urlparse(self.path).query
@@ -1750,6 +1870,19 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     except Exception: pass
                 os._exit(0)
             threading.Thread(target=kill, daemon=True).start()
+            return
+
+        # Trigger LAN Room Discovery Probe
+        if self.path in ('/api/lan/discover', '/api/rooms/discover'):
+            start_lan_discovery()
+            try:
+                probe_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                probe_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                probe_sock.sendto(b"PYSHARE_DISCOVER", ("<broadcast>", DISCOVERY_PORT))
+                probe_sock.close()
+            except Exception:
+                pass
+            self.send_json({"status": "ok"})
             return
 
         # 1. HANDLE LOGIN (Accept CURRENT_PIN or PREVIOUS_PIN for grace window with Rate Limiting)
@@ -2528,6 +2661,7 @@ def start_server():
 
     # Start PIN Rotation & 1-second countdown ticker
     start_pin_rotator()
+    start_lan_discovery()
 
     ip = get_ip()
     url = f'http://{ip}:{ACTUAL_PORT}'

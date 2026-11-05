@@ -709,9 +709,32 @@ function copyTunnelUrl() {
     } catch (e) {}
 })();
 
+// Check for peer PyShare rooms on local subnet
+async function checkLanRoomsHost() {
+    try {
+        const res = await fetch('/api/lan/rooms');
+        if (!res.ok) return;
+        const data = await res.json();
+        const rooms = data.rooms || [];
+        const container = document.getElementById('lanHostsNotification');
+        if (container) {
+            if (rooms.length > 0) {
+                container.style.display = 'flex';
+                const textEl = document.getElementById('lanHostsText');
+                if (textEl) {
+                    textEl.innerText = `${rooms.length} other PyShare instance${rooms.length > 1 ? 's' : ''} active on LAN`;
+                }
+            } else {
+                container.style.display = 'none';
+            }
+        }
+    } catch (e) {}
+}
+
 // Initial Connected Peers & Pending Join Requests Check
 fetchPeers();
 checkPendingJoinRequests();
+checkLanRoomsHost();
 
 // Bind to SSE when ready or immediately if already active
 if (window.globalSSE) {
@@ -727,6 +750,7 @@ setInterval(async () => {
     try {
         fetchPeers();
         checkPendingJoinRequests();
+        checkLanRoomsHost();
         const res = await fetch('/api/updates');
         if (!res.ok) return;
         const data = await res.json();

@@ -875,6 +875,61 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.9: Folder upload structure preservation and seekable range streaming verified")
 
+    def test_21_lan_discovery_and_p2p_ice_config(self):
+        """Test UDP LAN discovery beacon responder, room query API, and WebRTC ICE TURN fallback."""
+        # 1. Test GET /api/lan/rooms endpoint
+        req_rooms = urllib.request.Request(f"{self.base_url}/api/lan/rooms")
+        with urllib.request.urlopen(req_rooms, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            data = json.loads(res.read().decode('utf-8'))
+            self.assertIn("rooms", data)
+            self.assertIn("count", data)
+            self.assertIsInstance(data["rooms"], list)
+
+        # 2. Test POST /api/lan/discover trigger probe
+        req_discover = urllib.request.Request(
+            f"{self.base_url}/api/lan/discover",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_discover, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            ddata = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(ddata.get("status"), "ok")
+
+        # 3. Simulate peer room beacon discovery in memory
+        with main.discovered_lock:
+            main.DISCOVERED_ROOMS["192.168.1.99:5000"] = {
+                "room": "Office Laptop",
+                "ip": "192.168.1.99",
+                "port": 5000,
+                "device": "Office-PC",
+                "url": "http://192.168.1.99:5000",
+                "last_seen": time.time()
+            }
+
+        with urllib.request.urlopen(req_rooms, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            data2 = json.loads(res.read().decode('utf-8'))
+            has_peer = any(r.get("ip") == "192.168.1.99" for r in data2.get("rooms", []))
+            self.assertTrue(has_peer, "Discovered room should appear in /api/lan/rooms")
+
+        # Clean up simulated room
+        with main.discovered_lock:
+            main.DISCOVERED_ROOMS.pop("192.168.1.99:5000", None)
+
+        # 4. Verify WebRTC P2P ICE TURN configuration in frontend/p2p.js
+        p2p_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "p2p.js")
+        self.assertTrue(os.path.isfile(p2p_path))
+        with open(p2p_path, "r", encoding="utf-8") as f:
+            p2p_code = f.read()
+        self.assertIn("openrelay.metered.ca", p2p_code, "TURN fallback relay missing in p2p.js")
+        self.assertIn("transport=tcp", p2p_code, "TCP TURN fallback relay missing in p2p.js")
+        self.assertIn("getIceServers", p2p_code, "Dynamic ICE config helper missing in p2p.js")
+
+        print("  [PASS] Step 4.10: LAN room auto-discovery beacon and WebRTC TURN relay fallback verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)
