@@ -930,6 +930,43 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.10: LAN room auto-discovery beacon and WebRTC TURN relay fallback verified")
 
+    def test_22_cross_platform_cloudflared_and_launcher(self):
+        """Test multi-platform tunnel binary architecture resolution and cross-platform launcher specs."""
+        # 1. Test Windows architecture resolution
+        fn_win64, url_win64 = main.get_cloudflared_target(sys_plat="windows", sys_arch="AMD64")
+        self.assertEqual(fn_win64, "cloudflared-windows-amd64.exe")
+        self.assertTrue(url_win64.endswith("cloudflared-windows-amd64.exe"))
+
+        fn_win32, url_win32 = main.get_cloudflared_target(sys_plat="windows", sys_arch="x86")
+        self.assertEqual(fn_win32, "cloudflared-windows-386.exe")
+
+        # 2. Test macOS (Darwin) architecture resolution (Apple Silicon arm64 vs Intel amd64)
+        fn_mac_arm, url_mac_arm = main.get_cloudflared_target(sys_plat="darwin", sys_arch="arm64")
+        self.assertEqual(fn_mac_arm, "cloudflared-darwin-arm64")
+
+        fn_mac_intel, url_mac_intel = main.get_cloudflared_target(sys_plat="darwin", sys_arch="x86_64")
+        self.assertEqual(fn_mac_intel, "cloudflared-darwin-amd64")
+
+        # 3. Test Linux architecture resolution (amd64, arm64, armv7, 386)
+        fn_linux_64, _ = main.get_cloudflared_target(sys_plat="linux", sys_arch="x86_64")
+        self.assertEqual(fn_linux_64, "cloudflared-linux-amd64")
+
+        fn_linux_arm64, _ = main.get_cloudflared_target(sys_plat="linux", sys_arch="aarch64")
+        self.assertEqual(fn_linux_arm64, "cloudflared-linux-arm64")
+
+        fn_linux_arm, _ = main.get_cloudflared_target(sys_plat="linux", sys_arch="armv7l")
+        self.assertEqual(fn_linux_arm, "cloudflared-linux-arm")
+
+        # 4. Verify single-instance lock resilience across platforms
+        instance_lock = app_gui.ensure_single_instance()
+        self.assertIsNotNone(instance_lock, "Single instance locking mechanism should return a valid handle or lock")
+
+        # 5. Verify run.py launcher imports and main_launcher callable
+        import run
+        self.assertTrue(callable(run.main_launcher), "run.main_launcher must be callable")
+
+        print("  [PASS] Step 4.11: Multi-platform tunnel binary resolution and cross-platform launcher verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)

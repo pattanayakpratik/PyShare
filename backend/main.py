@@ -288,19 +288,24 @@ def get_cloudflared_path():
         return local_bin
     return desktop_bin
 
-def download_cloudflared(dest_path):
-    """Download standalone cloudflared binary matching OS and architecture."""
-    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    sys_plat = platform.system().lower()
-    sys_arch = platform.machine().lower()
+def get_cloudflared_target(sys_plat=None, sys_arch=None):
+    """Determine the cloudflared release binary filename and URL for any OS and architecture."""
+    if sys_plat is None:
+        sys_plat = platform.system().lower()
+    else:
+        sys_plat = sys_plat.lower()
+    if sys_arch is None:
+        sys_arch = platform.machine().lower()
+    else:
+        sys_arch = sys_arch.lower()
 
     if sys_plat == "windows":
         arch_suffix = "amd64" if ("64" in sys_arch or "x86_64" in sys_arch) else "386"
         filename = f"cloudflared-windows-{arch_suffix}.exe"
-    elif sys_plat == "darwin":
+    elif sys_plat in ("darwin", "macos", "osx"):
         arch_suffix = "arm64" if ("arm" in sys_arch or "aarch64" in sys_arch) else "amd64"
         filename = f"cloudflared-darwin-{arch_suffix}"
-    else:  # Linux / Unix
+    else:  # Linux / Unix / BSD
         if "arm64" in sys_arch or "aarch64" in sys_arch:
             arch_suffix = "arm64"
         elif "arm" in sys_arch:
@@ -312,6 +317,13 @@ def download_cloudflared(dest_path):
         filename = f"cloudflared-linux-{arch_suffix}"
 
     url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/{filename}"
+    return filename, url
+
+def download_cloudflared(dest_path):
+    """Download standalone cloudflared binary matching OS and architecture."""
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    sys_plat = platform.system().lower()
+    filename, url = get_cloudflared_target()
     temp_path = dest_path + ".tmp"
     try:
         urllib.request.urlretrieve(url, temp_path)

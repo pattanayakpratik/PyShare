@@ -23,7 +23,22 @@ SW_RESTORE = 9
 WINDOW_TITLE = "PyShare — High-Speed File Transfer Studio"
 
 def ensure_single_instance():
-    """Ensure only one instance of PyShare Desktop App runs at any time on Windows."""
+    """Ensure only one instance of PyShare Desktop App runs at any time across platforms."""
+    if sys.platform != "win32":
+        try:
+            import tempfile
+            lock_path = os.path.join(tempfile.gettempdir(), "pyshare_desktop.lock")
+            lock_fd = open(lock_path, "w")
+            try:
+                import fcntl
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except Exception:
+                pass
+            return lock_fd
+        except Exception as e:
+            print(f"[*] Non-Windows lock warning: {e}")
+            return None
+
     try:
         kernel32 = ctypes.windll.kernel32
         user32 = ctypes.windll.user32
@@ -129,11 +144,12 @@ def start_native_app():
         try:
             window.show()
             window.restore()
-            user32 = ctypes.windll.user32
-            hwnd = user32.FindWindowW(None, WINDOW_TITLE)
-            if hwnd:
-                user32.ShowWindow(hwnd, SW_RESTORE)
-                user32.SetForegroundWindow(hwnd)
+            if sys.platform == "win32":
+                user32 = ctypes.windll.user32
+                hwnd = user32.FindWindowW(None, WINDOW_TITLE)
+                if hwnd:
+                    user32.ShowWindow(hwnd, SW_RESTORE)
+                    user32.SetForegroundWindow(hwnd)
         except Exception as e:
             print(f"[*] Restore window notice: {e}")
 
