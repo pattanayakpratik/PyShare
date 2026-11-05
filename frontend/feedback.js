@@ -63,7 +63,7 @@ function ensureFeedbackModal() {
             <span class="modal-title-text" style="display:flex; align-items:center; gap:8px;">
                 <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Help &amp; Feedback
             </span>
-            <button class="icon-btn" onclick="closeFeedbackModal()" style="width:34px; height:34px;" title="Close">✕</button>
+            <button class="icon-btn" onclick="closeFeedbackModal()" style="width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
 
         <div id="feedbackFormContainer" style="padding: 20px; overflow-y: auto; max-height: calc(85vh - 120px);">
@@ -367,7 +367,7 @@ async function submitFeedback() {
         }
         if (ghAction) ghAction.style.display = 'none';
         if (typeof showToast === 'function') {
-            showToast('Feedback sent! Thank you 🙏', '💬');
+            showToast('Feedback sent! Thank you', 'success');
         }
     } else {
         if (successDesc) {
@@ -376,7 +376,7 @@ async function submitFeedback() {
         if (ghAction) ghAction.style.display = 'block';
         if (ghLink) ghLink.href = ghUrl;
         if (typeof showToast === 'function') {
-            showToast('Please submit on GitHub Issues', '⚠️');
+            showToast('Please submit on GitHub Issues', 'warning');
         }
     }
 
@@ -431,7 +431,7 @@ function showPyShareConfirm({
                             <img src="app_icon.png" alt="PyShare" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain;">
                             <span id="pyshareConfirmTitle">PyShare</span>
                         </div>
-                        <button type="button" class="action-circle-btn" id="pyshareConfirmCloseBtn" style="width: 28px; height: 28px; font-size: 12px; cursor: pointer;">✕</button>
+                        <button type="button" class="action-circle-btn" id="pyshareConfirmCloseBtn" style="width: 28px; height: 28px; font-size: 12px; cursor: pointer; display:inline-flex; align-items:center; justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </div>
                     <div style="padding: 22px 20px; color: var(--text-sub); font-size: 14px; line-height: 1.5;" id="pyshareConfirmMessage">
                     </div>
@@ -555,7 +555,7 @@ function showPySharePrompt({
                             <img src="app_icon.png" alt="PyShare" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain;">
                             <span id="pysharePromptTitle">PyShare</span>
                         </div>
-                        <button type="button" class="action-circle-btn" id="pysharePromptCloseBtn" style="width: 28px; height: 28px; font-size: 12px; cursor: pointer;" aria-label="Close">✕</button>
+                        <button type="button" class="action-circle-btn" id="pysharePromptCloseBtn" style="width: 28px; height: 28px; font-size: 12px; cursor: pointer; display:inline-flex; align-items:center; justify-content:center;" aria-label="Close"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </div>
                     <form id="pysharePromptForm" onsubmit="event.preventDefault();" style="margin: 0; padding: 0;">
                         <div style="padding: 20px; display:flex; flex-direction:column; gap:12px;">
@@ -705,7 +705,9 @@ function ensureUpdateModal(data) {
         <div class="modal-box" style="max-width: 480px; text-align: left;" onclick="event.stopPropagation()">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:24px;">🚀</span>
+                    <div style="width:38px; height:38px; border-radius:12px; background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.3); display:flex; align-items:center; justify-content:center; color:var(--accent-cyan);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </div>
                     <div>
                         <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--text-main);">New Update Available</h3>
                         <span style="font-size:12px; color:var(--accent-cyan); font-weight:600;">v${latestV} &bull; Current: v${currentV}</span>
@@ -743,7 +745,7 @@ async function checkForUpdates(manual = false) {
         const resp = await fetch('/api/check_update');
         if (!resp.ok) {
             if (manual) {
-                if (typeof showToast === 'function') showToast('Could not reach update server', '⚠️');
+                if (typeof showToast === 'function') showToast('Could not reach update server', 'warning');
                 else alert('Could not check for updates');
             }
             return;
@@ -754,13 +756,13 @@ async function checkForUpdates(manual = false) {
             if (badge) badge.style.display = 'inline-block';
             ensureUpdateModal(data);
         } else if (manual) {
-            const msg = `PyShare is up to date (v${data.current_version || '4.9.2'}) ✓`;
-            if (typeof showToast === 'function') showToast(msg, '✅');
+            const msg = `PyShare is up to date (v${data.current_version || '4.9.2'})`;
+            if (typeof showToast === 'function') showToast(msg, 'success');
             else alert(msg);
         }
     } catch (e) {
         if (manual) {
-            if (typeof showToast === 'function') showToast('Network error checking updates', '⚠️');
+            if (typeof showToast === 'function') showToast('Network error checking updates', 'warning');
             else alert('Network error checking updates');
         }
     }

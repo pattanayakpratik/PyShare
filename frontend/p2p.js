@@ -37,7 +37,80 @@ function toggleTheme() {
 }
 
 // Toast Notifications with Deduplication & Max Limit
-function showToast(message, icon = 'ℹ️') {
+function getToastSvg(icon) {
+    if (!icon) return '';
+    if (typeof icon === 'string' && icon.trim().startsWith('<svg')) {
+        return icon;
+    }
+    const key = String(icon).trim().toLowerCase();
+    switch (key) {
+        case 'success':
+        case 'check':
+        case '\u2705':
+        case '\u2713':
+        case '\uD83C\uDF89':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>';
+        case 'error':
+        case 'danger':
+        case 'cross':
+        case '\u274C':
+        case '\u26D4':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        case 'warning':
+        case 'alert':
+        case '\u26A0\uFE0F':
+        case '\u26A0':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        case 'copy':
+        case 'clipboard':
+        case '\uD83D\uDCCB':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        case 'chat':
+        case 'message':
+        case '\uD83D\uDCAC':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+        case 'trash':
+        case 'delete':
+        case '\uD83D\uDDD1\uFE0F':
+        case '\uD83D\uDDD1':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+        case 'bell':
+        case 'knock':
+        case '\uD83D\uDD14':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+        case 'edit':
+        case 'rename':
+        case '\u270F\uFE0F':
+        case '\u270F':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+        case 'lock':
+        case 'revoked':
+        case '\uD83D\uDD12':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        case 'globe':
+        case 'internet':
+        case '\uD83C\uDF10':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+        case 'home':
+        case 'local':
+        case '\uD83C\uDFE0':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+        case 'save':
+        case 'download':
+        case '\uD83D\uDCBE':
+        case '\uD83D\uDCE5':
+        case '\uD83D\uDE80':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+        case 'key':
+        case 'pin':
+        case '\uD83D\uDD11':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 2l-2 2m-1.5 1.5L14 9l-3-3-9 9v4h4l9-9 3.5 3.5 2-2"/></svg>';
+        default:
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    }
+}
+
+function showToast(message, icon = 'info') {
     if (!message) return;
     const now = Date.now();
     const lastSeen = recentToastHistory.get(message);
@@ -69,7 +142,8 @@ function showToast(message, icon = 'ℹ️') {
 
     const toast = document.createElement('div');
     toast.className = 'toast-pill';
-    toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
+    const svgIcon = getToastSvg(icon);
+    toast.innerHTML = `<span style="display:inline-flex; align-items:center;">${svgIcon}</span> <span>${escapeHtml(message)}</span>`;
     container.appendChild(toast);
 
     setTimeout(() => {
@@ -112,17 +186,20 @@ function getCategory(ext) {
 
 function getSmartIcon(category, ext) {
     switch (category) {
-        case 'image': return '🖼️';
-        case 'video': return '🎬';
-        case 'audio': return '🎵';
-        case 'document': 
-            if (ext === 'pdf') return '📕';
-            if (['doc', 'docx'].includes(ext)) return '📘';
-            if (['xls', 'xlsx', 'csv'].includes(ext)) return '📊';
-            return '📄';
-        case 'archive': return '📦';
-        case 'code': return '💻';
-        default: return '📁';
+        case 'image':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        case 'video':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
+        case 'audio':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+        case 'document':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
+        case 'archive':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
+        case 'code':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
+        default:
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
     }
 }
 
@@ -174,7 +251,7 @@ function startHostMode() {
         peer.on('open', (id) => {
             updateConnectionStatus('Ready! Waiting for device to scan...', 'blue');
             generateHostQR(currentPin);
-            showToast(`Room PIN created: ${currentPin}`, '🔑');
+            showToast(`Room PIN created: ${currentPin}`, 'key');
         });
 
         peer.on('connection', (conn) => {
@@ -186,11 +263,11 @@ function startHostMode() {
                 // Pin collision, retry with new pin
                 startHostMode();
             } else {
-                showToast(`P2P notice: ${err.type}`, '⚠️');
+                showToast(`P2P notice: ${err.type}`, 'warning');
             }
         });
     } catch (e) {
-        showToast('WebRTC initialization failed', '❌');
+        showToast('WebRTC initialization failed', 'error');
     }
 }
 
@@ -229,7 +306,7 @@ function copyShareLink() {
     const url = linkEl ? linkEl.dataset.url : (window.location.origin + window.location.pathname + '?room=' + currentPin);
     if (navigator.clipboard && url) {
         navigator.clipboard.writeText(url).then(() => {
-            showToast('Share link copied to clipboard!', '📋');
+            showToast('Share link copied to clipboard!', 'copy');
         });
     }
 }
@@ -266,10 +343,10 @@ function connectToHost(pin) {
 
         peer.on('error', (err) => {
             updateClientStatus('Connection failed. Check PIN.', 'red');
-            showToast(`Connection failed: ${err.type}`, '❌');
+            showToast(`Connection failed: ${err.type}`, 'error');
         });
     } catch (e) {
-        showToast('WebRTC connection error', '❌');
+        showToast('WebRTC connection error', 'error');
     }
 }
 
@@ -281,13 +358,13 @@ function setupConnectionHandlers(conn) {
         if (isHost) {
             updateConnectionStatus('Connected to Client Peer!', 'green');
             document.getElementById('hostConnectedBadge').style.display = 'flex';
-            showToast('Peer connected! Ready to transfer.', '✅');
+            showToast('Peer connected! Ready to transfer.', 'success');
             
             // Sync current shared files list with newly connected client
             syncSharedFilesToPeer(conn);
         } else {
             updateClientStatus('Connected to Host!', 'green');
-            showToast('Connected! Ready to transfer.', '✅');
+            showToast('Connected! Ready to transfer.', 'success');
         }
     });
 
@@ -306,17 +383,17 @@ function setupConnectionHandlers(conn) {
                 updateConnectionStatus('Ready! Waiting for device to scan...', 'blue');
                 document.getElementById('hostConnectedBadge').style.display = 'none';
             }
-            showToast('Peer disconnected', '⚠️');
+            showToast('Peer disconnected', 'warning');
         } else {
             updateClientStatus('Disconnected from Host', 'red');
-            showToast('Disconnected from Host', '⚠️');
+            showToast('Disconnected from Host', 'warning');
             pendingFileRequests.clear();
         }
     });
 
     conn.on('error', (err) => {
         console.warn('P2P connection error:', err);
-        showToast(`P2P Transfer Notice: ${err?.message || err}`, '⚠️');
+        showToast(`P2P Transfer Notice: ${err?.message || err}`, 'warning');
     });
 }
 
@@ -412,7 +489,7 @@ async function handleIncomingData(msg, conn) {
             delete activeTransfers[msg.id];
             markQueueDone(msg.id);
             updateCatalogButtonState(msg.id, 'downloaded');
-            showToast(`Saved to disk: ${transfer.meta.name}`, '💾');
+            showToast(`Saved to disk: ${transfer.meta.name}`, 'save');
             return;
         }
 
@@ -452,11 +529,11 @@ async function handleIncomingData(msg, conn) {
                 document.body.removeChild(a);
             } catch (e) {}
 
-            showToast(`Saved: ${fileRecord.name}`, '📥');
+            showToast(`Saved: ${fileRecord.name}`, 'save');
         } catch (err) {
             delete activeTransfers[msg.id];
             updateCatalogButtonState(msg.id, 'idle');
-            showToast('Memory limit reached. For large multi-GB transfers, use PyShare Desktop App.', '⚠️');
+            showToast('Memory limit reached. For large multi-GB transfers, use PyShare Desktop App.', 'warning');
         }
     }
 
@@ -465,7 +542,7 @@ async function handleIncomingData(msg, conn) {
         const newCount = (msg.files || []).length;
         const oldCount = peerCatalogFiles.length;
         if (newCount > oldCount && oldCount > 0) {
-            showToast(`Host shared ${newCount - oldCount} new file${newCount - oldCount > 1 ? 's' : ''}`, '📁');
+            showToast(`Host shared ${newCount - oldCount} new file${newCount - oldCount > 1 ? 's' : ''}`, 'info');
         }
         renderPeerCatalog(msg.files);
     }
@@ -481,7 +558,7 @@ async function handleIncomingData(msg, conn) {
     // 6. Universal Shared Clipboard
     else if (msg.type === 'clipboard') {
         renderClipboardText(msg.text);
-        showToast('Clipboard updated by peer!', '📋');
+        showToast('Clipboard updated by peer!', 'copy');
     }
 }
 
@@ -515,13 +592,13 @@ function sendFiles(files) {
 
     // Allow Host to stage files in "Shared by You" even before a peer connects
     if (activeConnections.length === 0 && !isHost) {
-        showToast('No peer connected yet. Scan QR code to connect!', '⚠️');
+        showToast('No peer connected yet. Scan QR code to connect!', 'warning');
         return;
     }
 
     const hasLargeFile = Array.from(files).some(f => f.size > 500 * 1024 * 1024);
     if (hasLargeFile) {
-        showToast('Large file (>500MB) queued. For multi-GB files, PyShare Desktop App provides unlimited offline transfer with zero browser RAM limits.', '💡');
+        showToast('Large file (>500MB) queued. For multi-GB files, PyShare Desktop App provides unlimited offline transfer with zero browser RAM limits.', 'info');
     }
 
     Array.from(files).forEach(file => {
@@ -558,9 +635,9 @@ function sendFiles(files) {
 
     if (isHost) {
         if (activeConnections.length === 0) {
-            showToast('Files staged! They will sync as soon as a peer connects.', '✅');
+            showToast('Files staged! They will sync as soon as a peer connects.', 'success');
         } else {
-            showToast(`Shared ${files.length} file${files.length > 1 ? 's' : ''} with peer!`, '✅');
+            showToast(`Shared ${files.length} file${files.length > 1 ? 's' : ''} with peer!`, 'success');
         }
     }
 }
@@ -621,7 +698,7 @@ async function processSendQueue(conn) {
         await streamFileToConnectionAsync(file, conn, fileId);
     } catch (err) {
         console.error('P2P send error:', err);
-        showToast(`Transfer interrupted: ${file.name}`, '❌');
+        showToast(`Transfer interrupted: ${file.name}`, 'error');
     } finally {
         conn._currentSendingId = null;
         conn._isSending = false;
@@ -656,7 +733,7 @@ async function streamFileToConnectionAsync(file, conn, fileId) {
     if (totalSize === 0) {
         conn.send({ type: 'file_end', id: fileId });
         markQueueDone(fileId);
-        showToast(`Sent: ${file.name}`, '✅');
+        showToast(`Sent: ${file.name}`, 'success');
         return;
     }
 
@@ -699,7 +776,7 @@ async function streamFileToConnectionAsync(file, conn, fileId) {
         id: fileId
     });
     markQueueDone(fileId);
-    showToast(`Sent: ${file.name}`, '✅');
+    showToast(`Sent: ${file.name}`, 'success');
 }
 
 // Backward-compatible alias
@@ -724,14 +801,14 @@ function syncSharedFilesToPeer(conn) {
 
 async function requestFileFromHost(fileId) {
     if (activeConnections.length === 0) {
-        showToast('No active peer connection', '⚠️');
+        showToast('No active peer connection', 'warning');
         return;
     }
 
     // Check 1: Already downloaded? Save immediately from memory without network transfer
     const existing = receivedFilesList.find(f => f.id === fileId);
     if (existing && existing.url) {
-        showToast(`Downloading ${existing.name}...`, '💾');
+        showToast(`Downloading ${existing.name}...`, 'save');
         const a = document.createElement('a');
         a.href = existing.url;
         a.download = existing.name;
@@ -764,7 +841,7 @@ async function requestFileFromHost(fileId) {
             });
             const writable = await handle.createWritable();
             activeFileStreams[fileId] = writable;
-            showToast(`Streaming ${target.name} directly to disk...`, '💾');
+            showToast(`Streaming ${target.name} directly to disk...`, 'save');
         } catch (e) {
             if (e.name === 'AbortError') {
                 pendingFileRequests.delete(fileId);
@@ -1094,7 +1171,7 @@ function copyClipboardText(text) {
     if (!textToCopy) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(textToCopy).then(() => {
-            showToast('Copied to clipboard!', '📋');
+            showToast('Copied to clipboard!', 'copy');
         }).catch(() => {
             legacyCopy(textToCopy);
         });
@@ -1113,9 +1190,9 @@ function legacyCopy(val) {
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
-        showToast('Copied to clipboard!', '📋');
+        showToast('Copied to clipboard!', 'copy');
     } catch(e) {
-        showToast('Could not copy to clipboard', '❌');
+        showToast('Could not copy to clipboard', 'error');
     }
 }
 
@@ -1134,9 +1211,9 @@ function sendClipboardP2P() {
             });
         });
         input.value = '';
-        showToast('Shared with peer!', '🚀');
+        showToast('Shared with peer!', 'chat');
     } else {
-        showToast('No peer connected to receive text', '⚠️');
+        showToast('No peer connected to receive text', 'warning');
     }
 }
 

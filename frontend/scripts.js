@@ -118,7 +118,80 @@ function toggleTheme() {
 // Toast Notifications with Deduplication & Max Limit
 let recentToastHistory = new Map();
 
-function showToast(message, icon = 'ℹ️') {
+function getToastSvg(icon) {
+    if (!icon) return '';
+    if (typeof icon === 'string' && icon.trim().startsWith('<svg')) {
+        return icon;
+    }
+    const key = String(icon).trim().toLowerCase();
+    switch (key) {
+        case 'success':
+        case 'check':
+        case '\u2705':
+        case '\u2713':
+        case '\uD83C\uDF89':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>';
+        case 'error':
+        case 'danger':
+        case 'cross':
+        case '\u274C':
+        case '\u26D4':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        case 'warning':
+        case 'alert':
+        case '\u26A0\uFE0F':
+        case '\u26A0':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        case 'copy':
+        case 'clipboard':
+        case '\uD83D\uDCCB':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        case 'chat':
+        case 'message':
+        case '\uD83D\uDCAC':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+        case 'trash':
+        case 'delete':
+        case '\uD83D\uDDD1\uFE0F':
+        case '\uD83D\uDDD1':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+        case 'bell':
+        case 'knock':
+        case '\uD83D\uDD14':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+        case 'edit':
+        case 'rename':
+        case '\u270F\uFE0F':
+        case '\u270F':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+        case 'lock':
+        case 'revoked':
+        case '\uD83D\uDD12':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        case 'globe':
+        case 'internet':
+        case '\uD83C\uDF10':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+        case 'home':
+        case 'local':
+        case '\uD83C\uDFE0':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+        case 'save':
+        case 'download':
+        case '\uD83D\uDCBE':
+        case '\uD83D\uDCE5':
+        case '\uD83D\uDE80':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+        case 'key':
+        case 'pin':
+        case '\uD83D\uDD11':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 2l-2 2m-1.5 1.5L14 9l-3-3-9 9v4h4l9-9 3.5 3.5 2-2"/></svg>';
+        default:
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    }
+}
+
+function showToast(message, icon = 'info') {
     if (!message) return;
     const now = Date.now();
     const lastSeen = recentToastHistory.get(message);
@@ -147,7 +220,8 @@ function showToast(message, icon = 'ℹ️') {
 
     const toast = document.createElement('div');
     toast.className = 'toast-pill';
-    toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
+    const svgIcon = getToastSvg(icon);
+    toast.innerHTML = `<span style="display:inline-flex; align-items:center;">${svgIcon}</span> <span>${escapeHtml(message)}</span>`;
     container.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -258,17 +332,20 @@ async function extractFilesFromDataTransfer(dataTransfer) {
 
 function getSmartIcon(category, ext) {
     switch (category) {
-        case 'image': return '🖼️';
-        case 'video': return '🎬';
-        case 'audio': return '🎵';
-        case 'document': 
-            if (ext === 'pdf') return '📕';
-            if (['doc', 'docx'].includes(ext)) return '📘';
-            if (['xls', 'xlsx', 'csv'].includes(ext)) return '📊';
-            return '📄';
-        case 'archive': return '📦';
-        case 'code': return '💻';
-        default: return '📁';
+        case 'image':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        case 'video':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
+        case 'audio':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+        case 'document':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
+        case 'archive':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
+        case 'code':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
+        default:
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
     }
 }
 
@@ -346,7 +423,7 @@ class UploadQueueManager {
                 barEl.style.width = '100%';
                 barEl.style.background = 'var(--accent-red, #ef4444)';
             }
-            showToast(`Cancelled: ${item.file.name}`, '⚠️');
+            showToast(`Cancelled: ${item.file.name}`, 'warning');
             this.processNext();
         } else if (item.status === 'pending') {
             item.status = 'cancelled';
@@ -446,12 +523,12 @@ class UploadQueueManager {
                 }
                 if (statusEl) statusEl.innerText = 'Done';
                 if (navigator.vibrate) navigator.vibrate(50);
-                showToast(`Saved: ${item.file.name}`, '✅');
+                showToast(`Saved: ${item.file.name}`, 'success');
             } else {
                 item.status = 'error';
                 if (statusEl) statusEl.innerText = 'Failed';
                 if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-                showToast(`Failed: ${item.file.name}`, '❌');
+                showToast(`Failed: ${item.file.name}`, 'error');
             }
             loadFiles();
             this.processNext();
@@ -463,7 +540,7 @@ class UploadQueueManager {
             if (cancelBtn) cancelBtn.style.display = 'none';
             item.status = 'error';
             if (statusEl) statusEl.innerText = 'Network Error';
-            showToast(`Upload error: ${item.file.name}`, '❌');
+            showToast(`Upload error: ${item.file.name}`, 'error');
             this.processNext();
         };
 
@@ -647,7 +724,7 @@ function copyPreviewText() {
     const textEl = document.getElementById('previewTextContent');
     if (textEl) {
         navigator.clipboard.writeText(textEl.innerText).then(() => {
-            showToast('Copied to clipboard!', '📋');
+            showToast('Copied to clipboard!', 'copy');
         });
     }
 }
@@ -664,14 +741,14 @@ function formatChatText(text) {
 function copyChatMessage(btn, text) {
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Copied to clipboard!', '📋');
+        showToast('Copied to clipboard!', 'copy');
         if (btn) {
             const original = btn.innerHTML;
-            btn.innerHTML = `<span>✓</span> <span>Copied</span>`;
+            btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="20 6 9 17 4 12"/></svg> <span>Copied</span>`;
             setTimeout(() => { btn.innerHTML = original; }, 1500);
         }
     }).catch(() => {
-        showToast('Failed to copy', '❌');
+        showToast('Failed to copy', 'error');
     });
 }
 window.copyChatMessage = copyChatMessage;
@@ -768,7 +845,7 @@ function copySharedClipboard() {
     const raw = display?.dataset?.raw;
     if (raw) {
         navigator.clipboard.writeText(raw).then(() => {
-            showToast('Copied to system clipboard!', '📋');
+            showToast('Copied to system clipboard!', 'copy');
         });
     }
 }
@@ -786,11 +863,11 @@ async function sendClipboard() {
         });
         if (res.ok) {
             input.value = '';
-            showToast('Message sent!', '💬');
+            showToast('Message sent!', 'chat');
             loadClipboard();
         }
     } catch (e) {
-        showToast('Failed to send message', '❌');
+        showToast('Failed to send message', 'error');
     }
 }
 
@@ -809,13 +886,13 @@ function deleteFile(filename, folder) {
                     body: JSON.stringify({ filename: filename, folder: folder })
                 });
                 if (res.ok) {
-                    showToast(`Deleted ${filename}`, '🗑️');
+                    showToast(`Deleted ${filename}`, 'trash');
                     loadFiles();
                 } else {
-                    showToast('Failed to delete file', '❌');
+                    showToast('Failed to delete file', 'error');
                 }
             } catch (e) {
-                showToast('Error deleting file', '❌');
+                showToast('Error deleting file', 'error');
             }
         }
     });
@@ -891,12 +968,12 @@ async function promptRenameDevice() {
             const nameEl = document.getElementById('clientDeviceNameText');
             if (nameEl) nameEl.innerText = currentClientNickname;
             try { localStorage.setItem('pyshare_device_name', currentClientNickname); } catch(e) {}
-            showToast(`Device renamed: ${currentClientNickname}`, '✏️');
+            showToast(`Device renamed: ${currentClientNickname}`, 'rename');
         } else {
-            showToast('Failed to rename device', '❌');
+            showToast('Failed to rename device', 'error');
         }
     } catch (e) {
-        showToast('Error updating nickname', '❌');
+        showToast('Error updating nickname', 'error');
     }
 }
 window.promptRenameDevice = promptRenameDevice;

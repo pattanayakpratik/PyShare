@@ -71,12 +71,12 @@ function copyHostIp() {
     const fullUrl = `http://${addr}/`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(fullUrl).then(() => {
-            showToast(`Server URL copied: ${fullUrl}`, '📋');
+            showToast(`Server URL copied: ${fullUrl}`, 'copy');
         }).catch(() => {
-            showToast(`Server URL: ${fullUrl}`, '📋');
+            showToast(`Server URL: ${fullUrl}`, 'info');
         });
     } else {
-        showToast(`Server URL: ${fullUrl}`, '📋');
+        showToast(`Server URL: ${fullUrl}`, 'info');
     }
 }
 window.copyHostIp = copyHostIp;
@@ -96,15 +96,15 @@ async function syncPCClipboard() {
         const res = await fetch('/api/sync_clipboard');
         const data = await res.json();
         if (data.status === 'ok') {
-            showToast('Host clipboard pushed to devices!', '📋');
+            showToast('Host clipboard pushed to devices!', 'copy');
             if (typeof loadClipboard === 'function') loadClipboard();
         } else if (data.status === 'empty') {
-            showToast('Host clipboard is empty', '⚠️');
+            showToast('Host clipboard is empty', 'warning');
         } else {
-            showToast('Could not sync host clipboard', '❌');
+            showToast('Could not sync host clipboard', 'error');
         }
     } catch (e) {
-        showToast('Error syncing host clipboard', '❌');
+        showToast('Error syncing host clipboard', 'error');
     }
 }
 
@@ -120,13 +120,13 @@ async function clearChatStream() {
                 try {
                     const res = await fetch('/api/chat/clear', { method: 'POST' });
                     if (res.ok) {
-                        showToast('Chat history cleared', '🗑️');
+                        showToast('Chat history cleared', 'trash');
                         if (typeof loadClipboard === 'function') loadClipboard();
                     } else {
-                        showToast('Failed to clear chat', '❌');
+                        showToast('Failed to clear chat', 'error');
                     }
                 } catch (e) {
-                    showToast('Error clearing chat', '❌');
+                    showToast('Error clearing chat', 'error');
                 }
             }
         });
@@ -135,7 +135,7 @@ async function clearChatStream() {
         try {
             const res = await fetch('/api/chat/clear', { method: 'POST' });
             if (res.ok) {
-                showToast('Chat history cleared', '🗑️');
+                showToast('Chat history cleared', 'trash');
                 if (typeof loadClipboard === 'function') loadClipboard();
             }
         } catch(e) {}
@@ -153,7 +153,7 @@ async function togglePinMode() {
         const input = prompt("Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):", "");
         if (input === null) return; // User cancelled
         if (input && !/^\d{4}$/.test(input.trim())) {
-            showToast("PIN must be exactly 4 numeric digits", "⚠️");
+            showToast("PIN must be exactly 4 numeric digits", "warning");
             return;
         }
         customPin = input.trim();
@@ -167,14 +167,14 @@ async function togglePinMode() {
         });
         const data = await res.json();
         if (data.status === 'ok') {
-            const label = data.mode === 'static' ? `Static PIN set to ${data.pin} 🔒` : 'Switched to Auto-Rotating PIN 🔄';
-            showToast(label, '✅');
+            const label = data.mode === 'static' ? `Static PIN set to ${data.pin}` : 'Switched to Auto-Rotating PIN';
+            showToast(label, 'success');
             if (navigator.vibrate) navigator.vibrate(40);
             const qrImg = document.querySelector('.qr-code-img');
             if (qrImg) qrImg.src = '/qrcode.png?t=' + Date.now();
         }
     } catch (e) {
-        showToast("Error updating PIN mode", "❌");
+        showToast("Error updating PIN mode", "error");
     }
 }
 
@@ -207,7 +207,7 @@ function setupHostSSE(es) {
             if (pinEl) pinEl.innerText = data.pin;
             if (timerTextEl) {
                 if (data.ttl < 0 || data.mode === 'static') {
-                    timerTextEl.innerText = 'Static 🔒';
+                    timerTextEl.innerText = 'Static';
                     timerTextEl.title = 'Static PIN (Does not expire). Click to toggle.';
                 } else {
                     timerTextEl.innerText = data.ttl + 's';
@@ -344,7 +344,7 @@ function displayHostJoinRequest(req) {
     if (infoEl) infoEl.innerText = `${req.browser || 'Browser'} on ${req.device || 'Device'} • IP: ${req.ip || 'Unknown'}`;
 
     modal.style.display = 'flex';
-    showToast(`🔔 Device wants to join: ${req.nickname}`, '🔔');
+    showToast(`Device wants to join: ${req.nickname}`, 'bell');
     if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
 
     let secondsLeft = req.expires_in || 60;
@@ -389,14 +389,14 @@ async function respondHostJoinRequest(action) {
         const data = await res.json();
         if (data.status === 'ok') {
             if (action === 'accept') {
-                showToast(`✓ Allowed ${reqNickname} to connect!`, '🎉');
+                showToast(`Allowed ${reqNickname} to connect`, 'success');
                 fetchPeers();
             } else {
-                showToast(`✕ Declined request from ${reqNickname}`, '⛔');
+                showToast(`Declined request from ${reqNickname}`, 'error');
             }
         }
     } catch (e) {
-        showToast('Error responding to join request', '❌');
+        showToast('Error responding to join request', 'error');
     }
 }
 window.respondHostJoinRequest = respondHostJoinRequest;
@@ -465,13 +465,13 @@ async function renamePeer(id, currentName) {
         });
         const data = await res.json();
         if (data.status === 'ok') {
-            showToast(`Device renamed: ${data.nickname}`, '✏️');
+            showToast(`Device renamed: ${data.nickname}`, 'rename');
             fetchPeers();
         } else {
-            showToast('Could not rename device', '❌');
+            showToast('Could not rename device', 'error');
         }
     } catch (e) {
-        showToast('Network error renaming device', '❌');
+        showToast('Network error renaming device', 'error');
     }
 }
 window.renamePeer = renamePeer;
@@ -528,7 +528,7 @@ function renderPeers(peers) {
         const isIpVisible = !peersIpMasked || revealedPeerIps.has(p.id);
         const ipBadgeHtml = isIpVisible 
             ? `<span class="peer-ip-badge" onclick="togglePeerIp('${pId}')" title="Click to hide IP">${pIp}</span>`
-            : `<span class="peer-ip-badge private" onclick="togglePeerIp('${pId}')" title="Click to reveal IP">🔒 IP Hidden</span>`;
+            : `<span class="peer-ip-badge private" onclick="togglePeerIp('${pId}')" title="Click to reveal IP"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>IP Hidden</span>`;
 
         return `
             <div class="peer-card" id="peer-${pId}">
@@ -585,14 +585,14 @@ async function disconnectPeer(id, ip) {
         });
         const data = await res.json();
         if (data.status === 'ok') {
-            showToast('Device access revoked', '🔒');
+            showToast('Device access revoked', 'lock');
             currentPeers = currentPeers.filter(p => p.id !== id);
             renderPeers(currentPeers);
         } else {
-            showToast('Failed to revoke device', '❌');
+            showToast('Failed to revoke device', 'error');
         }
     } catch (e) {
-        showToast('Network error revoking device', '❌');
+        showToast('Network error revoking device', 'error');
     }
 }
 
@@ -664,12 +664,12 @@ async function toggleTunnel() {
         const data = await res.json();
         updateTunnelUI(data);
         if (data.status === 'active') {
-            showToast('Internet Mode Active! Works on mobile data.', '🌐');
+            showToast('Internet Mode Active! Works on mobile data.', 'globe');
         } else if (data.status === 'idle') {
-            showToast('Reverted to Local Wi-Fi Mode', '🏠');
+            showToast('Reverted to Local Wi-Fi Mode', 'home');
         }
     } catch (e) {
-        showToast('Error toggling Internet Mode', '❌');
+        showToast('Error toggling Internet Mode', 'error');
         if (btnEl) btnEl.disabled = false;
     }
 }
@@ -677,7 +677,7 @@ async function toggleTunnel() {
 function copyTunnelUrl() {
     if (currentTunnelUrl) {
         navigator.clipboard.writeText(currentTunnelUrl).then(() => {
-            showToast('Copied Public URL to clipboard!', '📋');
+            showToast('Copied Public URL to clipboard!', 'copy');
         });
     }
 }
