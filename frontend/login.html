@@ -286,11 +286,19 @@
         <h2 class="login-title">Protected</h2>
         <p class="login-desc">Enter the 4-digit PIN displayed on the Host.</p>
 
-        <div style="display:flex; justify-content:center; margin-bottom:14px;">
+        <div style="display:flex; justify-content:center; margin-bottom:12px;">
             <button id="btnScanQR" type="button" class="key-btn" onclick="openQrScanner()" style="width:100%; padding:10px 0; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:14px; background:var(--input-bg); border:1px solid var(--border-color); color:var(--accent-cyan); box-shadow:var(--shadow-sm);" title="Scan the Host screen QR Code with camera">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 <span>Scan Host QR</span>
             </button>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            <div style="display:flex; align-items:center; background:var(--input-bg); border:1px solid var(--border-color); border-radius:14px; padding:0 12px; gap:8px;">
+                <span style="font-size:14px; opacity:0.7;">🏷️</span>
+                <input id="deviceNicknameInput" type="text" maxlength="32" placeholder="Device Nickname (Optional)" 
+                    style="width:100%; padding:10px 0; background:transparent; border:none; color:var(--text-main); font-size:13px; font-weight:500; outline:none; font-family:inherit;">
+            </div>
         </div>
 
         <div id="pinBox" class="pin-dot-display"></div>
@@ -489,16 +497,35 @@
             updateDisplay();
         }
 
+        // Populate device nickname from localStorage if previously set
+        const nicknameInput = document.getElementById('deviceNicknameInput');
+        if (nicknameInput) {
+            try {
+                const savedNickname = localStorage.getItem('pyshare_device_name');
+                if (savedNickname) nicknameInput.value = savedNickname;
+            } catch(e) {}
+        }
+
         async function submitPin() {
             if (!pin || pin.length < 4) return;
 
             pinBox.style.opacity = "0.5";
 
+            const nickname = nicknameInput ? nicknameInput.value.trim() : '';
+            if (nickname) {
+                try { localStorage.setItem('pyshare_device_name', nickname); } catch(e) {}
+            }
+
+            let postBody = 'pin=' + encodeURIComponent(pin);
+            if (nickname) {
+                postBody += '&nickname=' + encodeURIComponent(nickname);
+            }
+
             try {
                 const res = await fetch('/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'pin=' + encodeURIComponent(pin)
+                    body: postBody
                 });
 
                 pinBox.style.opacity = "1";
@@ -528,6 +555,10 @@
 
         // Keyboard Support
         document.addEventListener('keydown', (e) => {
+            if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+                if (e.key === 'Enter') submitPin();
+                return;
+            }
             if (e.key >= '0' && e.key <= '9') {
                 add(e.key);
             } else if (e.key === 'Backspace') {

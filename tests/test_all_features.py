@@ -452,6 +452,107 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.4: Session revocation and 401 Unauthorized kick verified")
 
+    def test_16_device_nickname_login_and_renaming(self):
+        """Step 4.5: Verify device nicknames during login, client renaming, and host renaming."""
+        with main.state_lock:
+            current_pin = main.CURRENT_PIN
+        custom_name = "Pratik's Pixel 8"
+        iphone_ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148"
+        
+        # 1. Login with custom nickname
+        login_body = urllib.parse.urlencode({
+            "pin": current_pin,
+            "nickname": custom_name
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            f"{self.base_url}/login",
+            data=login_body,
+            headers={"User-Agent": iphone_ua, "Content-Type": "application/x-www-form-urlencoded"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            set_cookie = res.headers.get("Set-Cookie", "")
+            token = re.search(r'pyshare_session=([a-f0-9]+)', set_cookie).group(1)
+
+        cookie_header = f"pyshare_session={token}"
+        target_id = token[:8]
+
+        # 2. Check /api/info returns the nickname for authenticated client
+        req_info = urllib.request.Request(
+            f"{self.base_url}/api/info",
+            headers={"Cookie": cookie_header}
+        )
+        with urllib.request.urlopen(req_info, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            info = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(info.get("nickname"), custom_name)
+
+        # 3. Check /api/peers reflects custom nickname
+        req_peers = urllib.request.Request(f"{self.base_url}/api/peers")
+        with urllib.request.urlopen(req_peers, timeout=3) as res:
+            pdata = json.loads(res.read().decode('utf-8'))
+            matched = [p for p in pdata.get("peers", []) if p.get("id") == target_id]
+            self.assertEqual(len(matched), 1)
+            self.assertEqual(matched[0]["nickname"], custom_name)
+
+        # 4. Client renames own device via /api/device/rename
+        client_new_name = "Pratik's Daily Phone"
+        rename_body = json.dumps({"nickname": client_new_name}).encode('utf-8')
+        req_rename = urllib.request.Request(
+            f"{self.base_url}/api/device/rename",
+            data=rename_body,
+            headers={"Cookie": cookie_header, "Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_rename, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            rdata = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(rdata["status"], "ok")
+            self.assertEqual(rdata["nickname"], client_new_name)
+
+        # Verify updated in /api/info
+        with urllib.request.urlopen(req_info, timeout=3) as res:
+            info = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(info.get("nickname"), client_new_name)
+
+        # 5. Host renames peer by target ID
+        host_new_name = "Pratik Phone (Host Tag)"
+        host_rename_body = json.dumps({"id": target_id, "nickname": host_new_name}).encode('utf-8')
+        req_host_rename = urllib.request.Request(
+            f"{self.base_url}/api/device/rename",
+            data=host_rename_body,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_host_rename, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            rdata = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(rdata["status"], "ok")
+            self.assertEqual(rdata["nickname"], host_new_name)
+
+        # Verify updated in /api/peers
+        with urllib.request.urlopen(req_peers, timeout=3) as res:
+            pdata = json.loads(res.read().decode('utf-8'))
+            matched = [p for p in pdata.get("peers", []) if p.get("id") == target_id]
+            self.assertEqual(matched[0]["nickname"], host_new_name)
+
+        # 6. Reject empty nickname
+        empty_body = json.dumps({"nickname": "   "}).encode('utf-8')
+        req_empty = urllib.request.Request(
+            f"{self.base_url}/api/device/rename",
+            data=empty_body,
+            headers={"Cookie": cookie_header, "Content-Type": "application/json"},
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req_empty, timeout=3) as res:
+                self.fail("Expected 400 Bad Request for empty nickname")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 400)
+
+        print("  [PASS] Step 4.5: Device nickname login, client rename, and host rename verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)

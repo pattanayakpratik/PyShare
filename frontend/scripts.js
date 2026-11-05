@@ -20,6 +20,7 @@ window.globalSSE = null;
     setupDragDrop();
     initSSE();
     registerServiceWorker();
+    initClientDevice();
     
     if (window.location.protocol === 'https:') {
         const clientPill = document.querySelector('.client-status-pill span:last-child');
@@ -756,3 +757,64 @@ function disconnectServer() {
         }
     });
 }
+
+// --- Client Device Nickname Management ---
+let currentClientNickname = localStorage.getItem('pyshare_device_name') || 'My Device';
+
+async function initClientDevice() {
+    const nameEl = document.getElementById('clientDeviceNameText');
+    if (nameEl && currentClientNickname) {
+        nameEl.innerText = currentClientNickname;
+    }
+
+    try {
+        const res = await fetch('/api/info');
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.nickname) {
+                currentClientNickname = data.nickname;
+                if (nameEl) nameEl.innerText = data.nickname;
+                try { localStorage.setItem('pyshare_device_name', data.nickname); } catch(e) {}
+            }
+        }
+    } catch (e) {}
+}
+
+async function promptRenameDevice() {
+    let newName;
+    if (typeof showPySharePrompt === 'function') {
+        newName = await showPySharePrompt({
+            title: 'Rename This Device',
+            message: 'Choose a nickname so the host easily recognizes your device:',
+            defaultValue: currentClientNickname,
+            placeholder: "e.g. Alex's iPhone, Work Laptop",
+            confirmText: 'Save Nickname'
+        });
+    } else {
+        newName = prompt('Enter a nickname for this device:', currentClientNickname);
+    }
+
+    if (!newName || newName.trim() === '' || newName.trim() === currentClientNickname) return;
+    newName = newName.trim();
+
+    try {
+        const res = await fetch('/api/device/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nickname: newName })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            currentClientNickname = data.nickname || newName;
+            const nameEl = document.getElementById('clientDeviceNameText');
+            if (nameEl) nameEl.innerText = currentClientNickname;
+            try { localStorage.setItem('pyshare_device_name', currentClientNickname); } catch(e) {}
+            showToast(`Device renamed: ${currentClientNickname}`, '✏️');
+        } else {
+            showToast('Failed to rename device', '❌');
+        }
+    } catch (e) {
+        showToast('Error updating nickname', '❌');
+    }
+}
+window.promptRenameDevice = promptRenameDevice;

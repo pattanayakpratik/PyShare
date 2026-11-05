@@ -396,6 +396,35 @@
     text-overflow: ellipsis;
 }
 
+.peer-nickname {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.peer-rename-btn {
+    opacity: 0.5;
+    background: transparent;
+    border: none;
+    color: var(--text-sub);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.peer-rename-btn:hover {
+    opacity: 1;
+    color: var(--accent-cyan);
+    background: rgba(0, 240, 255, 0.1);
+}
+
 .peer-meta {
     font-size: 11px;
     color: var(--text-sub);
@@ -412,6 +441,42 @@
     font-family: 'Consolas', monospace;
     font-size: 10px;
     color: var(--text-sub);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.peer-ip-badge.private {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted, #8292ab);
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+.peer-ip-badge:hover {
+    background: rgba(0, 240, 255, 0.12);
+    color: var(--accent-cyan);
+    border-color: rgba(0, 240, 255, 0.3);
+}
+
+.privacy-toggle-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-sub);
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.privacy-toggle-btn:hover {
+    color: var(--text-main);
+    border-color: var(--accent-cyan);
+    background: rgba(0, 240, 255, 0.06);
 }
 
 .btn-peer-revoke {

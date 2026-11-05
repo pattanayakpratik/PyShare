@@ -532,8 +532,117 @@ function showPyShareAlert(message, title = 'PyShare') {
     });
 }
 
+function showPySharePrompt({
+    title = 'PyShare',
+    message = 'Enter value:',
+    defaultValue = '',
+    placeholder = 'Type here...',
+    confirmText = 'Save',
+    cancelText = 'Cancel',
+    maxLength = 32
+} = {}) {
+    return new Promise((resolve) => {
+        let modal = document.getElementById('pysharePromptModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'pysharePromptModal';
+            modal.className = 'modal-backdrop';
+            modal.style.zIndex = '10006';
+            modal.innerHTML = `
+                <div class="modal-box" style="max-width: 420px; padding: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.6);">
+                    <div class="modal-header" style="padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color);">
+                        <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--text-main);">
+                            <img src="app_icon.png" alt="PyShare" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain;">
+                            <span id="pysharePromptTitle">PyShare</span>
+                        </div>
+                        <button type="button" class="action-circle-btn" id="pysharePromptCloseBtn" style="width: 28px; height: 28px; font-size: 12px; cursor: pointer;" aria-label="Close">✕</button>
+                    </div>
+                    <form id="pysharePromptForm" onsubmit="event.preventDefault();" style="margin: 0; padding: 0;">
+                        <div style="padding: 20px; display:flex; flex-direction:column; gap:12px;">
+                            <label id="pysharePromptMessage" style="color: var(--text-sub); font-size: 13px; line-height: 1.4;"></label>
+                            <input type="text" id="pysharePromptInput" class="search-input-box" style="margin: 0; width: 100%; box-sizing: border-box; font-size: 14px;" />
+                        </div>
+                        <div class="modal-footer" style="padding: 14px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.15);">
+                            <button type="button" class="btn-secondary" id="pysharePromptCancelBtn" style="padding: 8px 18px; font-size: 13px; font-weight: 600; border-radius: 10px; cursor: pointer;">Cancel</button>
+                            <button type="submit" class="btn-primary" id="pysharePromptOkBtn" style="padding: 8px 20px; font-size: 13px; font-weight: 700; border-radius: 10px; cursor: pointer;">Save</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        const titleEl = document.getElementById('pysharePromptTitle');
+        const msgEl = document.getElementById('pysharePromptMessage');
+        const inputEl = document.getElementById('pysharePromptInput');
+        const okBtn = document.getElementById('pysharePromptOkBtn');
+        const cancelBtn = document.getElementById('pysharePromptCancelBtn');
+        const closeBtn = document.getElementById('pysharePromptCloseBtn');
+        const formEl = document.getElementById('pysharePromptForm');
+
+        if (titleEl) titleEl.innerText = title;
+        if (msgEl) msgEl.innerText = message;
+        if (inputEl) {
+            inputEl.value = defaultValue || '';
+            inputEl.placeholder = placeholder || '';
+            inputEl.maxLength = maxLength;
+        }
+        if (okBtn) okBtn.innerText = confirmText;
+        if (cancelBtn) cancelBtn.innerText = cancelText;
+
+        let closed = false;
+        function close(result) {
+            if (closed) return;
+            closed = true;
+            modal.style.display = 'none';
+            modal.classList.remove('open');
+            cleanup();
+            resolve(result);
+        }
+
+        const onOk = (e) => {
+            if (e) e.preventDefault();
+            const val = inputEl ? inputEl.value.trim() : '';
+            close(val);
+        };
+        const onCancelClick = () => close(null);
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') close(null);
+        };
+        const onBackdrop = (e) => {
+            if (e.target === modal) close(null);
+        };
+
+        function cleanup() {
+            if (formEl) formEl.removeEventListener('submit', onOk);
+            if (okBtn) okBtn.removeEventListener('click', onOk);
+            if (cancelBtn) cancelBtn.removeEventListener('click', onCancelClick);
+            if (closeBtn) closeBtn.removeEventListener('click', onCancelClick);
+            document.removeEventListener('keydown', onKeyDown);
+            modal.removeEventListener('click', onBackdrop);
+        }
+
+        if (formEl) formEl.addEventListener('submit', onOk);
+        if (okBtn) okBtn.addEventListener('click', onOk);
+        if (cancelBtn) cancelBtn.addEventListener('click', onCancelClick);
+        if (closeBtn) closeBtn.addEventListener('click', onCancelClick);
+        document.addEventListener('keydown', onKeyDown);
+        modal.addEventListener('click', onBackdrop);
+
+        modal.style.display = 'flex';
+        modal.classList.add('open');
+        setTimeout(() => {
+            if (inputEl) {
+                inputEl.focus();
+                inputEl.select();
+            }
+        }, 50);
+    });
+}
+
 window.showPyShareConfirm = showPyShareConfirm;
 window.showPyShareAlert = showPyShareAlert;
+window.showPySharePrompt = showPySharePrompt;
 
 // --- Universal Navbar Menu Dropdown Controller ---
 function toggleNavMenu(e) {

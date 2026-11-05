@@ -6,12 +6,34 @@ window.isHostSession = true;
 
 // Set Host Address in Status Pill
 const hostIpEl = document.getElementById('host-ip');
+let realServerIp = '';
+let realServerPort = '';
+let isHostIpHidden = true;
 
 function updateServerDisplay(ip, port) {
-    if (hostIpEl && ip && port) {
-        hostIpEl.innerText = `${ip}:${port}`;
+    if (ip && port) {
+        realServerIp = ip;
+        realServerPort = port;
+        if (hostIpEl) {
+            hostIpEl.innerText = isHostIpHidden ? `••••••••:${port}` : `${ip}:${port}`;
+        }
     }
 }
+
+function toggleHostIpVisibility(event) {
+    if (event) event.stopPropagation();
+    isHostIpHidden = !isHostIpHidden;
+    const iconEl = document.getElementById('hostIpEyeIcon');
+    if (hostIpEl && realServerIp && realServerPort) {
+        hostIpEl.innerText = isHostIpHidden ? `••••••••:${realServerPort}` : `${realServerIp}:${realServerPort}`;
+    }
+    if (iconEl) {
+        iconEl.innerHTML = isHostIpHidden 
+            ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
+            : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+}
+window.toggleHostIpVisibility = toggleHostIpVisibility;
 
 // Fetch real physical Wi-Fi IP from server (ignores local loopback 127.0.0.1)
 fetch('/api/info')
@@ -38,9 +60,14 @@ fetch('/api/pin')
     .catch(() => {});
 
 function copyHostIp() {
-    if (!hostIpEl) return;
-    const addr = hostIpEl.innerText.trim();
-    if (!addr || addr === '...' || addr === 'Detecting...') return;
+    let addr = (realServerIp && realServerPort) ? `${realServerIp}:${realServerPort}` : (hostIpEl ? hostIpEl.innerText.trim() : '');
+    if (!addr || addr.includes('•••') || addr === '...' || addr === 'Detecting...') {
+        if (realServerIp && realServerPort) {
+            addr = `${realServerIp}:${realServerPort}`;
+        } else {
+            return;
+        }
+    }
     const fullUrl = `http://${addr}/`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(fullUrl).then(() => {
@@ -257,6 +284,65 @@ function setupHostSSE(es) {
 
 // --- ACTIVE CONNECTED PEERS INSPECTOR ---
 let currentPeers = [];
+let peersIpMasked = true;
+let revealedPeerIps = new Set();
+
+function togglePeersIpMask() {
+    peersIpMasked = !peersIpMasked;
+    const label = document.getElementById('peersPrivacyLabel');
+    const icon = document.getElementById('peersPrivacyIcon');
+    if (label) label.innerText = peersIpMasked ? 'IPs Hidden' : 'IPs Visible';
+    if (icon) {
+        icon.innerHTML = peersIpMasked 
+            ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
+            : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+    renderPeers(currentPeers);
+}
+window.togglePeersIpMask = togglePeersIpMask;
+
+function togglePeerIp(id) {
+    if (revealedPeerIps.has(id)) {
+        revealedPeerIps.delete(id);
+    } else {
+        revealedPeerIps.add(id);
+    }
+    renderPeers(currentPeers);
+}
+window.togglePeerIp = togglePeerIp;
+
+async function renamePeer(id, currentName) {
+    let newName;
+    if (typeof showPySharePrompt === 'function') {
+        newName = await showPySharePrompt({
+            title: 'Rename Device',
+            message: 'Assign a friendly nickname for this device:',
+            defaultValue: currentName,
+            placeholder: "e.g. Alex's iPhone, Work Laptop",
+            confirmText: 'Save Nickname'
+        });
+    } else {
+        newName = prompt('Enter a nickname for this device:', currentName);
+    }
+    if (!newName || newName.trim() === '' || newName.trim() === currentName) return;
+    try {
+        const res = await fetch('/api/device/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, nickname: newName.trim() })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast(`Device renamed: ${data.nickname}`, '✏️');
+            fetchPeers();
+        } else {
+            showToast('Could not rename device', '❌');
+        }
+    } catch (e) {
+        showToast('Network error renaming device', '❌');
+    }
+}
+window.renamePeer = renamePeer;
 
 function getDeviceIcon(iconType) {
     if (iconType === 'smartphone') {
@@ -303,8 +389,14 @@ function renderPeers(peers) {
         const timeAgo = formatTimeAgo(p.last_seen);
         const pId = escapeHtml(p.id);
         const pIp = escapeHtml(p.ip);
+        const pNickname = escapeHtml(p.nickname || p.device || 'Device');
         const pDevice = escapeHtml(p.device);
         const pBrowser = escapeHtml(p.browser);
+
+        const isIpVisible = !peersIpMasked || revealedPeerIps.has(p.id);
+        const ipBadgeHtml = isIpVisible 
+            ? `<span class="peer-ip-badge" onclick="togglePeerIp('${pId}')" title="Click to hide IP">${pIp}</span>`
+            : `<span class="peer-ip-badge private" onclick="togglePeerIp('${pId}')" title="Click to reveal IP">🔒 IP Hidden</span>`;
 
         return `
             <div class="peer-card" id="peer-${pId}">
@@ -315,10 +407,14 @@ function renderPeers(peers) {
                     </div>
                     <div class="peer-details">
                         <div class="peer-title">
-                            ${pDevice} <span style="font-weight:400; font-size:11px; color:var(--text-sub);">(${pBrowser})</span>
+                            <span class="peer-nickname">${pNickname}</span>
+                            <button type="button" class="peer-rename-btn" onclick="renamePeer('${pId}', '${pNickname}')" title="Rename this device">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                            </button>
+                            <span style="font-weight:400; font-size:11px; color:var(--text-sub); margin-left:2px;">(${pBrowser})</span>
                         </div>
                         <div class="peer-meta">
-                            <span class="peer-ip-badge">${pIp}</span>
+                            ${ipBadgeHtml}
                             <span>• ${timeAgo}</span>
                         </div>
                     </div>

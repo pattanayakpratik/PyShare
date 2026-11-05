@@ -893,6 +893,7 @@ def get_connected_peers():
                     last_seen = sess.get("last_seen", created_at)
                     peers.append({
                         "id": sess.get("id", token[:8]),
+                        "nickname": sess.get("nickname", sess.get("device", "Device")),
                         "ip": sess.get("ip", "Unknown"),
                         "device": sess.get("device", "Device"),
                         "browser": sess.get("browser", "Browser"),
@@ -907,6 +908,7 @@ def get_connected_peers():
                 else:
                     peers.append({
                         "id": token[:8],
+                        "nickname": "Client Device",
                         "ip": "Unknown",
                         "device": "Client Device",
                         "browser": "Browser",
@@ -1118,12 +1120,21 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # 3. PUBLIC SERVER INFO (Physical LAN IP, Port, is_host)
         if self.path == '/api/info' or self.path.startswith('/api/info?'):
             ip = get_ip()
-            self.send_json({
+            info_data = {
                 "ip": ip,
                 "port": ACTUAL_PORT,
                 "url": f"http://{ip}:{ACTUAL_PORT}",
                 "is_host": self.is_host_client()
-            })
+            }
+            client_token = self.get_session_token()
+            if client_token:
+                with state_lock:
+                    sess = SESSIONS.get(client_token)
+                    if isinstance(sess, dict):
+                        info_data["nickname"] = sess.get("nickname", sess.get("device", "Device"))
+                        info_data["device"] = sess.get("device", "Device")
+                        info_data["peer_id"] = sess.get("id", client_token[:8])
+            self.send_json(info_data)
             return
 
         asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
@@ -1633,6 +1644,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             params = urllib.parse.parse_qs(body)
             pin_input = params.get('pin', [''])[0].strip()
+            raw_nickname = params.get('nickname', [''])[0].strip() or params.get('device_name', [''])[0].strip()
+            custom_nickname = re.sub(r'[\x00-\x1f\x7f]', '', raw_nickname)[:32].strip() if raw_nickname else ""
             
             with state_lock:
                 valid_pins = {p for p in (CURRENT_PIN, PREVIOUS_PIN) if p and p != "0000"}
@@ -1644,10 +1657,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 token = secrets.token_hex(16)
                 ua = self.headers.get("User-Agent", "")
                 ua_info = parse_user_agent(ua)
+                nickname = custom_nickname if custom_nickname else ua_info["device"]
                 now_ts = time.time()
                 with state_lock:
                     SESSIONS[token] = {
                         "id": token[:8],
+                        "nickname": nickname,
                         "ip": client_ip,
                         "device": ua_info["device"],
                         "browser": ua_info["browser"],
@@ -1660,8 +1675,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         expired = [t for t, s in SESSIONS.items() if (s.get("created_at", s) if isinstance(s, dict) else s) <= cutoff]
                         for t in expired:
                             SESSIONS.pop(t, None)
-                add_event(f"Device connected: {client_ip} ({ua_info['device']} · {ua_info['browser']})")
-                trigger_desktop_notification("PyShare — Device Connected", f"{ua_info['device']} connected ({client_ip})")
+                add_event(f"Device connected: {nickname} ({ua_info['browser']})")
+                trigger_desktop_notification("PyShare — Device Connected", f"{nickname} connected")
                 broadcast_sse("peers", get_connected_peers())
 
                 body_bytes = b"OK"
@@ -1844,6 +1859,53 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     add_event(f"Revoked device access ({target_id or target_ip})")
                     broadcast_sse("peers", get_connected_peers())
                 self.send_json({"status": "ok", "removed": removed})
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
+        # Handle Device Renaming (/api/device/rename)
+        if self.path in ('/api/device/rename', '/api/peers/rename'):
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 512:
+                self.send_error(400, "Bad Request")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body) if body else {}
+                new_nickname = str(data.get("nickname", data.get("name", ""))).strip()
+                new_nickname = re.sub(r'[\x00-\x1f\x7f]', '', new_nickname)[:32].strip()
+                if not new_nickname:
+                    self.send_error(400, "Nickname cannot be empty")
+                    return
+
+                target_id = str(data.get("id", "")).strip()
+                client_token = self.get_session_token()
+                updated = False
+                
+                with state_lock:
+                    if self.is_host_client() and target_id:
+                        # Host renaming any peer by ID
+                        for t, s in SESSIONS.items():
+                            s_id = s.get("id") if isinstance(s, dict) else t[:8]
+                            if s_id == target_id:
+                                if isinstance(s, dict):
+                                    s["nickname"] = new_nickname
+                                    updated = True
+                                break
+                    elif client_token and client_token in SESSIONS:
+                        # Client renaming their own device
+                        sess = SESSIONS[client_token]
+                        if isinstance(sess, dict):
+                            sess["nickname"] = new_nickname
+                            updated = True
+
+                if updated:
+                    add_event(f"Device renamed: {new_nickname}")
+                    broadcast_sse("peers", get_connected_peers())
+                    self.send_json({"status": "ok", "nickname": new_nickname})
+                else:
+                    self.send_error(404, "Session not found")
                 return
             except Exception as e:
                 self.send_error(500, str(e))
