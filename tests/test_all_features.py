@@ -967,6 +967,58 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.11: Multi-platform tunnel binary resolution and cross-platform launcher verified")
 
+    def test_23_uninstall_cleanup_option(self):
+        """Test uninstall cleanup options to preserve or delete sharing files and configuration."""
+        test_base = tempfile.mkdtemp(prefix="pyshare_test_uninstall_")
+        test_shared = os.path.join(test_base, "Shared_Files")
+        test_received = os.path.join(test_base, "Received_Files")
+        os.makedirs(test_shared, exist_ok=True)
+        os.makedirs(test_received, exist_ok=True)
+
+        doc_file = os.path.join(test_shared, "test_doc.txt")
+        with open(doc_file, "w") as f:
+            f.write("Important Shared Content")
+
+        rx_file = os.path.join(test_received, "test_rx.txt")
+        with open(rx_file, "w") as f:
+            f.write("Important Received Content")
+
+        # 1. Test uninstallation without deleting sharing files (preserved)
+        res_preserve = main.cleanup_sharing_files(
+            delete_shared=False,
+            delete_received=False,
+            delete_config=False,
+            custom_base_dir=test_base
+        )
+        self.assertTrue(os.path.isfile(doc_file), "Shared file should be preserved when delete_shared=False")
+        self.assertTrue(os.path.isfile(rx_file), "Received file should be preserved when delete_received=False")
+        self.assertIn(test_shared, res_preserve["preserved"])
+        self.assertIn(test_received, res_preserve["preserved"])
+
+        # 2. Test uninstallation with user opting to delete sharing files
+        res_delete = main.cleanup_sharing_files(
+            delete_shared=True,
+            delete_received=True,
+            delete_config=False,
+            custom_base_dir=test_base
+        )
+        self.assertFalse(os.path.exists(doc_file), "Shared file should be deleted when delete_shared=True")
+        self.assertFalse(os.path.exists(rx_file), "Received file should be deleted when delete_received=True")
+        self.assertFalse(os.path.exists(test_base), "Base directory should be removed after complete cleanup")
+        self.assertIn(test_shared, res_delete["deleted"])
+        self.assertIn(test_received, res_delete["deleted"])
+
+        # 3. Verify Inno Setup installer script contains the uninstall prompt and DelTree
+        iss_path = os.path.join(os.path.dirname(__file__), "..", "installer", "pyshare_installer.iss")
+        self.assertTrue(os.path.isfile(iss_path))
+        with open(iss_path, "r", encoding="utf-8") as f:
+            iss_content = f.read()
+        self.assertIn("CurUninstallStepChanged", iss_content)
+        self.assertIn("DelTree", iss_content)
+        self.assertIn("PyShare_Files", iss_content)
+
+        print("  [PASS] Step 4.12: Uninstall sharing files cleanup options verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)

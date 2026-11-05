@@ -180,6 +180,76 @@ def set_custom_received_dir(path):
         return True
     return False
 
+def cleanup_sharing_files(delete_shared=False, delete_received=False, delete_config=True, custom_base_dir=None):
+    """
+    Remove sharing folders and configuration upon uninstall if requested by user.
+    Returns summary dict of deleted and preserved paths.
+    """
+    cfg = load_app_config()
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    default_base = os.path.join(desktop, "PyShare_Files")
+    base_dir = custom_base_dir or (BASE_DIR if (BASE_DIR and os.path.isdir(BASE_DIR)) else default_base)
+
+    shared_dir = os.path.join(base_dir, "Shared_Files") if custom_base_dir else cfg.get("shared_dir", os.path.join(base_dir, "Shared_Files"))
+    received_dir = os.path.join(base_dir, "Received_Files") if custom_base_dir else cfg.get("received_dir", os.path.join(base_dir, "Received_Files"))
+
+    deleted = []
+    preserved = []
+
+    # 1. Shared Files Cleanup
+    if delete_shared and os.path.isdir(shared_dir):
+        try:
+            shutil.rmtree(shared_dir, ignore_errors=True)
+            deleted.append(shared_dir)
+        except Exception as e:
+            preserved.append(f"{shared_dir} (Error: {e})")
+    elif os.path.isdir(shared_dir):
+        preserved.append(shared_dir)
+
+    # 2. Received Files Cleanup
+    if delete_received and os.path.isdir(received_dir):
+        try:
+            shutil.rmtree(received_dir, ignore_errors=True)
+            deleted.append(received_dir)
+        except Exception as e:
+            preserved.append(f"{received_dir} (Error: {e})")
+    elif os.path.isdir(received_dir):
+        preserved.append(received_dir)
+
+    # 3. Base Directory Cleanup
+    if (delete_shared and delete_received) and os.path.isdir(base_dir):
+        try:
+            shutil.rmtree(base_dir, ignore_errors=True)
+            deleted.append(base_dir)
+        except Exception:
+            pass
+    elif os.path.isdir(base_dir):
+        try:
+            if not os.listdir(base_dir):
+                os.rmdir(base_dir)
+                deleted.append(base_dir)
+        except Exception:
+            pass
+
+    # 4. Config File Cleanup
+    if delete_config and os.path.isfile(CONFIG_FILE):
+        try:
+            os.remove(CONFIG_FILE)
+            deleted.append(CONFIG_FILE)
+        except Exception:
+            pass
+
+    # 5. Temporary Directory Cleanup
+    temp_dir = os.path.join(tempfile.gettempdir(), "PyShare_Files")
+    if os.path.isdir(temp_dir):
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            deleted.append(temp_dir)
+        except Exception:
+            pass
+
+    return {"deleted": deleted, "preserved": preserved}
+
 def init_directories():
     global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, PIN_MODE, STATIC_PIN
     cfg = load_app_config()
