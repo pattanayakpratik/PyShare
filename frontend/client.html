@@ -115,11 +115,17 @@
             <div class="client-upload-card card-panel" id="dropZone" onclick="document.getElementById('fileInput').click()">
                 <div class="cloud-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></div>
                 <h3 class="client-upload-title">Send to Host</h3>
-                <p class="client-upload-sub">Tap here to upload files</p>
-                <button class="btn-primary" type="button" style="pointer-events:none;">
-                    Browse Files
-                </button>
+                <p class="client-upload-sub">Drag &amp; drop files, folders, or browse below</p>
+                <div style="display: flex; gap: 8px; justify-content: center; margin-top: 4px; flex-wrap: wrap;">
+                    <button class="btn-primary" type="button" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
+                        Browse Files
+                    </button>
+                    <button class="btn-secondary" type="button" onclick="event.stopPropagation(); document.getElementById('folderInput').click()" title="Upload Folder">
+                        Upload Folder
+                    </button>
+                </div>
                 <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)">
+                <input type="file" id="folderInput" webkitdirectory directory multiple hidden onchange="handleFiles(this.files)">
             </div>
 
             <!-- 2. Download from Host Section -->

@@ -788,6 +788,93 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.8: Chat superpowers, image/file attachments, and auto-sync verified")
 
+    def test_20_media_streaming_and_folder_uploads(self):
+        """Test recursive folder upload preservation, HTTP 206 range streaming, and nested deletion."""
+        sample_audio = b"ID3v2_AUDIO_PAYLOAD_TEST_STREAMING_DATA_0123456789"
+        enc_name = urllib.parse.quote("song.mp3")
+        enc_rel = urllib.parse.quote("music/rock/song.mp3")
+
+        # 1. Upload with X-Relative-Path preserving directory structure
+        req_folder_upload = urllib.request.Request(
+            f"{self.base_url}/upload",
+            data=sample_audio,
+            headers={
+                "X-File-Name": enc_name,
+                "X-Relative-Path": enc_rel,
+                "Content-Type": "audio/mpeg"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req_folder_upload, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            data = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(data.get("status"), "ok")
+            self.assertIn("music/rock/song.mp3", data.get("filename", "").replace('\\', '/'))
+
+        # 2. Verify /api/files returns the nested relative path
+        req_files = urllib.request.Request(f"{self.base_url}/api/files")
+        with urllib.request.urlopen(req_files, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            fdata = json.loads(res.read().decode('utf-8'))
+            client_files = [f.get("name", "").replace('\\', '/') for f in fdata.get("client", [])]
+            self.assertTrue(any("music/rock/song.mp3" in name for name in client_files), "music/rock/song.mp3 should appear in files list")
+
+        # 3. HTTP 206 Partial Content Range Streaming
+        range_req = urllib.request.Request(
+            f"{self.base_url}/view/music/rock/song.mp3",
+            headers={"Range": "bytes=0-9"}
+        )
+        with urllib.request.urlopen(range_req, timeout=3) as res:
+            self.assertEqual(res.status, 206)
+            self.assertEqual(res.headers.get("Accept-Ranges"), "bytes")
+            self.assertEqual(res.headers.get("Content-Range"), f"bytes 0-9/{len(sample_audio)}")
+            self.assertEqual(res.headers.get("Content-Length"), "10")
+            body = res.read()
+            self.assertEqual(body, sample_audio[0:10])
+
+        # 4. HTTP 416 Range Not Satisfiable
+        bad_range_req = urllib.request.Request(
+            f"{self.base_url}/view/music/rock/song.mp3",
+            headers={"Range": "bytes=9000-9999"}
+        )
+        try:
+            with urllib.request.urlopen(bad_range_req, timeout=3) as res:
+                self.fail("Expected 416 Range Not Satisfiable")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 416)
+            self.assertIn("bytes */", err.headers.get("Content-Range", ""))
+
+        # 5. Path Traversal Neutralization in X-Relative-Path
+        evil_req = urllib.request.Request(
+            f"{self.base_url}/upload",
+            data=b"dangerous_data",
+            headers={
+                "X-File-Name": urllib.parse.quote("evil.txt"),
+                "X-Relative-Path": urllib.parse.quote("../../../evil.txt"),
+                "Content-Type": "text/plain"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(evil_req, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            edata = json.loads(res.read().decode('utf-8'))
+            self.assertNotIn("..", edata.get("filename", ""))
+
+        # 6. Delete nested file via /api/delete
+        del_payload = json.dumps({"filename": "music/rock/song.mp3", "folder": "received"}).encode('utf-8')
+        del_req = urllib.request.Request(
+            f"{self.base_url}/api/delete",
+            data=del_payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(del_req, timeout=3) as res:
+            self.assertEqual(res.status, 200)
+            dres = json.loads(res.read().decode('utf-8'))
+            self.assertEqual(dres.get("status"), "ok")
+
+        print("  [PASS] Step 4.9: Folder upload structure preservation and seekable range streaming verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)

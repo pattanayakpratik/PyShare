@@ -434,9 +434,14 @@ mimetypes.init()
 mimetypes.add_type("video/mp4", ".mp4")
 mimetypes.add_type("video/webm", ".webm")
 mimetypes.add_type("video/quicktime", ".mov")
+mimetypes.add_type("video/x-matroska", ".mkv")
 mimetypes.add_type("audio/mpeg", ".mp3")
 mimetypes.add_type("audio/ogg", ".ogg")
 mimetypes.add_type("audio/wav", ".wav")
+mimetypes.add_type("audio/mp4", ".m4a")
+mimetypes.add_type("audio/flac", ".flac")
+mimetypes.add_type("audio/aac", ".aac")
+mimetypes.add_type("audio/opus", ".opus")
 mimetypes.add_type("image/webp", ".webp")
 mimetypes.add_type("image/svg+xml", ".svg")
 mimetypes.add_type("application/manifest+json", ".json")
@@ -673,22 +678,32 @@ def list_dir(path):
     data = []
     try:
         if os.path.exists(path):
-            files = sorted(os.listdir(path), key=str.lower)
-            for f in files:
-                if f.endswith('.part') or f.endswith('.tmp'):
-                    continue
-                fp = os.path.join(path, f)
-                if os.path.isfile(fp):
-                    stat = os.stat(fp)
-                    ext = os.path.splitext(f)[1]
-                    data.append({
-                        "name": f,
-                        "size": stat.st_size,
-                        "mtime": int(stat.st_mtime),
-                        "category": get_category(ext),
-                        "ext": ext.lstrip('.').lower(),
-                        "path": fp
-                    })
+            safe_base = os.path.abspath(path)
+            for root, dirs, files in os.walk(safe_base):
+                dirs.sort(key=str.lower)
+                files.sort(key=str.lower)
+                for f in files:
+                    if f.endswith('.part') or f.endswith('.tmp'):
+                        continue
+                    fp = os.path.join(root, f)
+                    if os.path.isfile(fp):
+                        try:
+                            stat = os.stat(fp)
+                            ext = os.path.splitext(f)[1]
+                            rel_p = os.path.relpath(fp, safe_base).replace('\\', '/')
+                            display_name = rel_p if rel_p != f else f
+                            data.append({
+                                "name": display_name,
+                                "filename": f,
+                                "rel_path": rel_p,
+                                "size": stat.st_size,
+                                "mtime": int(stat.st_mtime),
+                                "category": get_category(ext),
+                                "ext": ext.lstrip('.').lower(),
+                                "path": fp
+                            })
+                        except Exception:
+                            pass
     except Exception: 
         pass
     return data
@@ -997,24 +1012,43 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if not filename or filename.endswith('.part') or filename.endswith('.tmp'):
             return None
 
+        clean_fn = urllib.parse.unquote(filename).replace('\\', '/').lstrip('/')
+        # Strictly reject any traversal sequences
+        if '..' in clean_fn.split('/'):
+            return None
+
         # 1. Check Staged Files (Direct Staging: Zero-RAM copy, stream direct from original path)
         with STAGED_LOCK:
-            if filename in STAGED_FILES:
-                fp = STAGED_FILES[filename]["path"]
+            if clean_fn in STAGED_FILES:
+                fp = STAGED_FILES[clean_fn]["path"]
+                if os.path.isfile(fp):
+                    return fp
+            base_fn = os.path.basename(clean_fn)
+            if base_fn in STAGED_FILES:
+                fp = STAGED_FILES[base_fn]["path"]
                 if os.path.isfile(fp):
                     return fp
 
         # 2. Check Shared Directory
         safe_download_dir = os.path.abspath(DOWNLOAD_DIR)
-        dl_fp = os.path.abspath(os.path.join(safe_download_dir, filename))
+        dl_fp = os.path.abspath(os.path.join(safe_download_dir, clean_fn))
         if os.path.commonpath([safe_download_dir, dl_fp]) == safe_download_dir and os.path.isfile(dl_fp): 
             return dl_fp
 
         # 3. Check Received Directory
         safe_upload_dir = os.path.abspath(UPLOAD_DIR)
-        up_fp = os.path.abspath(os.path.join(safe_upload_dir, filename))
+        up_fp = os.path.abspath(os.path.join(safe_upload_dir, clean_fn))
         if os.path.commonpath([safe_upload_dir, up_fp]) == safe_upload_dir and os.path.isfile(up_fp): 
             return up_fp
+
+        # 4. Fallback search by basename inside Shared and Received directories
+        base_fn = os.path.basename(clean_fn)
+        for base_dir in (safe_download_dir, safe_upload_dir):
+            for root, _, files in os.walk(base_dir):
+                if base_fn in files:
+                    cand = os.path.abspath(os.path.join(root, base_fn))
+                    if os.path.commonpath([base_dir, cand]) == base_dir and os.path.isfile(cand):
+                        return cand
 
         return None
 
@@ -1595,7 +1629,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             raw_fn = urllib.parse.unquote(raw_path)
             fn = os.path.basename(raw_fn)
             
-            fp = self.get_file_path(fn)
+            fp = self.get_file_path(raw_path) or self.get_file_path(raw_fn) or self.get_file_path(fn)
             if not fp or not os.path.isfile(fp):
                 self.send_error(404, "File not found")
                 return
@@ -1606,7 +1640,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 ctype = 'application/octet-stream'
 
             # Defense-in-depth: Sandbox active HTML/SVG file views to eliminate Stored XSS
-            is_active_scriptable = fn.lower().endswith(('.html', '.htm', '.svg', '.xml', '.xhtml'))
+            is_active_scriptable = os.path.basename(fp).lower().endswith(('.html', '.htm', '.svg', '.xml', '.xhtml'))
 
             range_header = self.headers.get("Range")
             byte_range = parse_range_header(range_header, file_size)
@@ -1628,7 +1662,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Content-Length", str(content_len))
                     self.send_header("Accept-Ranges", "bytes")
                     if not is_view:
-                        self.send_header("Content-Disposition", self.format_content_disposition(fn, is_attachment=True))
+                        self.send_header("Content-Disposition", self.format_content_disposition(os.path.basename(fp), is_attachment=True))
                     elif is_active_scriptable:
                         self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
@@ -1649,7 +1683,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Accept-Ranges", "bytes")
                     self.send_header("Content-Length", str(file_size))
                     if not is_view:
-                        self.send_header("Content-Disposition", self.format_content_disposition(fn, is_attachment=True))
+                        self.send_header("Content-Disposition", self.format_content_disposition(os.path.basename(fp), is_attachment=True))
                     elif is_active_scriptable:
                         self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
@@ -1661,7 +1695,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                                 break
                             self.wfile.write(chunk)
                 self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, FileNotFoundError, OSError):
                 pass
             return
 
@@ -1740,6 +1774,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
             length = int(self.headers.get('Content-Length', 0))
             if length > 1024:
+                try:
+                    self.rfile.read(min(length, 65536))
+                except Exception:
+                    pass
                 self.send_error(400, "Bad Request")
                 return
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
@@ -2005,6 +2043,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             global SHARED_TEXT, TEXT_TIMESTAMP
             length = int(self.headers.get('Content-Length', 0))
             if length > 1024 * 64:
+                try:
+                    self.rfile.read(min(length, 131072))
+                except Exception:
+                    pass
                 self.send_error(413, "Clipboard payload too large (Max 64KB)")
                 return
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
@@ -2102,30 +2144,46 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             try:
                 data = json.loads(body)
-                fn = os.path.basename(data.get('filename', ''))
+                raw_req_fn = data.get('filename', '')
+                clean_fn = urllib.parse.unquote(raw_req_fn).replace('\\', '/').lstrip('/')
+                if '..' in clean_fn.split('/'):
+                    self.send_error(400, "Invalid filename")
+                    return
+                fn = os.path.basename(clean_fn)
                 folder = data.get('folder', 'shared')
-                if folder == 'shared' and fn in STAGED_FILES:
-                    staged_info = STAGED_FILES.get(fn, {})
+                if folder == 'shared' and (clean_fn in STAGED_FILES or fn in STAGED_FILES):
+                    target_key = clean_fn if clean_fn in STAGED_FILES else fn
+                    staged_info = STAGED_FILES.get(target_key, {})
                     staged_path = staged_info.get("path", "")
-                    unstage_file(fn)
+                    unstage_file(target_key)
                     if staged_path and os.path.isfile(staged_path) and os.path.commonpath([os.path.abspath(DOWNLOAD_DIR), os.path.abspath(staged_path)]) == os.path.abspath(DOWNLOAD_DIR):
                         try:
                             os.remove(staged_path)
                         except Exception:
                             pass
-                    add_event(f"Unshared: {fn}")
+                    add_event(f"Unshared: {target_key}")
                     broadcast_sse("files", get_files_data())
-                    self.send_json({"status": "ok", "deleted": fn})
+                    self.send_json({"status": "ok", "deleted": target_key})
                     return
 
                 target_dir = UPLOAD_DIR if folder == 'received' else DOWNLOAD_DIR
-                target_fp = os.path.abspath(os.path.join(target_dir, fn))
                 safe_target_dir = os.path.abspath(target_dir)
+                target_fp = os.path.abspath(os.path.join(safe_target_dir, clean_fn))
+                if not (os.path.commonpath([safe_target_dir, target_fp]) == safe_target_dir and os.path.isfile(target_fp)):
+                    # Check by basename if direct path didn't match
+                    target_fp = os.path.abspath(os.path.join(safe_target_dir, fn))
+
                 if os.path.commonpath([safe_target_dir, target_fp]) == safe_target_dir and os.path.isfile(target_fp):
                     os.remove(target_fp)
-                    add_event(f"Deleted: {fn}")
+                    parent_d = os.path.dirname(target_fp)
+                    if parent_d != safe_target_dir:
+                        try:
+                            os.removedirs(parent_d)
+                        except Exception:
+                            pass
+                    add_event(f"Deleted: {clean_fn or fn}")
                     broadcast_sse("files", get_files_data())
-                    self.send_json({"status": "ok", "deleted": fn})
+                    self.send_json({"status": "ok", "deleted": clean_fn or fn})
                     return
                 else:
                     self.send_error(404, "File not found")
@@ -2236,10 +2294,33 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 raw_fn = f"upload_{int(time.time())}.bin"
             length = int(self.headers.get('Content-Length', 0))
             
-            os.makedirs(target_dir, exist_ok=True)
+            # Directory Structure Preservation (X-Relative-Path)
+            encoded_rel = self.headers.get('X-Relative-Path')
+            safe_sub_dir = ""
+            if encoded_rel and not is_chat_upload:
+                try:
+                    raw_rel = urllib.parse.unquote(encoded_rel).strip().replace('\\', '/')
+                    dir_parts = [p for p in raw_rel.split('/')[:-1] if p]
+                    safe_parts = []
+                    for part in dir_parts:
+                        clean_part = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', part).strip(' .')
+                        part_check = clean_part.split('.')[0].lower()
+                        if not clean_part or clean_part in ('.', '..') or part_check in reserved_names:
+                            continue
+                        safe_parts.append(clean_part)
+                    if safe_parts:
+                        safe_sub_dir = os.path.join(*safe_parts)
+                except Exception:
+                    safe_sub_dir = ""
 
-            out_path = get_unique_filepath(target_dir, raw_fn)
-            actual_fn = os.path.basename(out_path)
+            upload_dest_dir = os.path.abspath(os.path.join(target_dir, safe_sub_dir)) if safe_sub_dir else os.path.abspath(target_dir)
+            if os.path.commonpath([os.path.abspath(target_dir), upload_dest_dir]) != os.path.abspath(target_dir):
+                upload_dest_dir = os.path.abspath(target_dir)
+
+            os.makedirs(upload_dest_dir, exist_ok=True)
+
+            out_path = get_unique_filepath(upload_dest_dir, raw_fn)
+            actual_fn = os.path.relpath(out_path, target_dir).replace('\\', '/')
             part_path = out_path + ".part"
             
             remain = length

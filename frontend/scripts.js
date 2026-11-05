@@ -385,12 +385,13 @@ class UploadQueueManager {
         const list = document.getElementById('queueItemsList');
         if (!list) return;
 
+        const displayName = item.file.webkitRelativePath || item.file.name;
         const el = document.createElement('div');
         el.id = item.id;
         el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; display:flex; flex-direction:column; gap:4px;";
         el.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
-                <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
+                <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</span>
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span id="${item.id}_status" style="color:var(--text-sub); font-family:monospace; font-size:10px;">${formatSize(item.file.size)}</span>
                     <button id="${item.id}_cancel" class="icon-btn" onclick="uploadManager.cancelItem('${item.id}')" style="width:18px; height:18px; padding:0; border:none; background:transparent; color:var(--text-muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;" title="Cancel Upload" aria-label="Cancel">
@@ -485,6 +486,9 @@ class UploadQueueManager {
 
         xhr.open('POST', item.url);
         xhr.setRequestHeader('X-File-Name', encodeURIComponent(item.file.name));
+        if (item.file.webkitRelativePath) {
+            xhr.setRequestHeader('X-Relative-Path', encodeURIComponent(item.file.webkitRelativePath));
+        }
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
 
         xhr.upload.onprogress = (e) => {
@@ -677,18 +681,52 @@ async function openPreview(filename, category, size) {
         body.innerHTML = `<img src="${fileUrl}" alt="${escapeHtml(filename)}" loading="lazy">`;
     } else if (category === 'video') {
         body.innerHTML = `
-            <video controls autoplay playsinline style="max-width:100%; max-height:60vh; border-radius:12px;">
-                <source src="${fileUrl}">
-                Your browser does not support HTML5 video streaming.
-            </video>`;
+            <div style="display:flex; flex-direction:column; gap:12px; width:100%; align-items:center;">
+                <video id="activeMediaElement" controls autoplay playsinline style="width:100%; max-height:60vh; border-radius:12px; background:#000;">
+                    <source src="${fileUrl}">
+                    Your browser does not support HTML5 video streaming.
+                </video>
+                <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--text-sub);">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="background:var(--accent-blue-subtle, rgba(0,102,255,0.1)); color:var(--accent-blue, #0066ff); padding:2px 8px; border-radius:6px; font-weight:600; font-size:11px;">HTTP 206 Seekable Stream</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="adjustMediaSeek(-10)" title="Rewind 10s">-10s</button>
+                        <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="adjustMediaSeek(10)" title="Forward 10s">+10s</button>
+                        <select onchange="setMediaPlaybackRate(this.value)" class="search-input-box" style="padding:2px 6px; font-size:12px; width:auto; height:28px;">
+                            <option value="0.75">0.75x</option>
+                            <option value="1.0" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2.0">2.0x</option>
+                        </select>
+                    </div>
+                </div>
+            </div>`;
     } else if (category === 'audio') {
         body.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px;">
-                <div><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
-                <div style="font-weight:600; font-size:15px;">${escapeHtml(filename)}</div>
-                <audio controls autoplay style="width:100%; max-width:400px;">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px; width:100%; max-width:440px; margin:0 auto;">
+                <div style="width:56px; height:56px; border-radius:50%; background:var(--accent-blue-subtle, rgba(0,102,255,0.1)); color:var(--accent-blue, #0066ff); display:flex; align-items:center; justify-content:center;">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                </div>
+                <div style="font-weight:600; font-size:15px; text-align:center; word-break:break-word;">${escapeHtml(filename)}</div>
+                <audio id="activeMediaElement" controls autoplay style="width:100%;">
                     <source src="${fileUrl}">
                 </audio>
+                <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--text-sub);">
+                    <span style="background:var(--accent-blue-subtle, rgba(0,102,255,0.1)); color:var(--accent-blue, #0066ff); padding:2px 8px; border-radius:6px; font-weight:600; font-size:11px;">HTTP 206 Audio Stream</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="adjustMediaSeek(-10)" title="Rewind 10s">-10s</button>
+                        <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="adjustMediaSeek(10)" title="Forward 10s">+10s</button>
+                        <select onchange="setMediaPlaybackRate(this.value)" class="search-input-box" style="padding:2px 6px; font-size:12px; width:auto; height:28px;">
+                            <option value="0.75">0.75x</option>
+                            <option value="1.0" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2.0">2.0x</option>
+                        </select>
+                    </div>
+                </div>
             </div>`;
     } else if (category === 'code' || filename.endsWith('.txt') || filename.endsWith('.log') || filename.endsWith('.md')) {
         try {
@@ -719,8 +757,29 @@ async function openPreview(filename, category, size) {
 function closePreview() {
     const modal = document.getElementById('previewModal');
     const body = document.getElementById('previewModalBody');
+    const media = document.getElementById('activeMediaElement');
+    if (media) {
+        try {
+            media.pause();
+            media.src = '';
+        } catch (e) {}
+    }
     if (modal) modal.classList.remove('open');
     if (body) body.innerHTML = '';
+}
+
+function adjustMediaSeek(deltaSeconds) {
+    const media = document.getElementById('activeMediaElement');
+    if (media) {
+        media.currentTime = Math.max(0, Math.min(media.duration || 999999, media.currentTime + deltaSeconds));
+    }
+}
+
+function setMediaPlaybackRate(rate) {
+    const media = document.getElementById('activeMediaElement');
+    if (media) {
+        media.playbackRate = parseFloat(rate) || 1.0;
+    }
 }
 
 function copyPreviewText() {

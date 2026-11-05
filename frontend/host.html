@@ -110,11 +110,17 @@
             <div class="upload-dropzone-card card-panel" id="dropZone" onclick="document.getElementById('fileInput').click()">
                 <div class="upload-main-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                 <h2 class="upload-heading">Add to Shared</h2>
-                <p class="upload-subheading">Drag &amp; Drop files here or click below</p>
-                <button class="btn-primary" type="button" style="pointer-events:none;">
-                    Select Files
-                </button>
+                <p class="upload-subheading">Drag &amp; drop files, folders, or select below</p>
+                <div style="display: flex; gap: 8px; justify-content: center; margin-top: 6px; flex-wrap: wrap;">
+                    <button class="btn-primary" type="button" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
+                        Select Files
+                    </button>
+                    <button class="btn-secondary" type="button" onclick="event.stopPropagation(); document.getElementById('folderInput').click()" title="Select Folder">
+                        Select Folder
+                    </button>
+                </div>
                 <input type="file" id="fileInput" multiple hidden onchange="handleFilesHost(this.files)">
+                <input type="file" id="folderInput" webkitdirectory directory multiple hidden onchange="handleFilesHost(this.files)">
             </div>
         </div>
 
