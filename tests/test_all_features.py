@@ -299,6 +299,12 @@ class TestPyShareAllFeatures(unittest.TestCase):
             data = json.loads(res.read().decode('utf-8'))
             self.assertEqual(data["mode"], "rotating")
 
+        # Verify frontend/host_scripts.js uses showPySharePrompt in togglePinMode
+        host_js_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "host_scripts.js")
+        with open(host_js_path, "r", encoding="utf-8") as f:
+            host_js = f.read()
+        self.assertIn("showPySharePrompt", host_js)
+
         print("  [PASS] Step 3.1: Static vs Rotating PIN toggle API verified")
 
     def test_10_qr_code_instant_login_payload(self):
@@ -483,6 +489,13 @@ class TestPyShareAllFeatures(unittest.TestCase):
                 self.fail(f"Revoked client request should have returned 401 Unauthorized, but got {res.status}")
         except urllib.error.HTTPError as err:
             self.assertEqual(err.code, 401, f"Expected 401 Unauthorized for revoked session, got: {err.code}")
+
+        # Verify frontend/host_scripts.js uses showPyShareConfirm and respects displayTarget in disconnectPeer
+        host_js_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "host_scripts.js")
+        with open(host_js_path, "r", encoding="utf-8") as f:
+            host_js = f.read()
+        self.assertIn("showPyShareConfirm", host_js)
+        self.assertIn("displayTarget", host_js)
 
         print("  [PASS] Step 4.4: Session revocation and 401 Unauthorized kick verified")
 
@@ -807,6 +820,8 @@ class TestPyShareAllFeatures(unittest.TestCase):
             att = data["attachment"]
             self.assertTrue(att.get("is_image"))
             self.assertIn("chat_screenshot_test.png", att.get("name"))
+            self.assertTrue(att.get("preview_url", "").startswith("/view/"), "Chat image preview_url should point to /view/ endpoint")
+            self.assertTrue(att.get("url", "").startswith("/download/"), "Chat image url should point to /download/ endpoint")
 
         # Verify chat history stores the attachment message
         req_chat = urllib.request.Request(f"{self.base_url}/api/text")

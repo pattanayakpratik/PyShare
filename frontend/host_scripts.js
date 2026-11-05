@@ -168,7 +168,16 @@ async function togglePinMode() {
 
     let customPin = '';
     if (newMode === 'static') {
-        const input = prompt("Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):", "");
+        const input = (typeof showPySharePrompt === 'function')
+            ? await showPySharePrompt({
+                title: 'Static PIN Mode',
+                message: 'Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):',
+                defaultValue: '1234',
+                placeholder: '4-digit PIN (e.g. 1234)',
+                confirmText: 'Enable Static PIN',
+                maxLength: 4
+            })
+            : prompt("Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):", "");
         if (input === null) return; // User cancelled
         if (input && !/^\d{4}$/.test(input.trim())) {
             showToast("PIN must be exactly 4 numeric digits", "warning");
@@ -599,7 +608,16 @@ async function fetchPeers() {
 }
 
 async function disconnectPeer(id, ip) {
-    if (!confirm(`Revoke access for this device (${ip})?`)) return;
+    const displayTarget = (!peersIpMasked || revealedPeerIps.has(id)) ? ip : id;
+    const confirmed = (typeof showPyShareConfirm === 'function')
+        ? await showPyShareConfirm({
+            title: 'Revoke Device Access',
+            message: `Disconnect device (${displayTarget}) and revoke its active session?`,
+            confirmText: 'Revoke Access',
+            isDanger: true
+        })
+        : confirm(`Revoke access for this device (${displayTarget})?`);
+    if (!confirmed) return;
     try {
         const res = await fetch('/api/peers/disconnect', {
             method: 'POST',

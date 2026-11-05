@@ -2595,7 +2595,6 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             broadcast_sse("upload", None)
             
             if is_chat_upload:
-                stage_file(out_path)
                 client_token = self.get_session_token()
                 if client_token and client_token in SESSIONS:
                     sess = SESSIONS[client_token]
@@ -2618,7 +2617,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 msg_type = "image" if is_img else "file"
                 attachment_info = {
                     "url": f"/download/{urllib.parse.quote(actual_fn)}",
-                    "preview_url": f"/download/{urllib.parse.quote(actual_fn)}",
+                    "preview_url": f"/view/{urllib.parse.quote(actual_fn)}",
                     "name": actual_fn,
                     "size": total_size,
                     "is_image": is_img
