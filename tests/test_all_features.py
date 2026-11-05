@@ -1031,6 +1031,35 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         print("  [PASS] Step 4.12: Uninstall sharing files cleanup options verified")
 
+    def test_24_hub_clip_pane_tab_switching_visibility(self):
+        """Verify #hubClipPane does not override display:none with inline display:flex."""
+        host_html_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "host.html")
+        self.assertTrue(os.path.isfile(host_html_path))
+        with open(host_html_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+
+        # Find the div id="hubClipPane"
+        clip_pane_match = re.search(r'<div\s+id=["\']hubClipPane["\'][^>]*>', html_content)
+        self.assertIsNotNone(clip_pane_match, "hubClipPane element must exist in host.html")
+        clip_pane_tag = clip_pane_match.group(0)
+
+        # Assert inline style does NOT contain display:flex or display: flex
+        self.assertNotIn("display:flex", clip_pane_tag.replace(" ", ""),
+                         "hubClipPane must not define inline display:flex as it overrides .hub-tab-pane display:none")
+
+        # Verify host_styles.css defines .hub-tab-pane { display: none; } and .hub-tab-pane.active { display: flex; }
+        css_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "host_styles.css")
+        self.assertTrue(os.path.isfile(css_path))
+        with open(css_path, "r", encoding="utf-8") as f:
+            css_content = f.read()
+
+        self.assertIn(".hub-tab-pane {", css_content)
+        self.assertIn(".hub-tab-pane.active {", css_content)
+        self.assertIn("display: none;", css_content)
+        self.assertIn("display: flex;", css_content)
+
+        print("  [PASS] Step 4.13: Host tab visibility and hubClipPane inline style isolation verified")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)
