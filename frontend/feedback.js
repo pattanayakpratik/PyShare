@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PyShare v4.9.2 - Universal Feedback & Help System
+   PyShare - Universal Feedback & Help System
    Client, Host & Web P2P Universal Support
    ========================================================================== */
 
@@ -695,7 +695,7 @@ function ensureUpdateModal(data) {
         document.body.appendChild(modal);
     }
 
-    const currentV = data.current_version || '4.9.2';
+    const currentV = data.current_version || '';
     const latestV = data.latest_version || currentV;
     const releaseUrl = data.release_url || 'https://github.com/pattanayakpratik/PyShare/releases';
     const rawNotes = data.release_notes || 'A new updated version of PyShare is available for download with new features and performance enhancements.';
@@ -756,7 +756,7 @@ async function checkForUpdates(manual = false) {
             if (badge) badge.style.display = 'inline-block';
             ensureUpdateModal(data);
         } else if (manual) {
-            const msg = `PyShare is up to date (v${data.current_version || '4.9.2'})`;
+            const msg = data.current_version ? `PyShare is up to date (v${data.current_version})` : 'PyShare is up to date';
             if (typeof showToast === 'function') showToast(msg, 'success');
             else alert(msg);
         }
