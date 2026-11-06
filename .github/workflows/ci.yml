@@ -33,8 +33,12 @@ jobs:
 
       - name: Run Complete Feature & Security Test Suite
         run: |
-          python -m unittest discover -s tests -p "test_*.py" -v
-          echo "✅ All 25 feature and security tests passed!"
+          if command -v xvfb-run > /dev/null 2>&1; then
+            xvfb-run -a python -m unittest discover -s tests -p "test_*.py" -v
+          else
+            python -m unittest discover -s tests -p "test_*.py" -v
+          fi
+          echo "✅ All 34 feature and security tests passed!"
 
       - name: Verify Web & P2P Assets Integrity
         run: |
