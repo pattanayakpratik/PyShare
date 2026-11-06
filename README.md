@@ -105,6 +105,7 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 * **PyShare Setup (Windows Installer)** 👉 **[Download PyShare-Setup-v4.9.3.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare-Setup-v4.9.3.exe)** *(Installs into Program Files, creates Start Menu & Desktop shortcuts, and registers in Windows Settings Installed Apps)*
 * **PyShare Portable (Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.exe)**
 * **PyShare Portable (ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.zip)**
+* **Cross-Platform Universal Package (macOS / Linux / Windows)** 👉 **[Download PyShare-v4.9.3-Universal.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare-v4.9.3-Universal.zip)**
 * **GitHub Releases** 👉 **[PyShare Releases](https://github.com/pattanayakpratik/PyShare/releases)**
 
 > [!NOTE]
