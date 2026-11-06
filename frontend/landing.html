@@ -315,6 +315,11 @@
                             <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                             <span>Help &amp; Feedback</span>
                         </button>
+                        <button class="nav-dropdown-item" onclick="checkForUpdates(true); closeNavMenu();">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                            <span>Check for Updates</span>
+                            <span class="update-badge" id="navUpdateBadge" style="display:none; margin-left:auto; background:var(--accent-cyan); color:#000; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px;">NEW</span>
+                        </button>
                         <div class="nav-dropdown-divider"></div>
                         <button class="nav-dropdown-item danger" onclick="disconnectServer(); closeNavMenu();">
                             <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
@@ -331,8 +336,11 @@
             <div class="status-bar" style="margin-bottom: 20px;">
                 <div class="status-pill" onclick="copyHostIp()" style="cursor: pointer;" title="Click to copy server URL">
                     <span class="status-dot"></span>
-                    <span>Server IP: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">Detecting...</strong></span>
-                    <span style="opacity:0.6; margin-left:4px; display:inline-flex; vertical-align:middle;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>
+                    <span>Server IP: <strong id="host-ip" style="color:var(--text-main); font-family:monospace;">••••••••:••••</strong></span>
+                    <button type="button" class="privacy-toggle-btn" id="btnToggleLandingIp" onclick="toggleLandingIp(event)" title="Show/Hide IP" aria-label="Toggle IP visibility" style="background:none; border:none; color:inherit; cursor:pointer; padding:2px 6px; display:inline-flex; align-items:center; opacity:0.75; transition:opacity 0.2s;">
+                        <svg class="eye-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                    </button>
+                    <span style="opacity:0.6; margin-left:2px; display:inline-flex; vertical-align:middle;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>
                 </div>
             </div>
 
@@ -439,19 +447,51 @@
             try { localStorage.setItem('pyshare_theme', next); } catch(e) {}
         }
 
-        // Live Server IP fetch
+        // Live Server IP fetch with privacy masking by default
+        let isLandingIpHidden = true;
+        let realLandingIp = "";
+        let realLandingPort = "";
         let currentServerIp = "Detecting...";
+
+        function updateLandingDisplay() {
+            const hostIpEl = document.getElementById('host-ip');
+            const toggleBtn = document.getElementById('btnToggleLandingIp');
+            if (!hostIpEl) return;
+            if (!realLandingIp) {
+                hostIpEl.innerText = "Detecting...";
+                return;
+            }
+            if (isLandingIpHidden) {
+                hostIpEl.innerText = `••••••••:${realLandingPort}`;
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+                    toggleBtn.title = "Show IP";
+                }
+            } else {
+                hostIpEl.innerText = `${realLandingIp}:${realLandingPort}`;
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+                    toggleBtn.title = "Hide IP";
+                }
+            }
+        }
+
+        function toggleLandingIp(e) {
+            if (e) e.stopPropagation();
+            isLandingIpHidden = !isLandingIpHidden;
+            updateLandingDisplay();
+        }
+
         async function fetchServerInfo() {
             try {
                 const res = await fetch('/api/info');
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data.ip && data.port) {
+                        realLandingIp = data.ip;
+                        realLandingPort = data.port;
                         currentServerIp = `${data.ip}:${data.port}`;
-                        const hostIpEl = document.getElementById('host-ip');
-                        if (hostIpEl) {
-                            hostIpEl.innerText = currentServerIp;
-                        }
+                        updateLandingDisplay();
                     }
                 }
             } catch(e) {}
@@ -466,7 +506,7 @@
                     if (el) {
                         const original = el.innerText;
                         el.innerText = "COPIED!";
-                        setTimeout(() => { el.innerText = original; }, 1500);
+                        setTimeout(() => { updateLandingDisplay(); }, 1500);
                     }
                 }).catch(() => {});
             }

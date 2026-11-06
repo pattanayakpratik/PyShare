@@ -318,6 +318,200 @@
     word-break: break-word;
 }
 
+/* --- CONNECTED DEVICES PEER INSPECTOR --- */
+.peer-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 8px 12px;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
+.peer-card:hover {
+    border-color: rgba(0, 240, 255, 0.4);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.peer-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.peer-icon-box {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-cyan);
+    flex-shrink: 0;
+}
+
+.peer-status-dot {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-card);
+}
+
+.peer-status-dot.active {
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+}
+
+.peer-status-dot.idle {
+    background: #f59e0b;
+}
+
+.peer-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    text-align: left;
+}
+
+.peer-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.peer-nickname {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.peer-rename-btn {
+    opacity: 0.5;
+    background: transparent;
+    border: none;
+    color: var(--text-sub);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.peer-rename-btn:hover {
+    opacity: 1;
+    color: var(--accent-cyan);
+    background: rgba(0, 240, 255, 0.1);
+}
+
+.peer-meta {
+    font-size: 11px;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 1px;
+}
+
+.peer-ip-badge {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 10px;
+    color: var(--text-sub);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.peer-ip-badge.private {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted, #8292ab);
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+.peer-ip-badge:hover {
+    background: rgba(0, 240, 255, 0.12);
+    color: var(--accent-cyan);
+    border-color: rgba(0, 240, 255, 0.3);
+}
+
+.privacy-toggle-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-sub);
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.privacy-toggle-btn:hover {
+    color: var(--text-main);
+    border-color: var(--accent-cyan);
+    background: rgba(0, 240, 255, 0.06);
+}
+
+.btn-peer-revoke {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #ef4444;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.btn-peer-revoke:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #ef4444;
+    color: #fff;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="light"] .peer-icon-box {
+    background: rgba(37, 99, 235, 0.08);
+    border-color: rgba(37, 99, 235, 0.25);
+    color: #2563eb;
+}
+
+[data-theme="light"] .peer-ip-badge {
+    background: rgba(0, 0, 0, 0.06);
+}
+
 /* --- COLUMN 3: DUAL FILE PANELS --- */
 .col-files {
     display: flex;
@@ -498,4 +692,156 @@
         font-size: 22px;
         letter-spacing: 5px;
     }
+}
+
+/* ==========================================================================
+   PyShare Quick Chat & Clipboard Stream Styles (Max 30 Messages)
+   ========================================================================== */
+.chat-stream-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    padding: 6px;
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+
+.chat-msg-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-width: 88%;
+}
+
+.chat-msg-row.self {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.chat-msg-row.peer,
+.chat-msg-row.host {
+    align-self: flex-start;
+    align-items: flex-start;
+}
+
+.chat-msg-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 0 4px;
+}
+
+.chat-sender-name {
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+
+.chat-msg-row.self .chat-sender-name {
+    color: var(--text-sub);
+}
+
+.chat-msg-row.host .chat-sender-name {
+    color: #10b981;
+}
+
+.chat-msg-time {
+    font-size: 10px;
+    color: var(--text-sub);
+    opacity: 0.75;
+}
+
+.chat-bubble {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 8px 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-main);
+    box-shadow: var(--shadow-sm);
+    word-break: break-word;
+    white-space: pre-wrap;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.chat-msg-row.self .chat-bubble {
+    background: rgba(0, 240, 255, 0.12);
+    border-color: rgba(0, 240, 255, 0.35);
+    border-bottom-right-radius: 4px;
+}
+
+.chat-msg-row.host .chat-bubble {
+    background: rgba(16, 185, 129, 0.10);
+    border-color: rgba(16, 185, 129, 0.35);
+    border-bottom-left-radius: 4px;
+}
+
+.chat-msg-row.peer .chat-bubble {
+    background: rgba(168, 85, 247, 0.10);
+    border-color: rgba(168, 85, 247, 0.3);
+    border-bottom-left-radius: 4px;
+}
+
+.chat-bubble:hover {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 12px var(--glow-cyan);
+}
+
+.chat-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-link {
+    color: var(--accent-cyan);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+
+.chat-copy-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    opacity: 0.85;
+}
+
+.chat-copy-btn:hover {
+    background: var(--accent-cyan);
+    color: #060913;
+    border-color: var(--accent-cyan);
+    opacity: 1;
+    transform: scale(1.03);
+}
+
+[data-theme="light"] .chat-msg-row.self .chat-bubble {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: rgba(37, 99, 235, 0.35);
+}
+
+[data-theme="light"] .chat-msg-row.host .chat-bubble {
+    background: rgba(5, 150, 105, 0.1);
+    border-color: rgba(5, 150, 105, 0.3);
+}
+
+[data-theme="light"] .chat-msg-row.peer .chat-bubble {
+    background: rgba(147, 51, 234, 0.08);
+    border-color: rgba(147, 51, 234, 0.25);
 }

@@ -1,4 +1,5 @@
 from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
+from collections import deque
 import os
 import http.server
 import socketserver
@@ -50,6 +51,73 @@ UPLOAD_DIR = ""    # Received from Clients (Client Uploads)
 DOWNLOAD_DIR = ""  # Shared by Host (Host Shared Files)
 ACTUAL_PORT = START_PORT
 zc = None
+APP_VERSION = "4.9.2"
+DESKTOP_NOTIFY_HOOK = None
+LAST_UPDATE_CHECK = {"timestamp": 0, "data": None}
+
+def format_file_size(size_bytes):
+    try:
+        size = float(size_bytes)
+        if size < 1024:
+            return f"{int(size)} B"
+        elif size < 1024 * 1024:
+            return f"{size / 1024:.1f} KB"
+        elif size < 1024 * 1024 * 1024:
+            return f"{size / (1024 * 1024):.1f} MB"
+        else:
+            return f"{size / (1024 * 1024 * 1024):.2f} GB"
+    except Exception:
+        return f"{size_bytes} B"
+
+def trigger_desktop_notification(title, message):
+    if DESKTOP_NOTIFY_HOOK:
+        try:
+            DESKTOP_NOTIFY_HOOK(title, message)
+        except Exception:
+            pass
+
+def check_for_updates():
+    global LAST_UPDATE_CHECK
+    now = time.time()
+    if LAST_UPDATE_CHECK["data"] and (now - LAST_UPDATE_CHECK["timestamp"]) < 3600:
+        return LAST_UPDATE_CHECK["data"]
+    try:
+        url = "https://api.github.com/repos/pattanayakpratik/PyShare/releases/latest"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "PyShare-App",
+            "Accept": "application/vnd.github.v3+json"
+        })
+        with urllib.request.urlopen(req, timeout=4) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                tag_name = data.get("tag_name", "").lstrip("v")
+                html_url = data.get("html_url", "https://github.com/pattanayakpratik/PyShare/releases")
+                body = data.get("body", "")
+
+                def parse_version_tuple(v_str):
+                    parts = re.findall(r'\d+', v_str)
+                    return tuple(int(p) for p in parts[:3]) if parts else (0, 0, 0)
+
+                has_update = parse_version_tuple(tag_name) > parse_version_tuple(APP_VERSION)
+                result = {
+                    "current_version": APP_VERSION,
+                    "latest_version": tag_name,
+                    "has_update": has_update,
+                    "release_url": html_url,
+                    "release_notes": body[:600] if body else ""
+                }
+                LAST_UPDATE_CHECK = {"timestamp": now, "data": result}
+                return result
+    except Exception:
+        pass
+
+    return {
+        "current_version": APP_VERSION,
+        "latest_version": APP_VERSION,
+        "has_update": False,
+        "release_url": "https://github.com/pattanayakpratik/PyShare/releases",
+        "release_notes": ""
+    }
 
 # --- PERSISTENT USER CONFIGURATION ---
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".pyshare_config.json")
@@ -61,7 +129,14 @@ def get_default_directories():
         "shared_dir": os.path.join(base, "Shared_Files"),
         "received_dir": os.path.join(base, "Received_Files"),
         "client_download_dir": os.path.join(os.path.expanduser("~"), "Downloads"),
-        "theme": "dark"
+        "theme": "dark",
+        "window_width": 1240,
+        "window_height": 780,
+        "window_x": None,
+        "window_y": None,
+        "minimize_to_tray": True,
+        "pin_mode": "rotating",
+        "static_pin": "1234"
     }
 
 def load_app_config():
@@ -105,31 +180,129 @@ def set_custom_received_dir(path):
         return True
     return False
 
+def cleanup_sharing_files(delete_shared=False, delete_received=False, delete_config=True, custom_base_dir=None):
+    """
+    Remove sharing folders and configuration upon uninstall if requested by user.
+    Returns summary dict of deleted and preserved paths.
+    """
+    cfg = load_app_config()
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    default_base = os.path.join(desktop, "PyShare_Files")
+    base_dir = custom_base_dir or (BASE_DIR if (BASE_DIR and os.path.isdir(BASE_DIR)) else default_base)
+
+    shared_dir = os.path.join(base_dir, "Shared_Files") if custom_base_dir else cfg.get("shared_dir", os.path.join(base_dir, "Shared_Files"))
+    received_dir = os.path.join(base_dir, "Received_Files") if custom_base_dir else cfg.get("received_dir", os.path.join(base_dir, "Received_Files"))
+
+    deleted = []
+    preserved = []
+
+    # 1. Shared Files Cleanup
+    if delete_shared and os.path.isdir(shared_dir):
+        try:
+            shutil.rmtree(shared_dir, ignore_errors=True)
+            deleted.append(shared_dir)
+        except Exception as e:
+            preserved.append(f"{shared_dir} (Error: {e})")
+    elif os.path.isdir(shared_dir):
+        preserved.append(shared_dir)
+
+    # 2. Received Files Cleanup
+    if delete_received and os.path.isdir(received_dir):
+        try:
+            shutil.rmtree(received_dir, ignore_errors=True)
+            deleted.append(received_dir)
+        except Exception as e:
+            preserved.append(f"{received_dir} (Error: {e})")
+    elif os.path.isdir(received_dir):
+        preserved.append(received_dir)
+
+    # 3. Base Directory Cleanup
+    if (delete_shared and delete_received) and os.path.isdir(base_dir):
+        try:
+            shutil.rmtree(base_dir, ignore_errors=True)
+            deleted.append(base_dir)
+        except Exception:
+            pass
+    elif os.path.isdir(base_dir):
+        try:
+            if not os.listdir(base_dir):
+                os.rmdir(base_dir)
+                deleted.append(base_dir)
+        except Exception:
+            pass
+
+    # 4. Config File Cleanup
+    if delete_config and os.path.isfile(CONFIG_FILE):
+        try:
+            os.remove(CONFIG_FILE)
+            deleted.append(CONFIG_FILE)
+        except Exception:
+            pass
+
+    # 5. Temporary Directory Cleanup
+    temp_dir = os.path.join(tempfile.gettempdir(), "PyShare_Files")
+    if os.path.isdir(temp_dir):
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            deleted.append(temp_dir)
+        except Exception:
+            pass
+
+    return {"deleted": deleted, "preserved": preserved}
+
 def init_directories():
-    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR
+    global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, PIN_MODE, STATIC_PIN
     cfg = load_app_config()
     defs = get_default_directories()
     DOWNLOAD_DIR = os.path.abspath(cfg.get("shared_dir", defs["shared_dir"]))
     UPLOAD_DIR = os.path.abspath(cfg.get("received_dir", defs["received_dir"]))
     BASE_DIR = os.path.dirname(DOWNLOAD_DIR)
+    PIN_MODE = cfg.get("pin_mode", defs["pin_mode"])
+    STATIC_PIN = str(cfg.get("static_pin", defs["static_pin"])).strip()
     try:
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     except Exception:
         pass
 
-init_directories()
-
 # --- SECURITY & STATE ---
+PIN_MODE = "rotating"  # "rotating" or "static"
+STATIC_PIN = "1234"
 CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
 NEXT_CHANGE = 0    # Track timestamp when PIN rotates
 SESSIONS = {}      # Stores authenticated client session tokens (token -> created_timestamp)
 SHARED_TEXT = ""   # In-memory shared clipboard / quick link
 TEXT_TIMESTAMP = 0 # Timestamp of last clipboard change
-state_lock = threading.Lock()
+MAX_CHAT_HISTORY = 30
+CHAT_MESSAGES = deque(maxlen=MAX_CHAT_HISTORY)
+CHAT_COUNTER = 0
+
+def make_chat_message(text, sender, sender_id, is_host=False, device_type="device", msg_type="text", attachment=None):
+    global CHAT_COUNTER
+    CHAT_COUNTER += 1
+    now = time.time()
+    time_str = datetime.datetime.fromtimestamp(now).strftime("%H:%M")
+    return {
+        "id": f"msg_{CHAT_COUNTER}_{int(now)}",
+        "text": text,
+        "sender": sender,
+        "sender_id": sender_id,
+        "is_host": is_host,
+        "device_type": device_type,
+        "msg_type": msg_type,
+        "attachment": attachment,
+        "timestamp": int(now),
+        "time_str": time_str
+    }
+state_lock = threading.RLock()
 events_queue = [] 
 upload_status = {}
+
+# --- JOIN REQUESTS QUEUE (Host Approval / Knock-to-Enter) ---
+PENDING_JOIN_REQUESTS = {}  # request_id -> dict
+MAX_PENDING_REQUESTS = 10
+JOIN_REQUEST_TTL = 60       # seconds
 
 # --- RATE LIMITING & CONCURRENCY CONTROLS ---
 login_attempts = {}       # client_ip -> {"count": int, "lockout_until": float}
@@ -185,19 +358,24 @@ def get_cloudflared_path():
         return local_bin
     return desktop_bin
 
-def download_cloudflared(dest_path):
-    """Download standalone cloudflared binary matching OS and architecture."""
-    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    sys_plat = platform.system().lower()
-    sys_arch = platform.machine().lower()
+def get_cloudflared_target(sys_plat=None, sys_arch=None):
+    """Determine the cloudflared release binary filename and URL for any OS and architecture."""
+    if sys_plat is None:
+        sys_plat = platform.system().lower()
+    else:
+        sys_plat = sys_plat.lower()
+    if sys_arch is None:
+        sys_arch = platform.machine().lower()
+    else:
+        sys_arch = sys_arch.lower()
 
     if sys_plat == "windows":
         arch_suffix = "amd64" if ("64" in sys_arch or "x86_64" in sys_arch) else "386"
         filename = f"cloudflared-windows-{arch_suffix}.exe"
-    elif sys_plat == "darwin":
+    elif sys_plat in ("darwin", "macos", "osx"):
         arch_suffix = "arm64" if ("arm" in sys_arch or "aarch64" in sys_arch) else "amd64"
         filename = f"cloudflared-darwin-{arch_suffix}"
-    else:  # Linux / Unix
+    else:  # Linux / Unix / BSD
         if "arm64" in sys_arch or "aarch64" in sys_arch:
             arch_suffix = "arm64"
         elif "arm" in sys_arch:
@@ -209,6 +387,13 @@ def download_cloudflared(dest_path):
         filename = f"cloudflared-linux-{arch_suffix}"
 
     url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/{filename}"
+    return filename, url
+
+def download_cloudflared(dest_path):
+    """Download standalone cloudflared binary matching OS and architecture."""
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    sys_plat = platform.system().lower()
+    filename, url = get_cloudflared_target()
     temp_path = dest_path + ".tmp"
     try:
         urllib.request.urlretrieve(url, temp_path)
@@ -331,32 +516,160 @@ mimetypes.init()
 mimetypes.add_type("video/mp4", ".mp4")
 mimetypes.add_type("video/webm", ".webm")
 mimetypes.add_type("video/quicktime", ".mov")
+mimetypes.add_type("video/x-matroska", ".mkv")
 mimetypes.add_type("audio/mpeg", ".mp3")
 mimetypes.add_type("audio/ogg", ".ogg")
 mimetypes.add_type("audio/wav", ".wav")
+mimetypes.add_type("audio/mp4", ".m4a")
+mimetypes.add_type("audio/flac", ".flac")
+mimetypes.add_type("audio/aac", ".aac")
+mimetypes.add_type("audio/opus", ".opus")
 mimetypes.add_type("image/webp", ".webp")
 mimetypes.add_type("image/svg+xml", ".svg")
 mimetypes.add_type("application/manifest+json", ".json")
 
 # --- PIN MANAGER WITH REAL-TIME TICKER ---
 def pin_rotator():
-    """Rotates the 4-digit PIN every 30 seconds and broadcasts countdown every second to SSE clients."""
-    global CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE
+    """Manages 4-digit PIN: rotates every 30 seconds or stays fixed in static mode."""
+    global CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, PIN_MODE, STATIC_PIN
+    last_qr_pin = None
     while True:
         now = time.time()
+        pin_changed = False
         with state_lock:
-            if now >= NEXT_CHANGE:
+            if PIN_MODE == "static":
+                CURRENT_PIN = STATIC_PIN if (STATIC_PIN and len(STATIC_PIN) == 4 and STATIC_PIN.isdigit()) else "1234"
                 PREVIOUS_PIN = CURRENT_PIN
-                CURRENT_PIN = f"{random.randint(1000, 9999)}"
-                NEXT_CHANGE = now + 30
-            ttl = max(0, int(NEXT_CHANGE - now))
-            pin_data = {"pin": CURRENT_PIN, "ttl": ttl}
+                ttl = -1
+            else:
+                if now >= NEXT_CHANGE:
+                    PREVIOUS_PIN = CURRENT_PIN
+                    CURRENT_PIN = f"{random.randint(1000, 9999)}"
+                    NEXT_CHANGE = now + 30
+                ttl = max(0, int(NEXT_CHANGE - now))
+            if CURRENT_PIN != last_qr_pin:
+                last_qr_pin = CURRENT_PIN
+                pin_changed = True
+            pin_data = {"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE}
+        if pin_changed:
+            generate_qr()
         broadcast_sse("pin", pin_data)
         time.sleep(1)
 
 def start_pin_rotator():
     t = threading.Thread(target=pin_rotator, daemon=True)
     t.start()
+
+# --- ZERO-CONF LOCAL LAN ROOM AUTO-DISCOVERY BEACON ---
+DISCOVERY_PORT = 53535
+DISCOVERED_ROOMS = {}
+discovered_lock = threading.Lock()
+lan_discovery_running = True
+_discovery_thread_started = False
+
+def lan_discovery_worker():
+    """Background UDP beacon & listener for zero-conf PyShare room discovery on local subnet."""
+    global lan_discovery_running
+    sock = None
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.settimeout(1.0)
+        try:
+            sock.bind(("", DISCOVERY_PORT))
+        except Exception:
+            try:
+                sock.bind(("", 0))
+            except Exception:
+                return
+    except Exception:
+        return
+
+    last_broadcast_time = 0
+
+    while lan_discovery_running:
+        now = time.time()
+        # 1. Periodically broadcast our presence on the LAN (every 3 seconds)
+        if ACTUAL_PORT > 0 and (now - last_broadcast_time >= 3.0):
+            last_broadcast_time = now
+            try:
+                my_ip = get_ip()
+                payload = json.dumps({
+                    "app": "PyShare",
+                    "version": "4.0",
+                    "room": f"PyShare ({platform.node()})",
+                    "ip": my_ip,
+                    "port": ACTUAL_PORT,
+                    "device": platform.node(),
+                    "url": f"http://{my_ip}:{ACTUAL_PORT}"
+                }).encode('utf-8')
+                sock.sendto(payload, ("<broadcast>", DISCOVERY_PORT))
+            except Exception:
+                pass
+
+        # 2. Listen for discovery queries or announcements from peer PyShare instances
+        try:
+            data, addr = sock.recvfrom(2048)
+            if not data:
+                continue
+            if data == b"PYSHARE_DISCOVER":
+                if ACTUAL_PORT > 0:
+                    my_ip = get_ip()
+                    resp_payload = json.dumps({
+                        "app": "PyShare",
+                        "version": "4.0",
+                        "room": f"PyShare ({platform.node()})",
+                        "ip": my_ip,
+                        "port": ACTUAL_PORT,
+                        "device": platform.node(),
+                        "url": f"http://{my_ip}:{ACTUAL_PORT}"
+                    }).encode('utf-8')
+                    sock.sendto(resp_payload, addr)
+            else:
+                try:
+                    info = json.loads(data.decode('utf-8', errors='ignore'))
+                    if isinstance(info, dict) and info.get("app") == "PyShare":
+                        peer_ip = info.get("ip") or addr[0]
+                        peer_port = info.get("port")
+                        my_ip = get_ip()
+                        if not (peer_ip == my_ip and peer_port == ACTUAL_PORT):
+                            room_key = f"{peer_ip}:{peer_port}"
+                            with discovered_lock:
+                                DISCOVERED_ROOMS[room_key] = {
+                                    "room": info.get("room", f"PyShare ({peer_ip})"),
+                                    "ip": peer_ip,
+                                    "port": peer_port,
+                                    "device": info.get("device", "Unknown Device"),
+                                    "url": info.get("url", f"http://{peer_ip}:{peer_port}"),
+                                    "last_seen": now
+                                }
+                except Exception:
+                    pass
+        except socket.timeout:
+            pass
+        except Exception:
+            pass
+
+        # 3. Clean up expired rooms (stale after 10s)
+        with discovered_lock:
+            stale_keys = [k for k, v in DISCOVERED_ROOMS.items() if now - v.get("last_seen", 0) > 10.0]
+            for k in stale_keys:
+                DISCOVERED_ROOMS.pop(k, None)
+
+    try:
+        sock.close()
+    except Exception:
+        pass
+
+def start_lan_discovery():
+    """Start LAN discovery beacon thread if not already running."""
+    global _discovery_thread_started
+    with discovered_lock:
+        if not _discovery_thread_started:
+            _discovery_thread_started = True
+            t = threading.Thread(target=lan_discovery_worker, daemon=True, name="LAN-Discovery")
+            t.start()
 
 # --- STATE MANAGEMENT ---
 def add_event(msg):
@@ -507,14 +820,18 @@ def get_qr_path():
     return os.path.join(target_dir, "qrcode.png")
 
 def generate_qr(url=None):
-    """Generates a dynamic QR Code pointing to the current server URL or tunnel URL."""
+    """Generates a dynamic QR Code pointing to current server URL with auto-login pin."""
     try:
         if url is None:
             if TUNNEL_URL:
-                url = TUNNEL_URL
+                base = TUNNEL_URL
             else:
                 ip = get_ip()
-                url = f"http://{ip}:{ACTUAL_PORT}"
+                base = f"http://{ip}:{ACTUAL_PORT}"
+            url = f"{base}/?pin={CURRENT_PIN}" if CURRENT_PIN and CURRENT_PIN != "0000" else base
+        elif "pin=" not in url and CURRENT_PIN and CURRENT_PIN != "0000":
+            sep = "&" if "?" in url else "/?"
+            url = f"{url}{sep}pin={CURRENT_PIN}"
         qr_path = get_qr_path()
 
         qr = pyqrcode.create(url)
@@ -561,22 +878,32 @@ def list_dir(path):
     data = []
     try:
         if os.path.exists(path):
-            files = sorted(os.listdir(path), key=str.lower)
-            for f in files:
-                if f.endswith('.part') or f.endswith('.tmp'):
-                    continue
-                fp = os.path.join(path, f)
-                if os.path.isfile(fp):
-                    stat = os.stat(fp)
-                    ext = os.path.splitext(f)[1]
-                    data.append({
-                        "name": f,
-                        "size": stat.st_size,
-                        "mtime": int(stat.st_mtime),
-                        "category": get_category(ext),
-                        "ext": ext.lstrip('.').lower(),
-                        "path": fp
-                    })
+            safe_base = os.path.abspath(path)
+            for root, dirs, files in os.walk(safe_base):
+                dirs.sort(key=str.lower)
+                files.sort(key=str.lower)
+                for f in files:
+                    if f.endswith('.part') or f.endswith('.tmp'):
+                        continue
+                    fp = os.path.join(root, f)
+                    if os.path.isfile(fp):
+                        try:
+                            stat = os.stat(fp)
+                            ext = os.path.splitext(f)[1]
+                            rel_p = os.path.relpath(fp, safe_base).replace('\\', '/')
+                            display_name = rel_p if rel_p != f else f
+                            data.append({
+                                "name": display_name,
+                                "filename": f,
+                                "rel_path": rel_p,
+                                "size": stat.st_size,
+                                "mtime": int(stat.st_mtime),
+                                "category": get_category(ext),
+                                "ext": ext.lstrip('.').lower(),
+                                "path": fp
+                            })
+                        except Exception:
+                            pass
     except Exception: 
         pass
     return data
@@ -736,6 +1063,108 @@ def get_asset_dir():
 ASSET_DIR = get_asset_dir()
 
 
+def parse_user_agent(ua):
+    """Extract human-readable device and browser name from User-Agent string."""
+    if not ua:
+        return {"device": "Unknown Device", "browser": "Browser", "icon": "laptop"}
+
+    ua_lower = ua.lower()
+
+    # Browser detection
+    if "edg/" in ua_lower or "edge/" in ua_lower:
+        browser = "Edge"
+    elif "opr/" in ua_lower or "opera" in ua_lower:
+        browser = "Opera"
+    elif "chrome/" in ua_lower or "crios/" in ua_lower:
+        browser = "Chrome"
+    elif "firefox/" in ua_lower or "fxios/" in ua_lower:
+        browser = "Firefox"
+    elif "safari/" in ua_lower:
+        browser = "Safari"
+    elif "curl/" in ua_lower:
+        browser = "Curl"
+    else:
+        browser = "Browser"
+
+    # Device detection
+    if "iphone" in ua_lower:
+        device = "iPhone"
+        icon = "smartphone"
+    elif "ipad" in ua_lower:
+        device = "iPad"
+        icon = "tablet"
+    elif "android" in ua_lower:
+        device = "Android Device"
+        icon = "smartphone"
+        m = re.search(r';\s*([^;]+?)\s*(?:Build/|\))', ua)
+        if m:
+            cand = m.group(1).strip()
+            if cand and not cand.lower().startswith(("k", "wv", "u;")):
+                device = cand
+    elif "windows" in ua_lower:
+        device = "Windows PC"
+        icon = "laptop"
+    elif "macintosh" in ua_lower or "mac os" in ua_lower:
+        device = "Mac"
+        icon = "laptop"
+    elif "linux" in ua_lower:
+        device = "Linux PC"
+        icon = "laptop"
+    elif "cros" in ua_lower:
+        device = "Chromebook"
+        icon = "laptop"
+    else:
+        device = "Device"
+        icon = "smartphone"
+
+    return {"device": device, "browser": browser, "icon": icon}
+
+
+def get_connected_peers():
+    """Return list of active connected peers (filtered for sessions active within 24h)."""
+    now = time.time()
+    peers = []
+    with state_lock:
+        expired = []
+        for token, sess in list(SESSIONS.items()):
+            if isinstance(sess, dict):
+                created_at = sess.get("created_at", 0)
+                if (now - created_at) >= 86400:
+                    expired.append(token)
+                else:
+                    last_seen = sess.get("last_seen", created_at)
+                    peers.append({
+                        "id": sess.get("id", token[:8]),
+                        "nickname": sess.get("nickname", sess.get("device", "Device")),
+                        "ip": sess.get("ip", "Unknown"),
+                        "device": sess.get("device", "Device"),
+                        "browser": sess.get("browser", "Browser"),
+                        "icon": sess.get("icon", "laptop"),
+                        "created_at": created_at,
+                        "last_seen": last_seen,
+                        "active": (now - last_seen) < 120
+                    })
+            else:
+                if (now - sess) >= 86400:
+                    expired.append(token)
+                else:
+                    peers.append({
+                        "id": token[:8],
+                        "nickname": "Client Device",
+                        "ip": "Unknown",
+                        "device": "Client Device",
+                        "browser": "Browser",
+                        "icon": "smartphone",
+                        "created_at": sess,
+                        "last_seen": sess,
+                        "active": (now - sess) < 120
+                    })
+        for t in expired:
+            SESSIONS.pop(t, None)
+    peers.sort(key=lambda p: p["last_seen"], reverse=True)
+    return peers
+
+
 class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     disable_nagle_algorithm = True
@@ -783,24 +1212,43 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if not filename or filename.endswith('.part') or filename.endswith('.tmp'):
             return None
 
+        clean_fn = urllib.parse.unquote(filename).replace('\\', '/').lstrip('/')
+        # Strictly reject any traversal sequences
+        if '..' in clean_fn.split('/'):
+            return None
+
         # 1. Check Staged Files (Direct Staging: Zero-RAM copy, stream direct from original path)
         with STAGED_LOCK:
-            if filename in STAGED_FILES:
-                fp = STAGED_FILES[filename]["path"]
+            if clean_fn in STAGED_FILES:
+                fp = STAGED_FILES[clean_fn]["path"]
+                if os.path.isfile(fp):
+                    return fp
+            base_fn = os.path.basename(clean_fn)
+            if base_fn in STAGED_FILES:
+                fp = STAGED_FILES[base_fn]["path"]
                 if os.path.isfile(fp):
                     return fp
 
         # 2. Check Shared Directory
         safe_download_dir = os.path.abspath(DOWNLOAD_DIR)
-        dl_fp = os.path.abspath(os.path.join(safe_download_dir, filename))
+        dl_fp = os.path.abspath(os.path.join(safe_download_dir, clean_fn))
         if os.path.commonpath([safe_download_dir, dl_fp]) == safe_download_dir and os.path.isfile(dl_fp): 
             return dl_fp
 
         # 3. Check Received Directory
         safe_upload_dir = os.path.abspath(UPLOAD_DIR)
-        up_fp = os.path.abspath(os.path.join(safe_upload_dir, filename))
+        up_fp = os.path.abspath(os.path.join(safe_upload_dir, clean_fn))
         if os.path.commonpath([safe_upload_dir, up_fp]) == safe_upload_dir and os.path.isfile(up_fp): 
             return up_fp
+
+        # 4. Fallback search by basename inside Shared and Received directories
+        base_fn = os.path.basename(clean_fn)
+        for base_dir in (safe_download_dir, safe_upload_dir):
+            for root, _, files in os.walk(base_dir):
+                if base_fn in files:
+                    cand = os.path.abspath(os.path.join(root, base_fn))
+                    if os.path.commonpath([base_dir, cand]) == base_dir and os.path.isfile(cand):
+                        return cand
 
         return None
 
@@ -829,8 +1277,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if token:
             with state_lock:
                 if token in SESSIONS:
-                    created_at = SESSIONS[token]
+                    sess = SESSIONS[token]
+                    created_at = sess.get("created_at", 0) if isinstance(sess, dict) else sess
                     if (time.time() - created_at) < 86400:
+                        if isinstance(sess, dict):
+                            sess["last_seen"] = time.time()
                         return True
                     else:
                         SESSIONS.pop(token, None)
@@ -895,6 +1346,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "QR Code not ready")
             return
 
+        # Check for PyShare Application Updates (Public endpoint)
+        if self.path in ('/api/check_update', '/api/version'):
+            self.send_json(check_for_updates())
+            return
+
         # 2. SERVE P2P SUITE & USER GUIDE (No Auth Required)
         if self.path in ('/p2p', '/p2p/', '/p2p.html', '/index.html') or self.path.startswith(('/p2p?', '/p2p.html?', '/index.html?')):
             fp = os.path.join(ASSET_DIR, "index.html")
@@ -925,12 +1381,21 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # 3. PUBLIC SERVER INFO (Physical LAN IP, Port, is_host)
         if self.path == '/api/info' or self.path.startswith('/api/info?'):
             ip = get_ip()
-            self.send_json({
+            info_data = {
                 "ip": ip,
                 "port": ACTUAL_PORT,
                 "url": f"http://{ip}:{ACTUAL_PORT}",
                 "is_host": self.is_host_client()
-            })
+            }
+            client_token = self.get_session_token()
+            if client_token:
+                with state_lock:
+                    sess = SESSIONS.get(client_token)
+                    if isinstance(sess, dict):
+                        info_data["nickname"] = sess.get("nickname", sess.get("device", "Device"))
+                        info_data["device"] = sess.get("device", "Device")
+                        info_data["peer_id"] = sess.get("id", client_token[:8])
+            self.send_json(info_data)
             return
 
         asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
@@ -1055,14 +1520,18 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 
                 # 2. Clipboard snapshot
                 with state_lock:
-                    clip_json = json.dumps({"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
+                    clip_json = json.dumps({
+                        "text": SHARED_TEXT,
+                        "timestamp": TEXT_TIMESTAMP,
+                        "messages": list(CHAT_MESSAGES)
+                    })
                 self.wfile.write(f"event: clipboard\ndata: {clip_json}\n\n".encode('utf-8'))
                 
                 # 3. PIN snapshot (Host only)
                 if self.is_host_client():
                     with state_lock:
-                        ttl = max(0, int(NEXT_CHANGE - time.time()))
-                        pin_json = json.dumps({"pin": CURRENT_PIN, "ttl": ttl})
+                        ttl = -1 if PIN_MODE == "static" else max(0, int(NEXT_CHANGE - time.time()))
+                        pin_json = json.dumps({"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE})
                     self.wfile.write(f"event: pin\ndata: {pin_json}\n\n".encode('utf-8'))
 
                 # 4. Tunnel snapshot (Host only)
@@ -1070,6 +1539,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     with TUNNEL_LOCK:
                         tun_json = json.dumps({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
                     self.wfile.write(f"event: tunnel\ndata: {tun_json}\n\n".encode('utf-8'))
+
+                # 5. Connected peers snapshot (Host only)
+                if self.is_host_client():
+                    peers_json = json.dumps(get_connected_peers())
+                    self.wfile.write(f"event: peers\ndata: {peers_json}\n\n".encode('utf-8'))
                 self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError, Exception):
                 remove_sse_subscriber(q)
@@ -1101,12 +1575,20 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 clip_val = pyperclip.paste().strip()
                 if clip_val:
                     with state_lock:
+                        msg = make_chat_message(clip_val, "Host (PC)", "host", is_host=True, device_type="desktop")
+                        CHAT_MESSAGES.append(msg)
                         SHARED_TEXT = clip_val
                         TEXT_TIMESTAMP = int(time.time())
+                        clip_data = {
+                            "text": SHARED_TEXT,
+                            "timestamp": TEXT_TIMESTAMP,
+                            "messages": list(CHAT_MESSAGES),
+                            "new_message": msg
+                        }
                     snippet = (clip_val[:35] + "...") if len(clip_val) > 35 else clip_val
                     add_event(f"Synced Host Clipboard: {snippet}")
-                    broadcast_sse("clipboard", {"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
-                    self.send_json({"status": "ok", "text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
+                    broadcast_sse("clipboard", clip_data)
+                    self.send_json({"status": "ok", "text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP, "messages": list(CHAT_MESSAGES)})
                 else:
                     self.send_json({"status": "empty", "message": "Host clipboard is empty"})
             except Exception as e:
@@ -1125,17 +1607,96 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         # D. API: PIN (Host Only)
         if self.path == '/api/pin':
             if self.is_host_client():
-                ttl = max(0, int(NEXT_CHANGE - time.time()))
+                ttl = -1 if PIN_MODE == "static" else max(0, int(NEXT_CHANGE - time.time()))
                 ip = get_ip()
                 self.send_json({
                     "pin": CURRENT_PIN,
                     "ttl": ttl,
+                    "mode": PIN_MODE,
                     "ip": ip,
                     "port": ACTUAL_PORT,
                     "url": f"http://{ip}:{ACTUAL_PORT}"
                 })
             else:
                 self.send_error(403, "Forbidden")
+            return
+
+        # Connected Peers Endpoint (Host Only)
+        if self.path == '/api/peers':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            self.send_json({"peers": get_connected_peers()})
+            return
+
+        # Discovered LAN Rooms (Zero-Conf LAN Auto-Discovery)
+        if self.path in ('/api/lan/rooms', '/api/rooms/discovered'):
+            start_lan_discovery()
+            now = time.time()
+            with discovered_lock:
+                active_rooms = [v for v in DISCOVERED_ROOMS.values() if now - v.get("last_seen", 0) <= 10.0]
+            self.send_json({"rooms": active_rooms, "count": len(active_rooms)})
+            return
+
+        # Check Join Request Status (/api/join/status?request_id=...)
+        if self.path.startswith('/api/join/status'):
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            req_id = params.get('request_id', [''])[0].strip() or params.get('id', [''])[0].strip()
+            
+            with state_lock:
+                req = PENDING_JOIN_REQUESTS.get(req_id)
+                if not req:
+                    self.send_json({"status": "expired", "message": "Request expired or not found"})
+                    return
+                
+                now = time.time()
+                if now > req.get("expires_at", 0):
+                    req["status"] = "expired"
+                    self.send_json({"status": "expired", "message": "Request expired"})
+                    return
+
+                status = req.get("status", "pending")
+                if status == "declined":
+                    self.send_json({"status": "declined", "message": "Host declined the request"})
+                    return
+
+                if status == "approved":
+                    token = req.get("token")
+                    cookie_header = f"pyshare_session={token}; Path=/; HttpOnly; SameSite=Lax"
+                    body_bytes = json.dumps({"status": "approved", "token": token}).encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(body_bytes)))
+                    self.send_header('Set-Cookie', cookie_header)
+                    self.end_headers()
+                    self.wfile.write(body_bytes)
+                    return
+
+                expires_in = max(0, int(req.get("expires_at", 0) - now))
+                self.send_json({"status": "pending", "expires_in": expires_in})
+                return
+
+        # List Pending Join Requests (/api/join/pending - Host Only)
+        if self.path == '/api/join/pending':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            now = time.time()
+            with state_lock:
+                pending = [
+                    {
+                        "id": r["id"],
+                        "nickname": r["nickname"],
+                        "device": r["device"],
+                        "browser": r["browser"],
+                        "ip": r["ip"],
+                        "expires_in": max(0, int(r["expires_at"] - now))
+                    }
+                    for r in PENDING_JOIN_REQUESTS.values()
+                    if r.get("status") == "pending" and r.get("expires_at", 0) > now
+                ]
+            self.send_json({"requests": pending})
             return
 
         # E. API: Files List
@@ -1156,12 +1717,13 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(data)
             return
 
-        # G. API: Shared Clipboard (GET)
+        # G. API: Shared Clipboard & Chat (GET)
         if self.path in ('/api/text', '/api/clipboard'):
             with state_lock:
                 data = {
                     "text": SHARED_TEXT,
-                    "timestamp": TEXT_TIMESTAMP
+                    "timestamp": TEXT_TIMESTAMP,
+                    "messages": list(CHAT_MESSAGES)
                 }
             self.send_json(data)
             return
@@ -1276,7 +1838,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             raw_fn = urllib.parse.unquote(raw_path)
             fn = os.path.basename(raw_fn)
             
-            fp = self.get_file_path(fn)
+            fp = self.get_file_path(raw_path) or self.get_file_path(raw_fn) or self.get_file_path(fn)
             if not fp or not os.path.isfile(fp):
                 self.send_error(404, "File not found")
                 return
@@ -1287,7 +1849,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 ctype = 'application/octet-stream'
 
             # Defense-in-depth: Sandbox active HTML/SVG file views to eliminate Stored XSS
-            is_active_scriptable = fn.lower().endswith(('.html', '.htm', '.svg', '.xml', '.xhtml'))
+            is_active_scriptable = os.path.basename(fp).lower().endswith(('.html', '.htm', '.svg', '.xml', '.xhtml'))
 
             range_header = self.headers.get("Range")
             byte_range = parse_range_header(range_header, file_size)
@@ -1309,7 +1871,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Content-Length", str(content_len))
                     self.send_header("Accept-Ranges", "bytes")
                     if not is_view:
-                        self.send_header("Content-Disposition", self.format_content_disposition(fn, is_attachment=True))
+                        self.send_header("Content-Disposition", self.format_content_disposition(os.path.basename(fp), is_attachment=True))
                     elif is_active_scriptable:
                         self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
@@ -1330,7 +1892,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Accept-Ranges", "bytes")
                     self.send_header("Content-Length", str(file_size))
                     if not is_view:
-                        self.send_header("Content-Disposition", self.format_content_disposition(fn, is_attachment=True))
+                        self.send_header("Content-Disposition", self.format_content_disposition(os.path.basename(fp), is_attachment=True))
                     elif is_active_scriptable:
                         self.send_header("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox")
                     self.send_security_headers()
@@ -1342,7 +1904,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                                 break
                             self.wfile.write(chunk)
                 self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, FileNotFoundError, OSError):
                 pass
             return
 
@@ -1374,6 +1936,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return
 
     def do_POST(self):
+        global PIN_MODE, STATIC_PIN, CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE
+
         # Handle Server Shutdown via POST
         if self.path in ('/shutdown', '/api/stop', '/api/shutdown'):
             if not self.is_host_client():
@@ -1395,6 +1959,19 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     except Exception: pass
                 os._exit(0)
             threading.Thread(target=kill, daemon=True).start()
+            return
+
+        # Trigger LAN Room Discovery Probe
+        if self.path in ('/api/lan/discover', '/api/rooms/discover'):
+            start_lan_discovery()
+            try:
+                probe_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                probe_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                probe_sock.sendto(b"PYSHARE_DISCOVER", ("<broadcast>", DISCOVERY_PORT))
+                probe_sock.close()
+            except Exception:
+                pass
+            self.send_json({"status": "ok"})
             return
 
         # 1. HANDLE LOGIN (Accept CURRENT_PIN or PREVIOUS_PIN for grace window with Rate Limiting)
@@ -1419,29 +1996,49 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
             length = int(self.headers.get('Content-Length', 0))
             if length > 1024:
+                try:
+                    self.rfile.read(min(length, 65536))
+                except Exception:
+                    pass
                 self.send_error(400, "Bad Request")
                 return
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             params = urllib.parse.parse_qs(body)
             pin_input = params.get('pin', [''])[0].strip()
+            raw_nickname = params.get('nickname', [''])[0].strip() or params.get('device_name', [''])[0].strip()
+            custom_nickname = re.sub(r'[\x00-\x1f\x7f]', '', raw_nickname)[:32].strip() if raw_nickname else ""
             
             with state_lock:
-                valid_pins = {CURRENT_PIN, PREVIOUS_PIN}
+                valid_pins = {p for p in (CURRENT_PIN, PREVIOUS_PIN) if p and p != "0000"}
             
             if pin_input in valid_pins and pin_input != "":
                 with login_lock:
                     login_attempts.pop(client_ip, None)
 
                 token = secrets.token_hex(16)
+                ua = self.headers.get("User-Agent", "")
+                ua_info = parse_user_agent(ua)
+                nickname = custom_nickname if custom_nickname else ua_info["device"]
+                now_ts = time.time()
                 with state_lock:
-                    now_ts = time.time()
-                    SESSIONS[token] = now_ts
+                    SESSIONS[token] = {
+                        "id": token[:8],
+                        "nickname": nickname,
+                        "ip": client_ip,
+                        "device": ua_info["device"],
+                        "browser": ua_info["browser"],
+                        "icon": ua_info["icon"],
+                        "created_at": now_ts,
+                        "last_seen": now_ts
+                    }
                     if len(SESSIONS) > 500:
                         cutoff = now_ts - 86400
-                        expired = [t for t, ts in SESSIONS.items() if ts <= cutoff]
+                        expired = [t for t, s in SESSIONS.items() if (s.get("created_at", s) if isinstance(s, dict) else s) <= cutoff]
                         for t in expired:
                             SESSIONS.pop(t, None)
-                add_event(f"Device connected: {client_ip}")
+                add_event(f"Device connected: {nickname} ({ua_info['browser']})")
+                trigger_desktop_notification("PyShare — Device Connected", f"{nickname} connected")
+                broadcast_sse("peers", get_connected_peers())
 
                 body_bytes = b"OK"
                 self.send_response(200)
@@ -1467,6 +2064,145 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         self.send_text(f"Invalid PIN ({remaining_tries} tries left)", status=401)
             return
 
+        # HANDLE JOIN REQUEST (/api/join/request - Client Knocking)
+        if self.path == '/api/join/request':
+            client_ip = self.get_client_ip()
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 2048:
+                self.send_error(400, "Bad Request")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            raw_nickname = ""
+            try:
+                data = json.loads(body) if body else {}
+                raw_nickname = data.get("nickname", data.get("device_name", ""))
+            except Exception:
+                params = urllib.parse.parse_qs(body)
+                raw_nickname = params.get('nickname', [''])[0].strip() or params.get('device_name', [''])[0].strip()
+
+            custom_nickname = re.sub(r'[\x00-\x1f\x7f]', '', raw_nickname)[:32].strip() if raw_nickname else ""
+            ua = self.headers.get("User-Agent", "")
+            ua_info = parse_user_agent(ua)
+            nickname = custom_nickname if custom_nickname else ua_info["device"]
+
+            now = time.time()
+            with state_lock:
+                # Cleanup expired join requests
+                expired_keys = [k for k, r in PENDING_JOIN_REQUESTS.items() if r.get("expires_at", 0) <= now or r.get("status") in ("expired", "cancelled")]
+                for k in expired_keys:
+                    PENDING_JOIN_REQUESTS.pop(k, None)
+
+                # Rate limiting: max 3 pending per IP
+                ip_pending = [r for r in PENDING_JOIN_REQUESTS.values() if r.get("ip") == client_ip and r.get("status") == "pending"]
+                if len(ip_pending) >= 3:
+                    self.send_text("Too many pending requests from your device. Please wait.", status=429)
+                    return
+
+                # Queue full check
+                if len(PENDING_JOIN_REQUESTS) >= MAX_PENDING_REQUESTS:
+                    self.send_text("Host request queue is full. Please try again shortly.", status=429)
+                    return
+
+                req_id = secrets.token_hex(16)
+                PENDING_JOIN_REQUESTS[req_id] = {
+                    "id": req_id,
+                    "nickname": nickname,
+                    "device": ua_info["device"],
+                    "browser": ua_info["browser"],
+                    "ip": client_ip,
+                    "status": "pending",
+                    "created_at": now,
+                    "expires_at": now + JOIN_REQUEST_TTL,
+                    "token": None
+                }
+
+            add_event(f"Join request from: {nickname} ({ua_info['browser']})")
+            trigger_desktop_notification("PyShare — Device Join Request", f"{nickname} wants to join your room")
+            broadcast_sse("join_request", {
+                "id": req_id,
+                "nickname": nickname,
+                "device": ua_info["device"],
+                "browser": ua_info["browser"],
+                "ip": client_ip,
+                "expires_in": JOIN_REQUEST_TTL
+            })
+
+            self.send_json({"status": "pending", "request_id": req_id, "expires_in": JOIN_REQUEST_TTL})
+            return
+
+        # HANDLE JOIN CANCEL (/api/join/cancel - Client Cancel)
+        if self.path == '/api/join/cancel':
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8', errors='ignore') if length else "{}"
+            try:
+                data = json.loads(body) if body else {}
+                req_id = data.get("id", data.get("request_id", ""))
+                with state_lock:
+                    if req_id in PENDING_JOIN_REQUESTS:
+                        PENDING_JOIN_REQUESTS[req_id]["status"] = "cancelled"
+                self.send_json({"status": "ok"})
+            except Exception as e:
+                self.send_error(500, str(e))
+            return
+
+        # HANDLE JOIN RESPOND (/api/join/respond - Host Only)
+        if self.path == '/api/join/respond':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 2048:
+                self.send_error(400, "Bad Request")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body) if body else {}
+                req_id = str(data.get("id", data.get("request_id", ""))).strip()
+                action = str(data.get("action", "")).strip().lower()
+
+                if not req_id or action not in ("accept", "decline"):
+                    self.send_error(400, "Invalid Request")
+                    return
+
+                req_nickname = ""
+                with state_lock:
+                    req = PENDING_JOIN_REQUESTS.get(req_id)
+                    if not req or req.get("status") != "pending":
+                        self.send_error(404, "Request not found or already resolved")
+                        return
+
+                    req_nickname = req.get("nickname", "Device")
+                    if action == "accept":
+                        token = secrets.token_hex(16)
+                        now_ts = time.time()
+                        SESSIONS[token] = {
+                            "id": token[:8],
+                            "nickname": req["nickname"],
+                            "ip": req["ip"],
+                            "device": req["device"],
+                            "browser": req["browser"],
+                            "created_at": now_ts,
+                            "last_seen": now_ts,
+                            "active": True
+                        }
+                        req["status"] = "approved"
+                        req["token"] = token
+                    else:
+                        req["status"] = "declined"
+
+                if action == "accept":
+                    add_event(f"Device joined (Host approved): {req_nickname}")
+                    trigger_desktop_notification("PyShare — Device Connected", f"{req_nickname} connected")
+                    broadcast_sse("peers", get_connected_peers())
+                    self.send_json({"status": "ok", "action": "accepted", "nickname": req_nickname})
+                else:
+                    add_event(f"Join request declined by Host: {req_nickname}")
+                    self.send_json({"status": "ok", "action": "declined"})
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
         # 2. CHECK AUTH FOR PROTECTED ACTIONS
         if not self.is_authenticated():
             self.send_error(401, "Unauthorized")
@@ -1487,23 +2223,100 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
             return
 
-        # 3. HANDLE SHARED CLIPBOARD POST (/api/text)
+        # Handle PIN Mode Switch (/api/pin/mode - Host Only)
+        if self.path == '/api/pin/mode':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body)
+                new_mode = data.get("mode", "rotating")
+                custom_pin = str(data.get("pin", "")).strip()
+
+                with state_lock:
+                    if new_mode in ("static", "rotating"):
+                        PIN_MODE = new_mode
+                    if custom_pin and len(custom_pin) == 4 and custom_pin.isdigit():
+                        STATIC_PIN = custom_pin
+                    if PIN_MODE == "static":
+                        CURRENT_PIN = STATIC_PIN if (STATIC_PIN and len(STATIC_PIN) == 4) else "1234"
+                        PREVIOUS_PIN = CURRENT_PIN
+                    else:
+                        NEXT_CHANGE = time.time() + 30
+
+                cfg = load_app_config()
+                cfg["pin_mode"] = PIN_MODE
+                cfg["static_pin"] = STATIC_PIN
+                save_app_config(cfg)
+
+                generate_qr()
+                add_event(f"PIN Security Mode: {PIN_MODE.capitalize()} ({CURRENT_PIN})")
+
+                self.send_json({"status": "ok", "mode": PIN_MODE, "pin": CURRENT_PIN})
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
+        # 3. HANDLE SHARED CLIPBOARD & CHAT POST (/api/text)
         if self.path in ('/api/text', '/api/clipboard'):
             global SHARED_TEXT, TEXT_TIMESTAMP
             length = int(self.headers.get('Content-Length', 0))
             if length > 1024 * 64:
+                try:
+                    self.rfile.read(min(length, 131072))
+                except Exception:
+                    pass
                 self.send_error(413, "Clipboard payload too large (Max 64KB)")
                 return
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             try:
                 data = json.loads(body)
-                new_text = str(data.get("text", data.get("clipboard", ""))).strip()
+                new_text = str(data.get("text", data.get("clipboard", data.get("message", "")))).strip()
             except Exception:
                 new_text = body.strip()
 
+            if not new_text:
+                self.send_error(400, "Message cannot be empty")
+                return
+
+            # Determine sender attribution
+            client_token = self.get_session_token()
+            if client_token and client_token in SESSIONS:
+                sess = SESSIONS[client_token]
+                if isinstance(sess, dict):
+                    sender_name = sess.get("nickname", sess.get("device", "Device"))
+                    sender_id = sess.get("id", client_token[:8])
+                    device_type = sess.get("device", "device")
+                else:
+                    sender_name = "Client Device"
+                    sender_id = client_token[:8]
+                    device_type = "device"
+                is_host = False
+            elif self.is_host_client():
+                sender_name = "Host (PC)"
+                sender_id = "host"
+                device_type = "desktop"
+                is_host = True
+            else:
+                sender_name = "Client Device"
+                sender_id = "client"
+                device_type = "device"
+                is_host = False
+
             with state_lock:
+                msg = make_chat_message(new_text, sender_name, sender_id, is_host=is_host, device_type=device_type)
+                CHAT_MESSAGES.append(msg)
                 SHARED_TEXT = new_text
                 TEXT_TIMESTAMP = int(time.time())
+                clip_data = {
+                    "text": SHARED_TEXT,
+                    "timestamp": TEXT_TIMESTAMP,
+                    "messages": list(CHAT_MESSAGES),
+                    "new_message": msg
+                }
 
             # Direct sync to Windows OS clipboard
             try:
@@ -1512,9 +2325,36 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 pass
 
             snippet = (new_text[:35] + "...") if len(new_text) > 35 else new_text
-            add_event(f"Clipboard updated: {snippet}")
-            broadcast_sse("clipboard", {"text": SHARED_TEXT, "timestamp": TEXT_TIMESTAMP})
-            self.send_json({"status": "ok", "timestamp": TEXT_TIMESTAMP})
+            add_event(f"Chat from {sender_name}: {snippet}")
+            if not is_host:
+                trigger_desktop_notification(f"PyShare — {sender_name}", snippet)
+            broadcast_sse("clipboard", clip_data)
+            self.send_json({
+                "status": "ok",
+                "timestamp": TEXT_TIMESTAMP,
+                "message": msg,
+                "messages": list(CHAT_MESSAGES)
+            })
+            return
+
+        # HANDLE CHAT CLEAR (/api/chat/clear - Host Only)
+        if self.path == '/api/chat/clear':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            with state_lock:
+                CHAT_MESSAGES.clear()
+                SHARED_TEXT = ""
+                TEXT_TIMESTAMP = int(time.time())
+                clip_data = {
+                    "text": "",
+                    "timestamp": TEXT_TIMESTAMP,
+                    "messages": [],
+                    "cleared": True
+                }
+            add_event("Chat history cleared by Host")
+            broadcast_sse("clipboard", clip_data)
+            self.send_json({"status": "ok", "messages": []})
             return
 
         # 4. HANDLE FILE DELETION (/api/delete - Host Only)
@@ -1526,30 +2366,46 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(length).decode('utf-8', errors='ignore')
             try:
                 data = json.loads(body)
-                fn = os.path.basename(data.get('filename', ''))
+                raw_req_fn = data.get('filename', '')
+                clean_fn = urllib.parse.unquote(raw_req_fn).replace('\\', '/').lstrip('/')
+                if '..' in clean_fn.split('/'):
+                    self.send_error(400, "Invalid filename")
+                    return
+                fn = os.path.basename(clean_fn)
                 folder = data.get('folder', 'shared')
-                if folder == 'shared' and fn in STAGED_FILES:
-                    staged_info = STAGED_FILES.get(fn, {})
+                if folder == 'shared' and (clean_fn in STAGED_FILES or fn in STAGED_FILES):
+                    target_key = clean_fn if clean_fn in STAGED_FILES else fn
+                    staged_info = STAGED_FILES.get(target_key, {})
                     staged_path = staged_info.get("path", "")
-                    unstage_file(fn)
+                    unstage_file(target_key)
                     if staged_path and os.path.isfile(staged_path) and os.path.commonpath([os.path.abspath(DOWNLOAD_DIR), os.path.abspath(staged_path)]) == os.path.abspath(DOWNLOAD_DIR):
                         try:
                             os.remove(staged_path)
                         except Exception:
                             pass
-                    add_event(f"Unshared: {fn}")
+                    add_event(f"Unshared: {target_key}")
                     broadcast_sse("files", get_files_data())
-                    self.send_json({"status": "ok", "deleted": fn})
+                    self.send_json({"status": "ok", "deleted": target_key})
                     return
 
                 target_dir = UPLOAD_DIR if folder == 'received' else DOWNLOAD_DIR
-                target_fp = os.path.abspath(os.path.join(target_dir, fn))
                 safe_target_dir = os.path.abspath(target_dir)
+                target_fp = os.path.abspath(os.path.join(safe_target_dir, clean_fn))
+                if not (os.path.commonpath([safe_target_dir, target_fp]) == safe_target_dir and os.path.isfile(target_fp)):
+                    # Check by basename if direct path didn't match
+                    target_fp = os.path.abspath(os.path.join(safe_target_dir, fn))
+
                 if os.path.commonpath([safe_target_dir, target_fp]) == safe_target_dir and os.path.isfile(target_fp):
                     os.remove(target_fp)
-                    add_event(f"Deleted: {fn}")
+                    parent_d = os.path.dirname(target_fp)
+                    if parent_d != safe_target_dir:
+                        try:
+                            os.removedirs(parent_d)
+                        except Exception:
+                            pass
+                    add_event(f"Deleted: {clean_fn or fn}")
                     broadcast_sse("files", get_files_data())
-                    self.send_json({"status": "ok", "deleted": fn})
+                    self.send_json({"status": "ok", "deleted": clean_fn or fn})
                     return
                 else:
                     self.send_error(404, "File not found")
@@ -1558,10 +2414,91 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, str(e))
                 return
 
+        # Handle Peer Disconnect / Session Revocation (/api/peers/disconnect - Host Only)
+        if self.path == '/api/peers/disconnect':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body) if body else {}
+                target_id = str(data.get("id", "")).strip()
+                target_ip = str(data.get("ip", "")).strip()
+                removed = 0
+                with state_lock:
+                    to_remove = []
+                    for t, s in list(SESSIONS.items()):
+                        s_id = s.get("id") if isinstance(s, dict) else t[:8]
+                        s_ip = s.get("ip") if isinstance(s, dict) else None
+                        if target_id and s_id == target_id:
+                            to_remove.append(t)
+                        elif target_ip and s_ip == target_ip:
+                            to_remove.append(t)
+                    for t in to_remove:
+                        SESSIONS.pop(t, None)
+                        removed += 1
+                if removed > 0:
+                    add_event(f"Revoked device access ({target_id or target_ip})")
+                    broadcast_sse("peers", get_connected_peers())
+                self.send_json({"status": "ok", "removed": removed})
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
+        # Handle Device Renaming (/api/device/rename)
+        if self.path in ('/api/device/rename', '/api/peers/rename'):
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 512:
+                self.send_error(400, "Bad Request")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body) if body else {}
+                new_nickname = str(data.get("nickname", data.get("name", ""))).strip()
+                new_nickname = re.sub(r'[\x00-\x1f\x7f]', '', new_nickname)[:32].strip()
+                if not new_nickname:
+                    self.send_error(400, "Nickname cannot be empty")
+                    return
+
+                target_id = str(data.get("id", "")).strip()
+                client_token = self.get_session_token()
+                updated = False
+                
+                with state_lock:
+                    if self.is_host_client() and target_id:
+                        # Host renaming any peer by ID
+                        for t, s in SESSIONS.items():
+                            s_id = s.get("id") if isinstance(s, dict) else t[:8]
+                            if s_id == target_id:
+                                if isinstance(s, dict):
+                                    s["nickname"] = new_nickname
+                                    updated = True
+                                break
+                    elif client_token and client_token in SESSIONS:
+                        # Client renaming their own device
+                        sess = SESSIONS[client_token]
+                        if isinstance(sess, dict):
+                            sess["nickname"] = new_nickname
+                            updated = True
+
+                if updated:
+                    add_event(f"Device renamed: {new_nickname}")
+                    broadcast_sse("peers", get_connected_peers())
+                    self.send_json({"status": "ok", "nickname": new_nickname})
+                else:
+                    self.send_error(404, "Session not found")
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
         # 5. HANDLE FILE UPLOAD (High-speed 256KB buffer + throttled progress lock)
         client_ip = self.get_client_ip()
         try:
-            is_host_upload = ("dest=host" in self.path) and self.is_host_client()
+            is_chat_upload = ("dest=chat" in self.path) or self.path.startswith("/api/chat/upload")
+            is_host_upload = (("dest=host" in self.path) and self.is_host_client()) or is_chat_upload
             target_dir = DOWNLOAD_DIR if is_host_upload else UPLOAD_DIR
 
             encoded_fn = self.headers.get('X-File-Name')
@@ -1579,10 +2516,33 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 raw_fn = f"upload_{int(time.time())}.bin"
             length = int(self.headers.get('Content-Length', 0))
             
-            os.makedirs(target_dir, exist_ok=True)
+            # Directory Structure Preservation (X-Relative-Path)
+            encoded_rel = self.headers.get('X-Relative-Path')
+            safe_sub_dir = ""
+            if encoded_rel and not is_chat_upload:
+                try:
+                    raw_rel = urllib.parse.unquote(encoded_rel).strip().replace('\\', '/')
+                    dir_parts = [p for p in raw_rel.split('/')[:-1] if p]
+                    safe_parts = []
+                    for part in dir_parts:
+                        clean_part = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', part).strip(' .')
+                        part_check = clean_part.split('.')[0].lower()
+                        if not clean_part or clean_part in ('.', '..') or part_check in reserved_names:
+                            continue
+                        safe_parts.append(clean_part)
+                    if safe_parts:
+                        safe_sub_dir = os.path.join(*safe_parts)
+                except Exception:
+                    safe_sub_dir = ""
 
-            out_path = get_unique_filepath(target_dir, raw_fn)
-            actual_fn = os.path.basename(out_path)
+            upload_dest_dir = os.path.abspath(os.path.join(target_dir, safe_sub_dir)) if safe_sub_dir else os.path.abspath(target_dir)
+            if os.path.commonpath([os.path.abspath(target_dir), upload_dest_dir]) != os.path.abspath(target_dir):
+                upload_dest_dir = os.path.abspath(target_dir)
+
+            os.makedirs(upload_dest_dir, exist_ok=True)
+
+            out_path = get_unique_filepath(upload_dest_dir, raw_fn)
+            actual_fn = os.path.relpath(out_path, target_dir).replace('\\', '/')
             part_path = out_path + ".part"
             
             remain = length
@@ -1634,8 +2594,66 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             clear_upload_status(client_ip)
             broadcast_sse("upload", None)
             
+            if is_chat_upload:
+                client_token = self.get_session_token()
+                if client_token and client_token in SESSIONS:
+                    sess = SESSIONS[client_token]
+                    sender_name = sess.get("nickname", sess.get("device", "Device")) if isinstance(sess, dict) else "Client Device"
+                    sender_id = sess.get("id", client_token[:8]) if isinstance(sess, dict) else client_token[:8]
+                    device_type = sess.get("device", "device") if isinstance(sess, dict) else "device"
+                    is_sender_host = False
+                elif self.is_host_client():
+                    sender_name = "Host (PC)"
+                    sender_id = "host"
+                    device_type = "desktop"
+                    is_sender_host = True
+                else:
+                    sender_name = "Client Device"
+                    sender_id = "client"
+                    device_type = "device"
+                    is_sender_host = False
+
+                is_img = any(actual_fn.lower().endswith(ext) for ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'))
+                msg_type = "image" if is_img else "file"
+                attachment_info = {
+                    "url": f"/download/{urllib.parse.quote(actual_fn)}",
+                    "preview_url": f"/view/{urllib.parse.quote(actual_fn)}",
+                    "name": actual_fn,
+                    "size": total_size,
+                    "is_image": is_img
+                }
+                chat_text = f"Shared an image: {actual_fn}" if is_img else f"Shared a file: {actual_fn}"
+                with state_lock:
+                    msg = make_chat_message(
+                        chat_text,
+                        sender_name,
+                        sender_id,
+                        is_host=is_sender_host,
+                        device_type=device_type,
+                        msg_type=msg_type,
+                        attachment=attachment_info
+                    )
+                    CHAT_MESSAGES.append(msg)
+                    SHARED_TEXT = chat_text
+                    TEXT_TIMESTAMP = int(time.time())
+                    clip_data = {
+                        "text": SHARED_TEXT,
+                        "timestamp": TEXT_TIMESTAMP,
+                        "messages": list(CHAT_MESSAGES),
+                        "new_message": msg
+                    }
+                broadcast_sse("clipboard", clip_data)
+                broadcast_sse("files", get_files_data())
+                if not is_sender_host:
+                    trigger_desktop_notification(f"PyShare — {sender_name}", chat_text)
+                
+                self.send_json({"status": "ok", "filename": actual_fn, "message": msg, "attachment": attachment_info})
+                return
+
             msg = f"Added to Shared: {actual_fn}" if is_host_upload else f"File received: {actual_fn}"
             add_event(msg)
+            if not is_host_upload:
+                trigger_desktop_notification("PyShare — File Received", f"Received: {actual_fn} ({format_file_size(total_size)})")
             
             # Broadcast updated file lists immediately across all connected devices
             broadcast_sse("files", get_files_data())
@@ -1731,6 +2749,7 @@ def start_server():
 
     # Start PIN Rotation & 1-second countdown ticker
     start_pin_rotator()
+    start_lan_discovery()
 
     ip = get_ip()
     url = f'http://{ip}:{ACTUAL_PORT}'

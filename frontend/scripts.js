@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PyShare v4.9.2 - Universal Client & App Logic
+   PyShare - Universal Client & App Logic
    ========================================================================== */
 
 let pcFiles = [];
@@ -20,6 +20,7 @@ window.globalSSE = null;
     setupDragDrop();
     initSSE();
     registerServiceWorker();
+    initClientDevice();
     
     if (window.location.protocol === 'https:') {
         const clientPill = document.querySelector('.client-status-pill span:last-child');
@@ -80,10 +81,15 @@ function initSSE() {
             try {
                 const data = JSON.parse(e.data);
                 if (!data) return;
-                if (data.timestamp > lastClipboardTs) {
-                    renderClipboard(data.text);
-                    lastClipboardTs = data.timestamp;
+                if (data.new_message) {
+                    handleIncomingChatMessage(data.new_message);
                 }
+                if (data.messages) {
+                    renderClipboardChat(data.messages);
+                } else if (data.text) {
+                    renderClipboardChat([{ text: data.text, sender: "Clipboard", timestamp: data.timestamp }]);
+                }
+                lastClipboardTs = data.timestamp;
             } catch (err) {}
         });
 
@@ -115,7 +121,80 @@ function toggleTheme() {
 // Toast Notifications with Deduplication & Max Limit
 let recentToastHistory = new Map();
 
-function showToast(message, icon = 'ℹ️') {
+function getToastSvg(icon) {
+    if (!icon) return '';
+    if (typeof icon === 'string' && icon.trim().startsWith('<svg')) {
+        return icon;
+    }
+    const key = String(icon).trim().toLowerCase();
+    switch (key) {
+        case 'success':
+        case 'check':
+        case '\u2705':
+        case '\u2713':
+        case '\uD83C\uDF89':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>';
+        case 'error':
+        case 'danger':
+        case 'cross':
+        case '\u274C':
+        case '\u26D4':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        case 'warning':
+        case 'alert':
+        case '\u26A0\uFE0F':
+        case '\u26A0':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        case 'copy':
+        case 'clipboard':
+        case '\uD83D\uDCCB':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        case 'chat':
+        case 'message':
+        case '\uD83D\uDCAC':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+        case 'trash':
+        case 'delete':
+        case '\uD83D\uDDD1\uFE0F':
+        case '\uD83D\uDDD1':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+        case 'bell':
+        case 'knock':
+        case '\uD83D\uDD14':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+        case 'edit':
+        case 'rename':
+        case '\u270F\uFE0F':
+        case '\u270F':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+        case 'lock':
+        case 'revoked':
+        case '\uD83D\uDD12':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        case 'globe':
+        case 'internet':
+        case '\uD83C\uDF10':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+        case 'home':
+        case 'local':
+        case '\uD83C\uDFE0':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+        case 'save':
+        case 'download':
+        case '\uD83D\uDCBE':
+        case '\uD83D\uDCE5':
+        case '\uD83D\uDE80':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+        case 'key':
+        case 'pin':
+        case '\uD83D\uDD11':
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 2l-2 2m-1.5 1.5L14 9l-3-3-9 9v4h4l9-9 3.5 3.5 2-2"/></svg>';
+        default:
+            return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    }
+}
+
+function showToast(message, icon = 'info') {
     if (!message) return;
     const now = Date.now();
     const lastSeen = recentToastHistory.get(message);
@@ -144,7 +223,8 @@ function showToast(message, icon = 'ℹ️') {
 
     const toast = document.createElement('div');
     toast.className = 'toast-pill';
-    toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
+    const svgIcon = getToastSvg(icon);
+    toast.innerHTML = `<span style="display:inline-flex; align-items:center;">${svgIcon}</span> <span>${escapeHtml(message)}</span>`;
     container.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -173,23 +253,106 @@ function formatSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + units[i];
 }
 
+function formatEta(seconds) {
+    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '00:00';
+    if (seconds >= 3600) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+async function extractFilesFromDataTransfer(dataTransfer) {
+    if (!dataTransfer) return [];
+    const items = dataTransfer.items;
+    if (!items || !items.length) {
+        return Array.from(dataTransfer.files || []);
+    }
+
+    const files = [];
+
+    async function traverseDirectory(entry, path = "") {
+        if (entry.isFile) {
+            return new Promise((resolve) => {
+                entry.file((file) => {
+                    if (path) {
+                        try {
+                            Object.defineProperty(file, 'webkitRelativePath', {
+                                value: path + file.name,
+                                writable: false
+                            });
+                        } catch (e) {}
+                    }
+                    files.push(file);
+                    resolve();
+                }, () => resolve());
+            });
+        } else if (entry.isDirectory) {
+            const dirReader = entry.createReader();
+            const readBatch = () => {
+                return new Promise((resolve) => {
+                    dirReader.readEntries(async (entries) => {
+                        if (!entries || !entries.length) {
+                            resolve();
+                        } else {
+                            for (const child of entries) {
+                                await traverseDirectory(child, path + entry.name + "/");
+                            }
+                            await readBatch();
+                            resolve();
+                        }
+                    }, () => resolve());
+                });
+            };
+            await readBatch();
+        }
+    }
+
+    const promises = [];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (typeof item.webkitGetAsEntry === 'function') {
+            const entry = item.webkitGetAsEntry();
+            if (entry) {
+                promises.push(traverseDirectory(entry));
+                continue;
+            }
+        }
+        const file = item.getAsFile ? item.getAsFile() : null;
+        if (file) files.push(file);
+    }
+
+    if (promises.length > 0) {
+        await Promise.all(promises);
+    }
+
+    return files.length > 0 ? files : Array.from(dataTransfer.files || []);
+}
+
 function getSmartIcon(category, ext) {
     switch (category) {
-        case 'image': return '🖼️';
-        case 'video': return '🎬';
-        case 'audio': return '🎵';
-        case 'document': 
-            if (ext === 'pdf') return '📕';
-            if (['doc', 'docx'].includes(ext)) return '📘';
-            if (['xls', 'xlsx', 'csv'].includes(ext)) return '📊';
-            return '📄';
-        case 'archive': return '📦';
-        case 'code': return '💻';
-        default: return '📁';
+        case 'image':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        case 'video':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
+        case 'audio':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+        case 'document':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
+        case 'archive':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
+        case 'code':
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
+        default:
+            return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
     }
 }
 
-// --- MULTI-FILE UPLOAD QUEUE ---
+// --- MULTI-FILE UPLOAD QUEUE WITH LIVE SPEED, ETA & CANCELLATION ---
 class UploadQueueManager {
     constructor() {
         this.queue = [];
@@ -208,7 +371,8 @@ class UploadQueueManager {
                 id: 'upl_' + Math.random().toString(36).substr(2, 9),
                 file: file,
                 url: uploadUrl,
-                status: 'pending'
+                status: 'pending',
+                xhr: null
             };
             this.queue.push(item);
             this.renderQueueItem(item);
@@ -221,19 +385,58 @@ class UploadQueueManager {
         const list = document.getElementById('queueItemsList');
         if (!list) return;
 
+        const displayName = item.file.webkitRelativePath || item.file.name;
         const el = document.createElement('div');
         el.id = item.id;
         el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; display:flex; flex-direction:column; gap:4px;";
         el.innerHTML = `
-            <div style="display:flex; justify-content:space-between; font-size:11px;">
-                <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70%;">${escapeHtml(item.file.name)}</span>
-                <span id="${item.id}_status" style="color:var(--text-sub);">${formatSize(item.file.size)}</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span id="${item.id}_status" style="color:var(--text-sub); font-family:monospace; font-size:10px;">${formatSize(item.file.size)}</span>
+                    <button id="${item.id}_cancel" class="icon-btn" onclick="uploadManager.cancelItem('${item.id}')" style="width:18px; height:18px; padding:0; border:none; background:transparent; color:var(--text-muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;" title="Cancel Upload" aria-label="Cancel">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
             </div>
             <div style="height:4px; background:rgba(255,255,255,0.1); border-radius:99px; overflow:hidden;">
                 <div id="${item.id}_bar" style="height:100%; width:0%; background:var(--accent-blue); transition:width 0.15s ease;"></div>
             </div>
         `;
         list.appendChild(el);
+    }
+
+    cancelItem(id) {
+        const item = this.queue.find(i => i.id === id);
+        if (!item) return;
+
+        if (item.status === 'uploading') {
+            if (item.xhr) {
+                try {
+                    item.xhr.abort();
+                } catch (e) {}
+            }
+            item.status = 'cancelled';
+            this.activeUploads = Math.max(0, this.activeUploads - 1);
+            const statusEl = document.getElementById(`${item.id}_status`);
+            if (statusEl) statusEl.innerText = 'Cancelled';
+            const cancelBtn = document.getElementById(`${item.id}_cancel`);
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            const barEl = document.getElementById(`${item.id}_bar`);
+            if (barEl) {
+                barEl.style.width = '100%';
+                barEl.style.background = 'var(--accent-red, #ef4444)';
+            }
+            showToast(`Cancelled: ${item.file.name}`, 'warning');
+            this.processNext();
+        } else if (item.status === 'pending') {
+            item.status = 'cancelled';
+            const statusEl = document.getElementById(`${item.id}_status`);
+            if (statusEl) statusEl.innerText = 'Removed';
+            const cancelBtn = document.getElementById(`${item.id}_cancel`);
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            this.processNext();
+        }
     }
 
     processNext() {
@@ -270,38 +473,55 @@ class UploadQueueManager {
 
         const statusEl = document.getElementById(`${item.id}_status`);
         const barEl = document.getElementById(`${item.id}_bar`);
+        const cancelBtn = document.getElementById(`${item.id}_cancel`);
         const speedEl = document.getElementById('queueSpeed');
 
         const xhr = new XMLHttpRequest();
+        item.xhr = xhr;
+
         let lastLoaded = 0;
         let lastTime = Date.now();
         let lastProgressTime = 0;
+        let smoothedSpeed = 0;
 
         xhr.open('POST', item.url);
         xhr.setRequestHeader('X-File-Name', encodeURIComponent(item.file.name));
+        if (item.file.webkitRelativePath) {
+            xhr.setRequestHeader('X-Relative-Path', encodeURIComponent(item.file.webkitRelativePath));
+        }
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
 
         xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
+            if (e.lengthComputable && item.status === 'uploading') {
                 const now = Date.now();
                 if (e.loaded < e.total && now - lastProgressTime < 100) return;
                 lastProgressTime = now;
                 const pct = Math.round((e.loaded / e.total) * 100);
                 if (barEl) barEl.style.width = pct + '%';
+
                 const timeDiff = (now - lastTime) / 1000;
-                if (timeDiff >= 0.5) {
-                    const speed = (e.loaded - lastLoaded) / timeDiff;
-                    if (speedEl) speedEl.innerText = `${formatSize(speed)}/s`;
+                if (timeDiff >= 0.25) {
+                    const curSpeed = (e.loaded - lastLoaded) / timeDiff;
+                    smoothedSpeed = smoothedSpeed === 0 ? curSpeed : (0.7 * smoothedSpeed + 0.3 * curSpeed);
                     lastLoaded = e.loaded;
                     lastTime = now;
                 }
 
-                if (statusEl) statusEl.innerText = `${pct}% • ${formatSize(e.loaded)}`;
+                const remBytes = Math.max(0, e.total - e.loaded);
+                const etaSec = smoothedSpeed > 0 ? Math.round(remBytes / smoothedSpeed) : 0;
+                const speedText = smoothedSpeed > 0 ? `${formatSize(smoothedSpeed)}/s` : 'calculating...';
+                const etaText = etaSec > 0 ? ` • ${formatEta(etaSec)} left` : '';
+
+                if (speedEl) speedEl.innerText = speedText;
+                if (statusEl) statusEl.innerText = `${pct}% • ${speedText}${etaText}`;
             }
         };
 
         xhr.onload = () => {
-            this.activeUploads--;
+            if (item.status === 'cancelled') return;
+            this.activeUploads = Math.max(0, this.activeUploads - 1);
+            if (cancelBtn) cancelBtn.style.display = 'none';
+
             if (xhr.status === 200) {
                 item.status = 'done';
                 if (barEl) {
@@ -309,22 +529,30 @@ class UploadQueueManager {
                     barEl.style.background = 'var(--accent-green)';
                 }
                 if (statusEl) statusEl.innerText = 'Done';
-                showToast(`Saved: ${item.file.name}`, '✅');
+                if (navigator.vibrate) navigator.vibrate(50);
+                showToast(`Saved: ${item.file.name}`, 'success');
             } else {
                 item.status = 'error';
                 if (statusEl) statusEl.innerText = 'Failed';
-                showToast(`Failed: ${item.file.name}`, '❌');
+                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                showToast(`Failed: ${item.file.name}`, 'error');
             }
             loadFiles();
             this.processNext();
         };
 
         xhr.onerror = () => {
-            this.activeUploads--;
+            if (item.status === 'cancelled') return;
+            this.activeUploads = Math.max(0, this.activeUploads - 1);
+            if (cancelBtn) cancelBtn.style.display = 'none';
             item.status = 'error';
             if (statusEl) statusEl.innerText = 'Network Error';
-            showToast(`Upload error: ${item.file.name}`, '❌');
+            showToast(`Upload error: ${item.file.name}`, 'error');
             this.processNext();
+        };
+
+        xhr.onabort = () => {
+            if (cancelBtn) cancelBtn.style.display = 'none';
         };
 
         xhr.send(item.file);
@@ -348,13 +576,16 @@ function setupDragDrop() {
     dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'), false);
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'), false);
 
-    dropZone.addEventListener('drop', (e) => {
+    dropZone.addEventListener('drop', async (e) => {
         dropZone.classList.remove('dragover');
-        if (e.dataTransfer && e.dataTransfer.files) {
-            if (window.handleFilesCustom) {
-                window.handleFilesCustom(e.dataTransfer.files);
-            } else {
-                handleFiles(e.dataTransfer.files);
+        if (e.dataTransfer) {
+            const extractedFiles = await extractFilesFromDataTransfer(e.dataTransfer);
+            if (extractedFiles && extractedFiles.length > 0) {
+                if (window.handleFilesCustom) {
+                    window.handleFilesCustom(extractedFiles);
+                } else {
+                    handleFiles(extractedFiles);
+                }
             }
         }
     }, false);
@@ -364,6 +595,10 @@ function setupDragDrop() {
 async function loadFiles() {
     try {
         const res = await fetch('/api/files');
+        if (res.status === 401) {
+            window.location.reload();
+            return;
+        }
         if (!res.ok) return;
         const data = await res.json();
         pcFiles = data.host || data.pc || [];
@@ -446,18 +681,52 @@ async function openPreview(filename, category, size) {
         body.innerHTML = `<img src="${fileUrl}" alt="${escapeHtml(filename)}" loading="lazy">`;
     } else if (category === 'video') {
         body.innerHTML = `
-            <video controls autoplay playsinline style="max-width:100%; max-height:60vh; border-radius:12px;">
-                <source src="${fileUrl}">
-                Your browser does not support HTML5 video streaming.
-            </video>`;
+            <div style="display:flex; flex-direction:column; gap:12px; width:100%; align-items:center;">
+                <video id="activeMediaElement" controls autoplay playsinline style="width:100%; max-height:60vh; border-radius:12px; background:#000;">
+                    <source src="${fileUrl}">
+                    Your browser does not support HTML5 video streaming.
+                </video>
+                <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--text-sub);">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="background:var(--accent-blue-subtle, rgba(0,102,255,0.1)); color:var(--accent-blue, #0066ff); padding:2px 8px; border-radius:6px; font-weight:600; font-size:11px;">HTTP 206 Seekable Stream</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="adjustMediaSeek(-10)" title="Rewind 10s">-10s</button>
+                        <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="adjustMediaSeek(10)" title="Forward 10s">+10s</button>
+                        <select onchange="setMediaPlaybackRate(this.value)" class="search-input-box" style="padding:2px 6px; font-size:12px; width:auto; height:28px;">
+                            <option value="0.75">0.75x</option>
+                            <option value="1.0" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2.0">2.0x</option>
+                        </select>
+                    </div>
+                </div>
+            </div>`;
     } else if (category === 'audio') {
         body.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px;">
-                <div><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
-                <div style="font-weight:600; font-size:15px;">${escapeHtml(filename)}</div>
-                <audio controls autoplay style="width:100%; max-width:400px;">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px; width:100%; max-width:440px; margin:0 auto;">
+                <div style="width:56px; height:56px; border-radius:50%; background:var(--accent-blue-subtle, rgba(0,102,255,0.1)); color:var(--accent-blue, #0066ff); display:flex; align-items:center; justify-content:center;">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                </div>
+                <div style="font-weight:600; font-size:15px; text-align:center; word-break:break-word;">${escapeHtml(filename)}</div>
+                <audio id="activeMediaElement" controls autoplay style="width:100%;">
                     <source src="${fileUrl}">
                 </audio>
+                <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--text-sub);">
+                    <span style="background:var(--accent-blue-subtle, rgba(0,102,255,0.1)); color:var(--accent-blue, #0066ff); padding:2px 8px; border-radius:6px; font-weight:600; font-size:11px;">HTTP 206 Audio Stream</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="adjustMediaSeek(-10)" title="Rewind 10s">-10s</button>
+                        <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="adjustMediaSeek(10)" title="Forward 10s">+10s</button>
+                        <select onchange="setMediaPlaybackRate(this.value)" class="search-input-box" style="padding:2px 6px; font-size:12px; width:auto; height:28px;">
+                            <option value="0.75">0.75x</option>
+                            <option value="1.0" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2.0">2.0x</option>
+                        </select>
+                    </div>
+                </div>
             </div>`;
     } else if (category === 'code' || filename.endsWith('.txt') || filename.endsWith('.log') || filename.endsWith('.md')) {
         try {
@@ -488,27 +757,280 @@ async function openPreview(filename, category, size) {
 function closePreview() {
     const modal = document.getElementById('previewModal');
     const body = document.getElementById('previewModalBody');
+    const media = document.getElementById('activeMediaElement');
+    if (media) {
+        try {
+            media.pause();
+            media.src = '';
+        } catch (e) {}
+    }
     if (modal) modal.classList.remove('open');
     if (body) body.innerHTML = '';
+}
+
+function adjustMediaSeek(deltaSeconds) {
+    const media = document.getElementById('activeMediaElement');
+    if (media) {
+        media.currentTime = Math.max(0, Math.min(media.duration || 999999, media.currentTime + deltaSeconds));
+    }
+}
+
+function setMediaPlaybackRate(rate) {
+    const media = document.getElementById('activeMediaElement');
+    if (media) {
+        media.playbackRate = parseFloat(rate) || 1.0;
+    }
 }
 
 function copyPreviewText() {
     const textEl = document.getElementById('previewTextContent');
     if (textEl) {
         navigator.clipboard.writeText(textEl.innerText).then(() => {
-            showToast('Copied to clipboard!', '📋');
+            showToast('Copied to clipboard!', 'copy');
         });
     }
 }
 
-// --- SHARED CLIPBOARD ---
+// --- SHARED CLIPBOARD & CHAT STREAM ---
+let chatMessagesCache = [];
+let unreadChatCount = 0;
+window.isChatModalOpen = false;
+
+function playChatChime() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+    } catch(e) {}
+}
+
+function handleIncomingChatMessage(msg) {
+    if (!msg) return;
+    const myNickname = (typeof currentClientNickname !== 'undefined' ? currentClientNickname : '') || localStorage.getItem('pyshare_device_name') || '';
+    const isSelf = Boolean(myNickname && msg.sender === myNickname);
+    if (!isSelf) {
+        playChatChime();
+        if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+        
+        // If chat modal or tab is not currently viewed, increment unread badge
+        if (!window.isChatModalOpen) {
+            unreadChatCount++;
+            updateChatUnreadBadges();
+        }
+
+        // If on Host and auto-sync is enabled, copy incoming peer text directly to OS clipboard
+        if (window.isHostSession && msg.text && localStorage.getItem('pyshare_host_auto_clipboard') !== 'false') {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(msg.text).catch(() => {});
+            }
+        }
+    }
+}
+window.handleIncomingChatMessage = handleIncomingChatMessage;
+
+function updateChatUnreadBadges() {
+    const directBadge = document.getElementById('clientChatDirectBadge');
+    const navBadge = document.getElementById('clientChatUnreadBadge');
+    const hostBadge = document.getElementById('hostChatUnreadBadge');
+    
+    [directBadge, navBadge, hostBadge].forEach(el => {
+        if (!el) return;
+        if (unreadChatCount > 0) {
+            el.innerText = unreadChatCount > 99 ? '99+' : unreadChatCount;
+            el.style.display = 'inline-flex';
+        } else {
+            el.style.display = 'none';
+        }
+    });
+}
+window.updateChatUnreadBadges = updateChatUnreadBadges;
+
+function clearChatUnread() {
+    unreadChatCount = 0;
+    updateChatUnreadBadges();
+}
+window.clearChatUnread = clearChatUnread;
+
+async function uploadChatAttachment(file, fallbackName) {
+    if (!file) return;
+    const filename = file.name || fallbackName || `chat_attachment_${Date.now()}.png`;
+    showToast(`Uploading ${filename}...`, 'info');
+    try {
+        const res = await fetch('/upload?dest=chat', {
+            method: 'POST',
+            headers: {
+                'X-File-Name': encodeURIComponent(filename),
+                'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+        });
+        if (res.ok) {
+            showToast('Attachment shared in chat!', 'chat');
+            loadClipboard();
+        } else {
+            showToast('Failed to upload attachment', 'error');
+        }
+    } catch(err) {
+        showToast('Error uploading attachment', 'error');
+    }
+}
+window.uploadChatAttachment = uploadChatAttachment;
+
+function setupChatPasteListener() {
+    document.addEventListener('paste', async (e) => {
+        const chatInput = document.getElementById('clipboardInput');
+        const modal = document.getElementById('clipboardModal');
+        const hubPane = document.getElementById('hubClipPane');
+        
+        // Only handle paste if user is typing in chat input or chat is currently visible
+        const isInputFocused = document.activeElement === chatInput;
+        const isChatVisible = (modal && modal.classList.contains('open')) || (hubPane && hubPane.classList.contains('active'));
+        if (!isInputFocused && !isChatVisible) return;
+
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData || !clipboardData.items) return;
+
+        for (let i = 0; i < clipboardData.items.length; i++) {
+            const item = clipboardData.items[i];
+            if (item.type.indexOf('image') !== -1) {
+                const blob = item.getAsFile();
+                if (blob) {
+                    e.preventDefault();
+                    uploadChatAttachment(blob, `screenshot_${Date.now()}.png`);
+                    return;
+                }
+            }
+        }
+    });
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupChatPasteListener);
+} else {
+    setupChatPasteListener();
+}
+
+function formatChatText(text) {
+    if (!text) return '';
+    const escaped = escapeHtml(text);
+    return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="chat-link">$1</a>');
+}
+
+function copyChatMessage(btn, text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied to clipboard!', 'copy');
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="20 6 9 17 4 12"/></svg> <span>Copied</span>`;
+            setTimeout(() => { btn.innerHTML = original; }, 1500);
+        }
+    }).catch(() => {
+        showToast('Failed to copy', 'error');
+    });
+}
+window.copyChatMessage = copyChatMessage;
+
+function renderClipboardChat(messages) {
+    chatMessagesCache = Array.isArray(messages) ? messages : [];
+    
+    // 1. Update count pill if present
+    const countEl = document.getElementById('chatMessageCount');
+    if (countEl) {
+        countEl.innerText = `${chatMessagesCache.length}/30`;
+    }
+
+    // 2. Render in chat list (#clipboardChatList)
+    const listEl = document.getElementById('clipboardChatList');
+    if (listEl) {
+        if (chatMessagesCache.length === 0) {
+            listEl.innerHTML = `<div class="empty-state" style="padding: 24px 0; font-size: 13px; color: var(--text-sub);">No messages yet. Send a message, file, or paste screenshot!</div>`;
+        } else {
+            let html = '';
+            const myNickname = (typeof currentClientNickname !== 'undefined' ? currentClientNickname : '') || localStorage.getItem('pyshare_device_name') || '';
+            chatMessagesCache.forEach(msg => {
+                const isSelf = Boolean(myNickname && msg.sender === myNickname);
+                const roleClass = isSelf ? 'self' : (msg.is_host ? 'host' : 'peer');
+                const timeText = msg.time_str || (msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+                const rawEscapedAttr = (msg.text || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+                let attachmentHtml = '';
+                if (msg.attachment) {
+                    if (msg.attachment.is_image) {
+                        attachmentHtml = `
+                            <div class="chat-attachment-img-box" style="margin-top:6px; border-radius:10px; overflow:hidden; border:1px solid var(--border-color); max-width:240px; max-height:180px; background:rgba(0,0,0,0.25);">
+                                <img src="${escapeHtml(msg.attachment.preview_url || msg.attachment.url)}" alt="${escapeHtml(msg.attachment.name)}" style="width:100%; height:auto; max-height:180px; object-fit:contain; display:block; cursor:pointer;" onclick="window.open('${escapeHtml(msg.attachment.url)}', '_blank')">
+                            </div>
+                        `;
+                    } else {
+                        attachmentHtml = `
+                            <a href="${escapeHtml(msg.attachment.url)}" download="${escapeHtml(msg.attachment.name)}" class="chat-file-card" style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.2); border-radius:8px; margin-top:6px; text-decoration:none; color:inherit;">
+                                <span style="color:var(--accent-cyan); display:inline-flex;">${getToastSvg('save')}</span>
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(msg.attachment.name)}</div>
+                                    <div style="font-size:10px; color:var(--text-sub);">${formatSize(msg.attachment.size || 0)}</div>
+                                </div>
+                            </a>
+                        `;
+                    }
+                }
+
+                html += `
+                    <div class="chat-msg-row ${roleClass}">
+                        <div class="chat-msg-header">
+                            <span class="chat-sender-name">${escapeHtml(msg.sender || 'Device')}</span>
+                            <span class="chat-msg-time">${escapeHtml(timeText)}</span>
+                        </div>
+                        <div class="chat-bubble">
+                            <div class="chat-text">${formatChatText(msg.text)}</div>
+                            ${attachmentHtml}
+                            <button type="button" class="chat-copy-btn" onclick="copyChatMessage(this, '${rawEscapedAttr}')" title="Copy text">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+            listEl.scrollTop = listEl.scrollHeight;
+        }
+    }
+
+    // 3. Fallback for legacy single-item display if still present
+    const legacyDisplay = document.getElementById('clipboardCurrent');
+    if (legacyDisplay) {
+        const latest = chatMessagesCache.length > 0 ? chatMessagesCache[chatMessagesCache.length - 1].text : '';
+        renderClipboard(latest);
+    }
+}
+window.renderClipboardChat = renderClipboardChat;
+
 async function loadClipboard() {
     try {
         const res = await fetch('/api/text');
+        if (res.status === 401) {
+            window.location.reload();
+            return;
+        }
         if (res.ok) {
             const data = await res.json();
-            renderClipboard(data.text);
-            lastClipboardTs = data.timestamp;
+            if (data.messages) {
+                renderClipboardChat(data.messages);
+            } else if (data.text) {
+                renderClipboardChat([{ text: data.text, sender: "Clipboard", timestamp: data.timestamp }]);
+            }
+            lastClipboardTs = data.timestamp || 0;
         }
     } catch (e) {}
 }
@@ -533,7 +1055,7 @@ function copySharedClipboard() {
     const raw = display?.dataset?.raw;
     if (raw) {
         navigator.clipboard.writeText(raw).then(() => {
-            showToast('Copied to system clipboard!', '📋');
+            showToast('Copied to system clipboard!', 'copy');
         });
     }
 }
@@ -551,11 +1073,11 @@ async function sendClipboard() {
         });
         if (res.ok) {
             input.value = '';
-            showToast('Shared with devices!', '🚀');
+            showToast('Message sent!', 'chat');
             loadClipboard();
         }
     } catch (e) {
-        showToast('Failed to share text', '❌');
+        showToast('Failed to send message', 'error');
     }
 }
 
@@ -574,13 +1096,13 @@ function deleteFile(filename, folder) {
                     body: JSON.stringify({ filename: filename, folder: folder })
                 });
                 if (res.ok) {
-                    showToast(`Deleted ${filename}`, '🗑️');
+                    showToast(`Deleted ${filename}`, 'trash');
                     loadFiles();
                 } else {
-                    showToast('Failed to delete file', '❌');
+                    showToast('Failed to delete file', 'error');
                 }
             } catch (e) {
-                showToast('Error deleting file', '❌');
+                showToast('Error deleting file', 'error');
             }
         }
     });
@@ -604,3 +1126,64 @@ function disconnectServer() {
         }
     });
 }
+
+// --- Client Device Nickname Management ---
+let currentClientNickname = localStorage.getItem('pyshare_device_name') || 'My Device';
+
+async function initClientDevice() {
+    const nameEl = document.getElementById('clientDeviceNameText');
+    if (nameEl && currentClientNickname) {
+        nameEl.innerText = currentClientNickname;
+    }
+
+    try {
+        const res = await fetch('/api/info');
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.nickname) {
+                currentClientNickname = data.nickname;
+                if (nameEl) nameEl.innerText = data.nickname;
+                try { localStorage.setItem('pyshare_device_name', data.nickname); } catch(e) {}
+            }
+        }
+    } catch (e) {}
+}
+
+async function promptRenameDevice() {
+    let newName;
+    if (typeof showPySharePrompt === 'function') {
+        newName = await showPySharePrompt({
+            title: 'Rename This Device',
+            message: 'Choose a nickname so the host easily recognizes your device:',
+            defaultValue: currentClientNickname,
+            placeholder: "e.g. Alex's iPhone, Work Laptop",
+            confirmText: 'Save Nickname'
+        });
+    } else {
+        newName = prompt('Enter a nickname for this device:', currentClientNickname);
+    }
+
+    if (!newName || newName.trim() === '' || newName.trim() === currentClientNickname) return;
+    newName = newName.trim();
+
+    try {
+        const res = await fetch('/api/device/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nickname: newName })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            currentClientNickname = data.nickname || newName;
+            const nameEl = document.getElementById('clientDeviceNameText');
+            if (nameEl) nameEl.innerText = currentClientNickname;
+            try { localStorage.setItem('pyshare_device_name', currentClientNickname); } catch(e) {}
+            showToast(`Device renamed: ${currentClientNickname}`, 'rename');
+        } else {
+            showToast('Failed to rename device', 'error');
+        }
+    } catch (e) {
+        showToast('Error updating nickname', 'error');
+    }
+}
+window.promptRenameDevice = promptRenameDevice;

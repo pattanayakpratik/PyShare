@@ -49,6 +49,9 @@ a = Analysis(
         'proxy_tools',
         'clr',
         'pythonnet',
+        'pystray',
+        'pystray._win32',
+        'six',
         'main'
     ] + webview_submodules,
     hookspath=[],

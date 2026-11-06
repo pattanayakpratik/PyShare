@@ -31,6 +31,11 @@ jobs:
           python -m py_compile backend/main.py backend/app_gui.py run.py
           echo "✅ Python syntax and compile checks passed!"
 
+      - name: Run Complete Feature & Security Test Suite
+        run: |
+          python -m unittest discover -s tests -p "test_*.py" -v
+          echo "✅ All 25 feature and security tests passed!"
+
       - name: Verify Web & P2P Assets Integrity
         run: |
           echo "Checking essential static assets for web deployment..."

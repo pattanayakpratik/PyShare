@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PyShare v4.9.2 - Universal Feedback & Help System
+   PyShare - Universal Feedback & Help System
    Client, Host & Web P2P Universal Support
    ========================================================================== */
 
@@ -63,7 +63,7 @@ function ensureFeedbackModal() {
             <span class="modal-title-text" style="display:flex; align-items:center; gap:8px;">
                 <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Help &amp; Feedback
             </span>
-            <button class="icon-btn" onclick="closeFeedbackModal()" style="width:34px; height:34px;" title="Close">✕</button>
+            <button class="icon-btn" onclick="closeFeedbackModal()" style="width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
 
         <div id="feedbackFormContainer" style="padding: 20px; overflow-y: auto; max-height: calc(85vh - 120px);">
@@ -367,7 +367,7 @@ async function submitFeedback() {
         }
         if (ghAction) ghAction.style.display = 'none';
         if (typeof showToast === 'function') {
-            showToast('Feedback sent! Thank you 🙏', '💬');
+            showToast('Feedback sent! Thank you', 'success');
         }
     } else {
         if (successDesc) {
@@ -376,7 +376,7 @@ async function submitFeedback() {
         if (ghAction) ghAction.style.display = 'block';
         if (ghLink) ghLink.href = ghUrl;
         if (typeof showToast === 'function') {
-            showToast('Please submit on GitHub Issues', '⚠️');
+            showToast('Please submit on GitHub Issues', 'warning');
         }
     }
 
@@ -431,7 +431,7 @@ function showPyShareConfirm({
                             <img src="app_icon.png" alt="PyShare" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain;">
                             <span id="pyshareConfirmTitle">PyShare</span>
                         </div>
-                        <button type="button" class="action-circle-btn" id="pyshareConfirmCloseBtn" style="width: 28px; height: 28px; font-size: 12px; cursor: pointer;">✕</button>
+                        <button type="button" class="action-circle-btn" id="pyshareConfirmCloseBtn" style="width: 28px; height: 28px; font-size: 12px; cursor: pointer; display:inline-flex; align-items:center; justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </div>
                     <div style="padding: 22px 20px; color: var(--text-sub); font-size: 14px; line-height: 1.5;" id="pyshareConfirmMessage">
                     </div>
@@ -532,8 +532,117 @@ function showPyShareAlert(message, title = 'PyShare') {
     });
 }
 
+function showPySharePrompt({
+    title = 'PyShare',
+    message = 'Enter value:',
+    defaultValue = '',
+    placeholder = 'Type here...',
+    confirmText = 'Save',
+    cancelText = 'Cancel',
+    maxLength = 32
+} = {}) {
+    return new Promise((resolve) => {
+        let modal = document.getElementById('pysharePromptModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'pysharePromptModal';
+            modal.className = 'modal-backdrop';
+            modal.style.zIndex = '10006';
+            modal.innerHTML = `
+                <div class="modal-box" style="max-width: 420px; padding: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.6);">
+                    <div class="modal-header" style="padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color);">
+                        <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--text-main);">
+                            <img src="app_icon.png" alt="PyShare" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain;">
+                            <span id="pysharePromptTitle">PyShare</span>
+                        </div>
+                        <button type="button" class="action-circle-btn" id="pysharePromptCloseBtn" style="width: 28px; height: 28px; font-size: 12px; cursor: pointer; display:inline-flex; align-items:center; justify-content:center;" aria-label="Close"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                    </div>
+                    <form id="pysharePromptForm" onsubmit="event.preventDefault();" style="margin: 0; padding: 0;">
+                        <div style="padding: 20px; display:flex; flex-direction:column; gap:12px;">
+                            <label id="pysharePromptMessage" style="color: var(--text-sub); font-size: 13px; line-height: 1.4;"></label>
+                            <input type="text" id="pysharePromptInput" class="search-input-box" style="margin: 0; width: 100%; box-sizing: border-box; font-size: 14px;" />
+                        </div>
+                        <div class="modal-footer" style="padding: 14px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.15);">
+                            <button type="button" class="btn-secondary" id="pysharePromptCancelBtn" style="padding: 8px 18px; font-size: 13px; font-weight: 600; border-radius: 10px; cursor: pointer;">Cancel</button>
+                            <button type="submit" class="btn-primary" id="pysharePromptOkBtn" style="padding: 8px 20px; font-size: 13px; font-weight: 700; border-radius: 10px; cursor: pointer;">Save</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        const titleEl = document.getElementById('pysharePromptTitle');
+        const msgEl = document.getElementById('pysharePromptMessage');
+        const inputEl = document.getElementById('pysharePromptInput');
+        const okBtn = document.getElementById('pysharePromptOkBtn');
+        const cancelBtn = document.getElementById('pysharePromptCancelBtn');
+        const closeBtn = document.getElementById('pysharePromptCloseBtn');
+        const formEl = document.getElementById('pysharePromptForm');
+
+        if (titleEl) titleEl.innerText = title;
+        if (msgEl) msgEl.innerText = message;
+        if (inputEl) {
+            inputEl.value = defaultValue || '';
+            inputEl.placeholder = placeholder || '';
+            inputEl.maxLength = maxLength;
+        }
+        if (okBtn) okBtn.innerText = confirmText;
+        if (cancelBtn) cancelBtn.innerText = cancelText;
+
+        let closed = false;
+        function close(result) {
+            if (closed) return;
+            closed = true;
+            modal.style.display = 'none';
+            modal.classList.remove('open');
+            cleanup();
+            resolve(result);
+        }
+
+        const onOk = (e) => {
+            if (e) e.preventDefault();
+            const val = inputEl ? inputEl.value.trim() : '';
+            close(val);
+        };
+        const onCancelClick = () => close(null);
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') close(null);
+        };
+        const onBackdrop = (e) => {
+            if (e.target === modal) close(null);
+        };
+
+        function cleanup() {
+            if (formEl) formEl.removeEventListener('submit', onOk);
+            if (okBtn) okBtn.removeEventListener('click', onOk);
+            if (cancelBtn) cancelBtn.removeEventListener('click', onCancelClick);
+            if (closeBtn) closeBtn.removeEventListener('click', onCancelClick);
+            document.removeEventListener('keydown', onKeyDown);
+            modal.removeEventListener('click', onBackdrop);
+        }
+
+        if (formEl) formEl.addEventListener('submit', onOk);
+        if (okBtn) okBtn.addEventListener('click', onOk);
+        if (cancelBtn) cancelBtn.addEventListener('click', onCancelClick);
+        if (closeBtn) closeBtn.addEventListener('click', onCancelClick);
+        document.addEventListener('keydown', onKeyDown);
+        modal.addEventListener('click', onBackdrop);
+
+        modal.style.display = 'flex';
+        modal.classList.add('open');
+        setTimeout(() => {
+            if (inputEl) {
+                inputEl.focus();
+                inputEl.select();
+            }
+        }, 50);
+    });
+}
+
 window.showPyShareConfirm = showPyShareConfirm;
 window.showPyShareAlert = showPyShareAlert;
+window.showPySharePrompt = showPySharePrompt;
 
 // --- Universal Navbar Menu Dropdown Controller ---
 function toggleNavMenu(e) {
@@ -569,4 +678,103 @@ document.addEventListener('keydown', (e) => {
 
 window.toggleNavMenu = toggleNavMenu;
 window.closeNavMenu = closeNavMenu;
+
+// ==========================================================================
+// In-App Update Checker & Release Modal
+// ==========================================================================
+
+function ensureUpdateModal(data) {
+    let modal = document.getElementById('updateModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'updateModal';
+        modal.className = 'modal-backdrop';
+        modal.onclick = (e) => {
+            if (e.target === modal) closeUpdateModal();
+        };
+        document.body.appendChild(modal);
+    }
+
+    const currentV = data.current_version || '';
+    const latestV = data.latest_version || currentV;
+    const releaseUrl = data.release_url || 'https://github.com/pattanayakpratik/PyShare/releases';
+    const rawNotes = data.release_notes || 'A new updated version of PyShare is available for download with new features and performance enhancements.';
+    const notes = String(rawNotes).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    modal.innerHTML = `
+        <div class="modal-box" style="max-width: 480px; text-align: left;" onclick="event.stopPropagation()">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:38px; height:38px; border-radius:12px; background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.3); display:flex; align-items:center; justify-content:center; color:var(--accent-cyan);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--text-main);">New Update Available</h3>
+                        <span style="font-size:12px; color:var(--accent-cyan); font-weight:600;">v${latestV} &bull; Current: v${currentV}</span>
+                    </div>
+                </div>
+                <button onclick="closeUpdateModal()" class="icon-btn" style="border:none; background:transparent; cursor:pointer;" aria-label="Close">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <div style="background:var(--card-bg-subtle, rgba(0,0,0,0.25)); border:1px solid var(--border-color); border-radius:12px; padding:12px 14px; font-size:13px; color:var(--text-muted); max-height:160px; overflow-y:auto; line-height:1.5; white-space:pre-wrap; margin-bottom:18px;">
+${notes}
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="closeUpdateModal()" style="padding:10px 16px; border-radius:12px; font-size:13px;">Later</button>
+                <a href="${releaseUrl}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="display:inline-flex; align-items:center; gap:6px; padding:10px 18px; border-radius:12px; font-size:13px; text-decoration:none; font-weight:600;" onclick="closeUpdateModal()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Download Installer</span>
+                </a>
+            </div>
+        </div>
+    `;
+
+    modal.classList.add('open');
+}
+
+function closeUpdateModal() {
+    const modal = document.getElementById('updateModal');
+    if (modal) modal.classList.remove('open');
+}
+
+async function checkForUpdates(manual = false) {
+    try {
+        const resp = await fetch('/api/check_update');
+        if (!resp.ok) {
+            if (manual) {
+                if (typeof showToast === 'function') showToast('Could not reach update server', 'warning');
+                else alert('Could not check for updates');
+            }
+            return;
+        }
+        const data = await resp.json();
+        if (data && data.has_update) {
+            const badge = document.getElementById('navUpdateBadge');
+            if (badge) badge.style.display = 'inline-block';
+            ensureUpdateModal(data);
+        } else if (manual) {
+            const msg = data.current_version ? `PyShare is up to date (v${data.current_version})` : 'PyShare is up to date';
+            if (typeof showToast === 'function') showToast(msg, 'success');
+            else alert(msg);
+        }
+    } catch (e) {
+        if (manual) {
+            if (typeof showToast === 'function') showToast('Network error checking updates', 'warning');
+            else alert('Network error checking updates');
+        }
+    }
+}
+
+// Register globals & auto-check silently on startup
+if (typeof window !== 'undefined') {
+    window.checkForUpdates = checkForUpdates;
+    window.closeUpdateModal = closeUpdateModal;
+    setTimeout(() => {
+        checkForUpdates(false);
+    }, 3000);
+}
+
 
