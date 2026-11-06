@@ -51,7 +51,7 @@ UPLOAD_DIR = ""    # Received from Clients (Client Uploads)
 DOWNLOAD_DIR = ""  # Shared by Host (Host Shared Files)
 ACTUAL_PORT = START_PORT
 zc = None
-APP_VERSION = "4.9.2"
+APP_VERSION = "4.9.3"
 DESKTOP_NOTIFY_HOOK = None
 LAST_UPDATE_CHECK = {"timestamp": 0, "data": None}
 

@@ -22,7 +22,7 @@
 
 <br/>
 
-[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [💾 **Download Windows Installer**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.2/PyShare-Setup-v4.9.2.exe) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
+[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [💾 **Download Windows Installer**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare-Setup-v4.9.3.exe) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
@@ -102,9 +102,9 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 
 **Windows Users:** Run PyShare directly as a single portable application — **zero Python setup required.**
 
-* **PyShare Setup (Windows Installer)** 👉 **[Download PyShare-Setup-v4.9.2.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.2/PyShare-Setup-v4.9.2.exe)** *(Installs into Program Files, creates Start Menu & Desktop shortcuts, and registers in Windows Settings Installed Apps)*
-* **PyShare Portable (Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.exe)**
-* **PyShare Portable (ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.1/PyShare.zip)**
+* **PyShare Setup (Windows Installer)** 👉 **[Download PyShare-Setup-v4.9.3.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare-Setup-v4.9.3.exe)** *(Installs into Program Files, creates Start Menu & Desktop shortcuts, and registers in Windows Settings Installed Apps)*
+* **PyShare Portable (Standalone EXE)** 👉 **[Download PyShare.exe](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.exe)**
+* **PyShare Portable (ZIP Archive)** 👉 **[Download PyShare.zip](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.zip)**
 * **GitHub Releases** 👉 **[PyShare Releases](https://github.com/pattanayakpratik/PyShare/releases)**
 
 > [!NOTE]
@@ -113,6 +113,32 @@ Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column S
 ---
 
 <span id="whats-new"></span>
+## 🆕 What's New in v4.9.3
+
+- 💬 **Shared Clipboard & LAN Quick Chat**:
+  - Upgraded to 30-message rolling chat buffer with sender attribution and timestamps.
+  - Support for direct image pasting (Ctrl+V) from OS clipboard and inline previewable file/image attachments.
+  - Automatic host OS clipboard synchronization option and unread chat notification badges.
+- 🚪 **Knock-to-Join Authentication**:
+  - Zero-click join request flow for guest devices without typing PIN.
+  - Real-time Host approve/decline notification flow with branded Cyberpunk glass modals.
+- 👥 **Active Peer Inspector & Device Management**:
+  - Live connected devices monitor with platform icons and default IP address masking (`IPs Hidden`).
+  - Custom device nickname assignment on login, device renaming, and 1-click session revocation (`401 Unauthorized`).
+- 🚀 **Transfer Engine & Seekable Media**:
+  - Folder upload structure preservation (`X-Relative-Path`) for recursive directories.
+  - HTTP 206 Partial Content range requests for instant seekable audio/video streaming.
+  - Live speedometer (MB/s) and intelligent countdown ETA calculation.
+- 🌐 **Zero-Conf Discovery & Cross-Platform Support**:
+  - UDP LAN auto-discovery beacon on port 53535.
+  - WebRTC P2P direct transfer with STUN/TURN fallback relays (`openrelay.metered.ca`).
+  - Single-instance Named Mutex and system tray minimization with off-screen geometry protection.
+  - Multi-platform Cloudflare tunnel binary resolution (Windows, Linux, macOS ARM64/Intel).
+- 🌟 **XERJ Corpus Hub Recognition**:
+  - Security hardening, rate limiting, and web host UX architecture indexed by XERJ Corpus Hub as an open reference implementation.
+
+---
+
 ## 🆕 What's New in v4.9.2
 
 - 🎨 **Redesigned Responsive Header & Unified Navbar**:
