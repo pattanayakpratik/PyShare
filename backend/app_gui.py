@@ -13,7 +13,10 @@ import webbrowser
 import atexit
 import webview
 from PIL import Image, ImageDraw
-import pystray
+try:
+    import pystray
+except Exception:
+    pystray = None
 import main
 
 # Windows Single-Instance Mutex
@@ -238,27 +241,33 @@ def start_native_app():
     main.DESKTOP_NOTIFY_HOOK = on_desktop_notification
 
     # Initialize System Tray
-    tray_image = load_tray_icon_image()
-    tray_menu = pystray.Menu(
-        pystray.MenuItem("Show PyShare Studio", lambda: restore_window(), default=True),
-        pystray.MenuItem("Open Received Files", lambda: open_received_folder()),
-        pystray.MenuItem("Open in Web Browser", lambda: open_in_browser()),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Check for Updates...", lambda: check_updates_action()),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Exit PyShare", lambda: exit_application())
-    )
-
-    tray_icon = pystray.Icon("PyShare", tray_image, "PyShare — File Transfer Studio", tray_menu)
-
-    def run_tray():
+    tray_icon = None
+    if pystray is not None:
         try:
-            tray_icon.run()
-        except Exception as e:
-            print(f"[*] Tray error: {e}")
+            tray_image = load_tray_icon_image()
+            tray_menu = pystray.Menu(
+                pystray.MenuItem("Show PyShare Studio", lambda: restore_window(), default=True),
+                pystray.MenuItem("Open Received Files", lambda: open_received_folder()),
+                pystray.MenuItem("Open in Web Browser", lambda: open_in_browser()),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Check for Updates...", lambda: check_updates_action()),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Exit PyShare", lambda: exit_application())
+            )
 
-    tray_thread = threading.Thread(target=run_tray, daemon=True)
-    tray_thread.start()
+            tray_icon = pystray.Icon("PyShare", tray_image, "PyShare — File Transfer Studio", tray_menu)
+
+            def run_tray():
+                try:
+                    tray_icon.run()
+                except Exception as e:
+                    print(f"[*] Tray error: {e}")
+
+            tray_thread = threading.Thread(target=run_tray, daemon=True)
+            tray_thread.start()
+        except Exception as e:
+            print(f"[*] Tray initialization notice: {e}")
+            tray_icon = None
 
     atexit.register(cleanup_and_exit)
 
