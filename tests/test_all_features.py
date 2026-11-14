@@ -1036,6 +1036,13 @@ class TestPyShareAllFeatures(unittest.TestCase):
         if app_gui is not None:
             instance_lock = app_gui.ensure_single_instance()
             self.assertIsNotNone(instance_lock, "Single instance locking mechanism should return a valid handle or lock")
+            if sys.platform == "win32" and instance_lock:
+                ctypes.windll.kernel32.CloseHandle(instance_lock)
+            elif instance_lock:
+                try:
+                    os.close(instance_lock)
+                except Exception:
+                    pass
 
         # 5. Verify run.py launcher imports and main_launcher callable
         import run

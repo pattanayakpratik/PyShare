@@ -14,11 +14,11 @@
     --card-bg: rgba(13, 20, 36, 0.65);
     --card-hover-bg: rgba(18, 28, 50, 0.75);
     --border-color: rgba(255, 255, 255, 0.08);
-    --border-specular: rgba(255, 255, 255, 0.22);
+    --border-specular: rgba(255, 255, 255, 0.18);
     --border-hover: rgba(0, 240, 255, 0.45);
-    --input-bg: rgba(7, 12, 23, 0.72);
-    --input-border: rgba(255, 255, 255, 0.1);
-    --input-focus-bg: rgba(9, 15, 30, 0.85);
+    --input-bg: rgba(255, 255, 255, 0.04);
+    --input-border: rgba(255, 255, 255, 0.09);
+    --input-focus-bg: rgba(255, 255, 255, 0.08);
     
     --btn-secondary-bg: rgba(255, 255, 255, 0.05);
     --btn-secondary-border: rgba(255, 255, 255, 0.12);
@@ -64,7 +64,7 @@
     --glass-border: 1px solid rgba(255, 255, 255, 0.09);
     --glass-highlight: inset 0 1px 1px 0 rgba(255, 255, 255, 0.16);
     
-    --shadow-card: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+    --shadow-card: 0 14px 36px -4px rgba(0, 0, 0, 0.45);
     --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
     --glow-cyan: 0 0 25px rgba(0, 240, 255, 0.35);
     --glow-violet: 0 0 25px rgba(168, 85, 247, 0.35);
@@ -264,14 +264,12 @@ body {
     background: var(--btn-secondary-bg);
     border: 1px solid var(--btn-secondary-border);
     border-top: 1px solid var(--border-specular);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
     color: var(--text-main);
     font-size: 15px;
     cursor: pointer;
     width: 42px;
     height: 42px;
-    border-radius: 14px;
+    border-radius: 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -347,12 +345,10 @@ body {
     top: calc(100% + 10px);
     right: 0;
     min-width: 215px;
-    background: rgba(13, 20, 36, 0.95);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    background: rgba(13, 20, 36, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-top: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 16px;
+    border-radius: 14px;
     padding: 8px;
     box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 240, 255, 0.15);
     display: none;
@@ -479,8 +475,6 @@ body {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-top: 1px solid var(--border-specular);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
     padding: 8px 24px;
     border-radius: 9999px;
     font-size: 13px;
@@ -511,10 +505,8 @@ body {
     background: var(--card-bg);
     border: var(--glass-border);
     border-top: 1px solid var(--border-specular);
-    border-radius: 20px;
+    border-radius: 18px;
     box-shadow: var(--shadow-card), var(--glass-highlight);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     box-sizing: border-box;
     width: 100%;
@@ -561,8 +553,6 @@ body {
     border: 1px solid var(--btn-secondary-border);
     border-top: 1px solid var(--border-specular);
     color: var(--btn-secondary-text);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     cursor: pointer;
     border-radius: 12px;
     padding: 8px 16px;
@@ -595,13 +585,11 @@ body {
     background: var(--input-bg);
     border: 1px solid var(--input-border);
     border-top: 1px solid var(--border-specular);
-    border-radius: 14px;
+    border-radius: 12px;
     padding: 12px 18px;
     color: var(--text-main);
     font-size: 13px;
     outline: none;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     margin-bottom: 12px;
     box-sizing: border-box;
@@ -706,8 +694,6 @@ body {
     cursor: pointer;
     font-size: 14px;
     text-decoration: none;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: var(--shadow-sm);
 }
@@ -765,7 +751,7 @@ body {
     background: var(--modal-box-bg);
     border: 1px solid var(--border-color);
     border-top: 1px solid var(--border-specular);
-    border-radius: 24px;
+    border-radius: 20px;
     width: 100%;
     max-width: 820px;
     max-height: 90vh;
@@ -773,8 +759,6 @@ body {
     flex-direction: column;
     overflow: hidden;
     box-shadow: var(--shadow-card), 0 0 40px var(--glow-cyan);
-    backdrop-filter: blur(32px) saturate(190%);
-    -webkit-backdrop-filter: blur(32px) saturate(190%);
     animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     box-sizing: border-box;
     color: var(--text-main);
@@ -1028,11 +1012,9 @@ body {
     background: var(--modal-box-bg);
     border: 1px solid var(--border-color);
     border-top: 1px solid var(--border-specular);
-    border-radius: 20px;
+    border-radius: 16px;
     padding: 16px 20px;
     box-shadow: var(--shadow-card), 0 0 30px var(--glow-cyan);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
     z-index: 10000;
     display: none;
     flex-direction: column;
