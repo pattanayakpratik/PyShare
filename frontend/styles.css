@@ -658,6 +658,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    overflow: hidden;
 }
 
 .file-name {
@@ -670,6 +671,8 @@ body {
     text-decoration: none;
     cursor: pointer;
     transition: color 0.15s ease;
+    display: block;
+    max-width: 100%;
 }
 
 .file-name:hover {

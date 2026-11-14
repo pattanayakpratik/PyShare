@@ -272,8 +272,13 @@ function setupHostSSE(es) {
             if (logBox) {
                 const entry = document.createElement('div');
                 entry.className = 'log-entry-row';
-                entry.innerHTML = `<span class="log-timestamp">${escapeHtml(entryData.time)}</span><span class="log-message">${escapeHtml(entryData.msg)}</span>`;
+                entry.innerHTML = `<span class="log-timestamp">${escapeHtml(entryData.time)}</span><span class="log-message" title="${escapeHtml(entryData.msg)}">${escapeHtml(entryData.msg)}</span>`;
                 logBox.prepend(entry);
+                // Keep max 50 log rows to avoid DOM bloat and memory leaks
+                while (logBox.children.length > 50) {
+                    logBox.removeChild(logBox.lastChild);
+                }
+                logBox.scrollTop = 0;
             }
         } catch (err) {}
     });
