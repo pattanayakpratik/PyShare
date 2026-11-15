@@ -5,14 +5,25 @@
 :root {
     /* CYBERPUNK NEON GLASS THEME (Default Dark) */
     --bg-color: #060913;
-    --bg-gradient: 
-        radial-gradient(circle at 12% 15%, rgba(0, 240, 255, 0.12) 0%, transparent 45%),
-        radial-gradient(circle at 88% 22%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 50% 85%, rgba(59, 130, 246, 0.10) 0%, transparent 50%),
-        radial-gradient(circle at 82% 88%, rgba(0, 240, 255, 0.08) 0%, transparent 40%);
     
-    --card-bg: rgba(13, 20, 36, 0.65);
-    --card-hover-bg: rgba(18, 28, 50, 0.75);
+    /* Aurora orbs behind the glass (see body::before) */
+    --orb-1: rgba(0, 200, 255, 0.28);
+    --orb-2: rgba(139, 92, 246, 0.32);
+    --orb-3: rgba(236, 72, 153, 0.17);
+    --orb-4: rgba(37, 99, 235, 0.25);
+
+    /* Glass surface recipe (no backdrop-filter on in-page cards: avoids the Chromium
+       black-corner artifact; the soft aurora behind provides the frosted depth) */
+    --glass-bg: rgba(16, 23, 44, 0.50);
+    --glass-bg-strong: rgba(13, 19, 36, 0.92);
+    --glass-stroke: rgba(255, 255, 255, 0.08);
+    --glass-stroke-top: rgba(255, 255, 255, 0.20);
+    --glass-stroke-hover: rgba(255, 255, 255, 0.16);
+    --glass-sheen: linear-gradient(155deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.025) 32%, rgba(255, 255, 255, 0) 55%);
+    --glass-shadow: 0 24px 50px -18px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+    --card-bg: var(--glass-bg);
+    --card-hover-bg: rgba(20, 29, 54, 0.65);
     --border-color: rgba(255, 255, 255, 0.08);
     --border-specular: rgba(255, 255, 255, 0.18);
     --border-hover: rgba(0, 240, 255, 0.45);
@@ -50,7 +61,7 @@
     
     --text-main: #f8fafc;
     --text-sub: #94a3b8;
-    --text-muted: #64748b;
+    --text-muted: #7c8aa0;  /* >= 4.5:1 on the dark cards (was #64748b, ~3.9:1) */
     
     --accent-blue: #3b82f6;
     --accent-blue-hover: #2563eb;
@@ -59,7 +70,8 @@
     --accent-magenta: #ec4899;
     --accent-green: #10b981;
     --accent-red: #f43f5e;
-    
+    --link-color: #60a5fa;
+
     --glass-blur: blur(24px) saturate(190%);
     --glass-border: 1px solid rgba(255, 255, 255, 0.09);
     --glass-highlight: inset 0 1px 1px 0 rgba(255, 255, 255, 0.16);
@@ -74,16 +86,23 @@
 
 [data-theme="light"] {
     /* LUXURY APPLE SEQUOIA LIQUID GLASS LIGHT THEME */
-    --bg-color: #f1f5f9;
-    --bg-gradient: 
-        radial-gradient(circle at 12% 14%, rgba(14, 165, 233, 0.16) 0%, transparent 45%),
-        radial-gradient(circle at 88% 18%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 48% 85%, rgba(59, 130, 246, 0.14) 0%, transparent 55%),
-        radial-gradient(circle at 82% 82%, rgba(244, 63, 94, 0.10) 0%, transparent 45%),
-        linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+    --bg-color: #eef2fa;
         
-    --card-bg: rgba(255, 255, 255, 0.78);
-    --card-hover-bg: rgba(255, 255, 255, 0.94);
+    --orb-1: rgba(56, 189, 248, 0.34);
+    --orb-2: rgba(167, 139, 250, 0.34);
+    --orb-3: rgba(244, 114, 182, 0.24);
+    --orb-4: rgba(45, 212, 191, 0.22);
+
+    --glass-bg: rgba(255, 255, 255, 0.60);
+    --glass-bg-strong: rgba(255, 255, 255, 0.92);
+    --glass-stroke: rgba(255, 255, 255, 0.80);
+    --glass-stroke-top: #ffffff;
+    --glass-stroke-hover: #ffffff;
+    --glass-sheen: linear-gradient(155deg, rgba(255, 255, 255, 0.70) 0%, rgba(255, 255, 255, 0.18) 35%, rgba(255, 255, 255, 0) 60%);
+    --glass-shadow: 0 0 0 1px rgba(30, 41, 82, 0.05), 0 22px 46px -20px rgba(37, 52, 120, 0.28), 0 2px 6px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+
+    --card-bg: var(--glass-bg);
+    --card-hover-bg: rgba(255, 255, 255, 0.78);
     --border-color: rgba(226, 232, 240, 0.85);
     --border-specular: rgba(255, 255, 255, 0.95);
     --border-hover: rgba(37, 99, 235, 0.45);
@@ -97,9 +116,9 @@
     --btn-secondary-hover-border: #2563eb;
     --btn-secondary-text: #0f172a;
     
-    --file-row-bg: rgba(255, 255, 255, 0.85);
-    --file-row-border: rgba(226, 232, 240, 0.9);
-    --file-row-hover-bg: #ffffff;
+    --file-row-bg: rgba(255, 255, 255, 0.55);
+    --file-row-border: rgba(255, 255, 255, 0.85);
+    --file-row-hover-bg: rgba(255, 255, 255, 0.92);
     --file-row-hover-border: rgba(37, 99, 235, 0.45);
     
     --modal-backdrop-bg: rgba(15, 23, 42, 0.35);
@@ -121,16 +140,17 @@
     
     --text-main: #0b1329;
     --text-sub: #475569;
-    --text-muted: #94a3b8;
+    --text-muted: #556479;  /* >= 4.5:1 even on tinted glass over the aurora (was #94a3b8, ~2.5:1) */
     
     --accent-blue: #2563eb;
     --accent-blue-hover: #1d4ed8;
-    --accent-cyan: #0284c7;
+    --accent-cyan: #0369a1;  /* deeper than #0284c7 so accent text stays >= 4.5:1 on tinted glass */
     --accent-violet: #7c3aed;
     --accent-magenta: #db2777;
     --accent-green: #059669;
     --accent-red: #e11d48;
-    
+    --link-color: #1d4ed8;  /* >= 4.5:1 on light tinted callouts */
+
     --glass-blur: blur(28px) saturate(180%);
     --glass-border: 1px solid rgba(226, 232, 240, 0.85);
     --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
@@ -150,15 +170,54 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif,
+        "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji";
     background-color: var(--bg-color);
-    background-image: var(--bg-gradient);
-    background-attachment: fixed;
     color: var(--text-main);
     min-height: 100vh;
     transition: background-color 0.25s ease, color 0.25s ease;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   Ambient aurora behind the glass: large soft colour orbs on a fixed layer
+   (replaces background-attachment: fixed, which is janky and ignored on iOS),
+   plus a faint grain layer that adds texture and prevents gradient banding.
+   ========================================================================== */
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    pointer-events: none;
+    z-index: -1;
+}
+
+body::before {
+    inset: -12vmax;
+    background:
+        radial-gradient(42vmax 42vmax at 16% 18%, var(--orb-1), transparent 70%),
+        radial-gradient(46vmax 46vmax at 86% 14%, var(--orb-2), transparent 70%),
+        radial-gradient(50vmax 50vmax at 74% 90%, var(--orb-3), transparent 70%),
+        radial-gradient(40vmax 40vmax at 14% 86%, var(--orb-4), transparent 70%);
+    animation: auroraDrift 48s ease-in-out infinite alternate;
+}
+
+body::after {
+    inset: 0;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes auroraDrift {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    50%  { transform: translate3d(-2.5vmax, 1.5vmax, 0) scale(1.04); }
+    100% { transform: translate3d(2vmax, -2vmax, 0) scale(1.02); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body::before { animation: none; }
 }
 
 /* Custom Cyberpunk & Liquid Glass Scrollbar */
@@ -472,9 +531,9 @@ body {
 }
 
 .status-pill {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-top: 1px solid var(--border-specular);
+    background: var(--glass-sheen), var(--glass-bg);
+    border: 1px solid var(--glass-stroke);
+    border-top: 1px solid var(--glass-stroke-top);
     padding: 8px 24px;
     border-radius: 9999px;
     font-size: 13px;
@@ -501,24 +560,41 @@ body {
 }
 
 /* --- CARDS & PANELS (FROSTED GLASS SLABS) --- */
+/* Glass card: translucent fill, bright top edge, hairline border, depth shadow + inner
+   highlight, and a sheen layer (::before) sitting between the fill and the content. */
 .card-panel {
-    background: var(--card-bg);
-    border: var(--glass-border);
-    border-top: 1px solid var(--border-specular);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-stroke);
+    border-top-color: var(--glass-stroke-top);
     border-radius: 18px;
-    box-shadow: var(--shadow-card), var(--glass-highlight);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: var(--glass-shadow);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
     box-sizing: border-box;
     width: 100%;
+    position: relative;
+    isolation: isolate;
+}
+
+.card-panel:not(.client-upload-card):not(.upload-dropzone-card)::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--glass-sheen);
+    pointer-events: none;
+    z-index: -1;
 }
 
 .card-panel:hover {
-    border-color: var(--border-hover);
+    border-color: var(--glass-stroke-hover);
+    border-top-color: var(--glass-stroke-top);
 }
 
 /* Button Primary (Cyber Neon Gradient) */
 .btn-primary {
-    background: linear-gradient(135deg, #00d2ff 0%, #3b82f6 50%, #8b5cf6 100%);
+    /* Neon cyan -> blue -> violet; the deeper middle keeps white labels >= 4.5:1
+       (the old #3b82f6 midpoint was only ~3.7:1) */
+    background: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #7c3aed 100%);
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.25);
     border-top: 1px solid rgba(255, 255, 255, 0.45);
@@ -615,30 +691,47 @@ body {
 .file-row {
     background: var(--file-row-bg);
     border: 1px solid var(--file-row-border);
-    border-radius: 14px;
-    padding: 10px 14px;
+    border-radius: 12px;
+    padding: 8px 10px;
     display: flex;
     align-items: center;
     gap: 12px;
-    transition: all 0.2s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .file-row:hover {
     background: var(--file-row-hover-bg);
     border-color: var(--file-row-hover-border);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    transform: translateX(2px);
 }
 
 .file-icon {
-    font-size: 24px;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    color: #94a3b8;
+    background: rgba(148, 163, 184, 0.12);
 }
+
+/* File-type tints: make lists scannable at a glance */
+.file-icon.cat-image    { color: #c084fc; background: rgba(192, 132, 252, 0.14); }
+.file-icon.cat-video    { color: #f472b6; background: rgba(244, 114, 182, 0.14); }
+.file-icon.cat-audio    { color: #fbbf24; background: rgba(251, 191, 36, 0.14); }
+.file-icon.cat-document { color: #60a5fa; background: rgba(96, 165, 250, 0.14); }
+.file-icon.cat-archive  { color: #fb923c; background: rgba(251, 146, 60, 0.14); }
+.file-icon.cat-code     { color: #34d399; background: rgba(52, 211, 153, 0.14); }
+
+[data-theme="light"] .file-icon { color: #64748b; background: rgba(100, 116, 139, 0.1); }
+[data-theme="light"] .file-icon.cat-image    { color: #9333ea; background: rgba(147, 51, 234, 0.1); }
+[data-theme="light"] .file-icon.cat-video    { color: #db2777; background: rgba(219, 39, 119, 0.1); }
+[data-theme="light"] .file-icon.cat-audio    { color: #d97706; background: rgba(217, 119, 6, 0.1); }
+[data-theme="light"] .file-icon.cat-document { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+[data-theme="light"] .file-icon.cat-archive  { color: #ea580c; background: rgba(234, 88, 12, 0.1); }
+[data-theme="light"] .file-icon.cat-code     { color: #059669; background: rgba(5, 150, 105, 0.1); }
 
 .file-details {
     flex: 1;
@@ -671,6 +764,14 @@ body {
 .file-size {
     font-size: 12px;
     color: var(--text-sub);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-meta-sep {
+    margin: 0 5px;
+    opacity: 0.5;
 }
 
 .file-actions {
@@ -681,8 +782,9 @@ body {
 }
 
 .action-circle-btn {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
     border-radius: 50%;
     background: var(--btn-secondary-bg);
     border: 1px solid var(--btn-secondary-border);
@@ -703,7 +805,7 @@ body {
     border-color: var(--accent-cyan);
     color: #ffffff;
     box-shadow: 0 0 16px var(--glow-cyan);
-    transform: scale(1.1);
+    transform: scale(1.06);
 }
 
 .action-circle-btn.btn-del:hover {
@@ -715,13 +817,352 @@ body {
 
 .empty-state {
     text-align: center;
-    padding: 36px 12px;
+    padding: 32px 12px;
     color: var(--text-muted);
     font-size: 13px;
     background: var(--file-row-bg);
     border: 1px dashed var(--border-color);
     border-radius: 14px;
     margin: 4px 0;
+}
+
+/* ==========================================================================
+   Shared compact controls (toolbars, badges)
+   ========================================================================== */
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--btn-secondary-bg);
+    border: 1px solid var(--btn-secondary-border);
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-icon:hover {
+    color: var(--accent-cyan);
+    border-color: var(--btn-secondary-hover-border);
+    background: var(--btn-secondary-hover-bg);
+    box-shadow: 0 0 12px var(--glow-cyan);
+}
+
+.btn-icon.btn-icon-danger:hover {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.6);
+    background: rgba(239, 68, 68, 0.1);
+    box-shadow: none;
+}
+
+.btn-secondary.btn-compact {
+    padding: 0 11px;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    background: rgba(0, 240, 255, 0.1);
+    border: 1px solid rgba(0, 240, 255, 0.22);
+    font-variant-numeric: tabular-nums;
+}
+
+[data-theme="light"] .count-badge {
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.08);
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
+.search-input-box.search-compact {
+    padding: 9px 14px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+}
+
+/* ==========================================================================
+   Quick Chat & Clipboard Stream (shared by Host and Client)
+   ========================================================================== */
+.chat-stream-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 4px;
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+
+/* Anchor a short conversation to the bottom (next to the composer), like messaging apps.
+   margin-top:auto keeps scrolling intact, unlike justify-content:flex-end. */
+.chat-stream-list > .chat-msg-row:first-child { margin-top: auto; }
+
+.chat-msg-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-width: 86%;
+    align-self: flex-start;
+    align-items: flex-start;
+    flex-shrink: 0;
+}
+
+.chat-msg-row.self {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.chat-msg-header {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 11px;
+    padding: 0 6px;
+}
+
+.chat-sender-name { font-weight: 700; color: var(--accent-cyan); }
+.chat-msg-row.host .chat-sender-name { color: var(--accent-green); }
+.chat-msg-row.self .chat-sender-name { color: var(--text-sub); }
+
+.chat-msg-time {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.chat-msg-body {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.chat-msg-row.self .chat-msg-body { flex-direction: row-reverse; }
+
+.chat-bubble {
+    min-width: 0;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 8px 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-main);
+    overflow-wrap: anywhere;
+}
+
+.chat-msg-row.self .chat-bubble {
+    background: rgba(0, 240, 255, 0.12);
+    border-color: rgba(0, 240, 255, 0.3);
+    border-bottom-right-radius: 5px;
+}
+
+.chat-msg-row.host .chat-bubble {
+    background: rgba(16, 185, 129, 0.10);
+    border-color: rgba(16, 185, 129, 0.3);
+    border-bottom-left-radius: 5px;
+}
+
+.chat-msg-row.peer .chat-bubble {
+    background: rgba(168, 85, 247, 0.10);
+    border-color: rgba(168, 85, 247, 0.28);
+    border-bottom-left-radius: 5px;
+}
+
+.chat-text { white-space: pre-wrap; }
+
+.chat-link {
+    color: var(--accent-cyan);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+
+.chat-attachment-img-box {
+    margin-top: 6px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    max-width: 240px;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.chat-attachment-img-box img {
+    width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    display: block;
+    cursor: pointer;
+}
+
+.chat-file-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    margin-top: 6px;
+    border-radius: 10px;
+    background: rgba(0, 240, 255, 0.06);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Copy action sits beside the bubble and appears on hover (always visible on touch screens) */
+.chat-copy-btn {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-sub);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.chat-msg-row:hover .chat-copy-btn,
+.chat-copy-btn:focus-visible,
+.chat-copy-btn.copied { opacity: 1; }
+
+.chat-copy-btn:hover {
+    color: var(--accent-cyan);
+    background: var(--btn-secondary-bg);
+    border-color: var(--btn-secondary-border);
+}
+
+.chat-copy-btn.copied { color: var(--accent-green); }
+
+@media (hover: none) {
+    .chat-copy-btn { opacity: 0.6; }
+}
+
+/* Message composer (attach, text input, send) */
+.chat-composer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chat-input {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-main);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chat-input:focus {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.18);
+}
+
+.btn-primary.btn-send {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+[data-theme="light"] .chat-msg-row.self .chat-bubble { background: rgba(37, 99, 235, 0.09); border-color: rgba(37, 99, 235, 0.3); }
+[data-theme="light"] .chat-msg-row.host .chat-bubble { background: rgba(5, 150, 105, 0.08); border-color: rgba(5, 150, 105, 0.28); }
+[data-theme="light"] .chat-msg-row.peer .chat-bubble { background: rgba(147, 51, 234, 0.07); border-color: rgba(147, 51, 234, 0.22); }
+[data-theme="light"] .chat-input:focus { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+
+/* Empty-state hint used inside panels and the chat (host + client) */
+.hub-empty {
+    margin: auto;
+    padding: 24px 12px;
+    max-width: 260px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+/* Bigger hit areas on touch screens (WCAG 2.5.8 / platform guidance) */
+@media (pointer: coarse) {
+    .action-circle-btn { width: 38px; height: 38px; }
+    .btn-icon { width: 38px; height: 38px; }
+    .btn-secondary.btn-compact { height: 38px; }
+    .file-name { padding: 6px 0; margin: -6px 0; }
+}
+
+/* Full-window drop target: drop files anywhere on the page */
+.page-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 15000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 7, 16, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    pointer-events: none;
+}
+
+.page-drop-overlay.visible { display: flex; animation: fadeIn 0.15s ease-out; }
+
+.page-drop-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 28px 44px;
+    border-radius: 22px;
+    border: 2px dashed var(--accent-cyan);
+    background: var(--modal-box-bg);
+    color: var(--text-main);
+    box-shadow: 0 0 40px rgba(0, 240, 255, 0.25);
+    text-align: center;
+}
+
+.page-drop-card svg { color: var(--accent-cyan); }
+.page-drop-card strong { font-size: 18px; }
+.page-drop-card span { font-size: 13px; color: var(--text-sub); }
+
+[data-theme="light"] .page-drop-overlay { background: rgba(15, 23, 42, 0.18); }
+
+/* Text preview notices (truncated / binary / unsupported) */
+.preview-note {
+    width: 100%;
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-bottom: 8px;
+}
+
+.preview-unavailable {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-sub);
 }
 
 /* --- LIGHTBOX MEDIA PREVIEW MODAL (CYBER & LIQUID GLASS) --- */
@@ -817,7 +1258,7 @@ body {
     font-family: 'Consolas', monospace;
     font-size: 13px;
     white-space: pre-wrap;
-    word-break: break-all;
+    overflow-wrap: anywhere;  /* wrap at spaces; only split tokens that can't fit */
 }
 
 .modal-footer {
@@ -829,20 +1270,29 @@ body {
     background: rgba(0, 0, 0, 0.1);
 }
 
+[data-theme="light"] .modal-footer {
+    background: rgba(241, 245, 249, 0.7);
+}
+
 /* --- TOAST NOTIFICATIONS --- */
+/* Top-centre so toasts never stack on top of the bottom-right upload drawer */
 .toast-container {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    top: calc(12px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 12000;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 8px;
+    width: max-content;
+    max-width: calc(100vw - 24px);
     pointer-events: none;
 }
 
 .toast-pill {
-    background: var(--card-bg);
+    background: var(--glass-bg-strong);
     color: var(--text-main);
     border: 1px solid var(--border-color);
     border-radius: 12px;
@@ -910,6 +1360,7 @@ body {
 .star-btn {
     background: transparent;
     border: none;
+    color: #f59e0b;  /* SVG stars use currentColor; inactive ones are greyed by the filter */
     font-size: 24px;
     cursor: pointer;
     filter: grayscale(1) opacity(0.35);
@@ -1077,10 +1528,10 @@ body {
 }
 
 [data-theme="light"] .status-pill {
-    background: rgba(255, 255, 255, 0.85);
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    border-top: 1px solid #ffffff;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04), inset 0 1px 0 #ffffff;
+    background: var(--glass-sheen), var(--glass-bg);
+    border: 1px solid var(--glass-stroke);
+    border-top: 1px solid var(--glass-stroke-top);
+    box-shadow: var(--glass-shadow);
     color: var(--text-sub);
 }
 
