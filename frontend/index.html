@@ -67,16 +67,16 @@
             }
         }
         .mode-select-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-top: 1px solid var(--border-specular);
+            background: var(--glass-sheen), var(--glass-bg);
+            border: 1px solid var(--glass-stroke);
+            border-top: 1px solid var(--glass-stroke-top);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             border-radius: 24px;
             padding: 32px 24px;
             text-align: center;
             cursor: pointer;
-            box-shadow: var(--shadow-card);
+            box-shadow: var(--glass-shadow);
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
             flex-direction: column;
@@ -106,11 +106,23 @@
         .mode-select-card:active {
             transform: scale(0.98);
         }
+        /* Icon tile (the old font-size:48px was sized for emoji and left a tiny SVG in empty space) */
         .mode-icon {
-            font-size: 48px;
-            filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.45));
-            animation: neonFloat 3.5s ease-in-out infinite alternate;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-cyan);
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.22);
+            box-shadow: 0 0 24px rgba(0, 240, 255, 0.12);
+            margin-bottom: 4px;
+            transition: transform 0.25s ease;
         }
+        .mode-icon svg { width: 26px; height: 26px; }
+        .mode-select-card:hover .mode-icon { transform: translateY(-3px); }
         @keyframes neonFloat {
             0% { transform: translateY(0px); }
             100% { transform: translateY(-5px); }
@@ -169,23 +181,20 @@
         }
 
         /* Light Mode Overrides for P2P Web */
-        [data-theme="light"] .mode-select-card {
-            background: rgba(255, 255, 255, 0.82);
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            border-top: 1px solid #ffffff;
-            box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.07), 0 4px 12px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
-        }
         [data-theme="light"] .mode-select-card::before {
             background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.4), transparent);
         }
         [data-theme="light"] .mode-select-card:hover {
             border-color: rgba(37, 99, 235, 0.5);
-            background: #ffffff;
+            background: var(--glass-sheen), rgba(255, 255, 255, 0.82);
             box-shadow: 0 20px 45px -8px rgba(37, 99, 235, 0.16), 0 0 0 1px rgba(37, 99, 235, 0.2), inset 0 1px 0 #ffffff;
             transform: translateY(-3px);
         }
         [data-theme="light"] .mode-icon {
-            filter: drop-shadow(0 8px 18px rgba(37, 99, 235, 0.22));
+            color: #2563eb;
+            background: rgba(37, 99, 235, 0.08);
+            border-color: rgba(37, 99, 235, 0.2);
+            box-shadow: none;
         }
         [data-theme="light"] .keypad-btn {
             background: rgba(255, 255, 255, 0.88);
@@ -386,7 +395,7 @@
                 </div>
                 <div style="display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 6px;">
                     <span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
-                    <span><strong>Want 100% offline sharing with Mobile Data OFF?</strong> Use the <a href="/guide.html" style="color:var(--accent-blue); text-decoration: underline;">PyShare Desktop App</a> — works offline with zero internet!</span>
+                    <span><strong>Want 100% offline sharing with Mobile Data OFF?</strong> Use the <a href="/guide.html" style="color:var(--link-color); text-decoration: underline; display:inline-block; padding:4px 0;">PyShare Desktop App</a> — works offline with zero internet!</span>
                 </div>
             </div>
         </div>
