@@ -743,14 +743,18 @@ function closeUpdateModal() {
     if (modal) modal.classList.remove('open');
 }
 
+// Themed notice that works on every page: the page's toast when it has one, otherwise PyShare's
+// own branded alert. Never the browser's alert(), which shows "127.0.0.1:8010 says" unthemed.
+function pyshareNotify(message, kind) {
+    if (typeof showToast === 'function') showToast(message, kind);
+    else showPyShareAlert(message, 'PyShare');
+}
+
 async function checkForUpdates(manual = false) {
     try {
         const resp = await fetch('/api/check_update');
         if (!resp.ok) {
-            if (manual) {
-                if (typeof showToast === 'function') showToast('Could not reach update server', 'warning');
-                else alert('Could not check for updates');
-            }
+            if (manual) pyshareNotify('Could not reach the update server', 'warning');
             return;
         }
         const data = await resp.json();
@@ -759,16 +763,46 @@ async function checkForUpdates(manual = false) {
             if (badge) badge.style.display = 'inline-block';
             ensureUpdateModal(data);
         } else if (manual) {
-            const msg = data.current_version ? `PyShare is up to date (v${data.current_version})` : 'PyShare is up to date';
-            if (typeof showToast === 'function') showToast(msg, 'success');
-            else alert(msg);
+            pyshareNotify(data.current_version ? `PyShare is up to date (v${data.current_version})` : 'PyShare is up to date', 'success');
         }
     } catch (e) {
-        if (manual) {
-            if (typeof showToast === 'function') showToast('Network error checking updates', 'warning');
-            else alert('Network error checking updates');
-        }
+        if (manual) pyshareNotify('Network error while checking for updates', 'warning');
     }
+}
+
+// Pages without scripts.js/p2p.js (room selector, login, guide) get the same themed toast, so
+// nothing on any page falls back to the browser's unthemed alert()/confirm() boxes.
+if (typeof window.showToast !== 'function') {
+    window.showToast = function (message, icon) {
+        if (!message) return;
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+        while (container.children.length >= 3) container.removeChild(container.firstChild);
+        const toast = document.createElement('div');
+        toast.className = 'toast-pill';
+        const ok = icon === 'success' || icon === 'check' || icon === 'copy';
+        const bad = icon === 'error' || icon === 'warning';
+        const svg = ok
+            ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+            : bad
+                ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+                : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        const text = document.createElement('span');
+        text.textContent = message;
+        toast.innerHTML = `<span style="display:inline-flex; align-items:center;">${svg}</span>`;
+        toast.appendChild(text);
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.transition = 'all 0.3s ease';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 2800);
+    };
 }
 
 // Register globals & auto-check silently on startup

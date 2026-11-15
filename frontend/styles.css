@@ -1091,6 +1091,12 @@ body::after {
     flex-shrink: 0;
 }
 
+.btn-primary.btn-send:disabled {
+    opacity: 0.55;
+    cursor: progress;
+    transform: none;
+}
+
 [data-theme="light"] .chat-msg-row.self .chat-bubble { background: rgba(37, 99, 235, 0.09); border-color: rgba(37, 99, 235, 0.3); }
 [data-theme="light"] .chat-msg-row.host .chat-bubble { background: rgba(5, 150, 105, 0.08); border-color: rgba(5, 150, 105, 0.28); }
 [data-theme="light"] .chat-msg-row.peer .chat-bubble { background: rgba(147, 51, 234, 0.07); border-color: rgba(147, 51, 234, 0.22); }
@@ -1168,10 +1174,10 @@ body::after {
 /* --- LIGHTBOX MEDIA PREVIEW MODAL (CYBER & LIQUID GLASS) --- */
 .modal-backdrop {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    /* inset:0, not width:100vw/height:100vh. On Android Chrome 100vh is the height with the
+       address bar hidden, so while the bar is showing a 100vh backdrop extends below the screen
+       and anything pinned to its bottom (the chat sheet's message box) is cut off. */
+    inset: 0;
     background: var(--modal-backdrop-bg);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);

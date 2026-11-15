@@ -340,10 +340,14 @@ function generateHostQR(pin) {
 function copyShareLink() {
     const linkEl = document.getElementById('hostShareLink');
     const url = linkEl ? linkEl.dataset.url : (window.location.origin + window.location.pathname + '?room=' + currentPin);
-    if (navigator.clipboard && url) {
+    if (!url) return;
+    // navigator.clipboard only exists on secure origins; on http://192.168.x.x use the fallback
+    if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(url).then(() => {
             showToast('Share link copied to clipboard!', 'copy');
-        });
+        }, () => legacyCopy(url));
+    } else {
+        legacyCopy(url);
     }
 }
 

@@ -248,6 +248,38 @@ function escapeHtml(str) {
     }[m]));
 }
 
+// Copy text from a click/tap. navigator.clipboard only exists on secure origins (https or
+// localhost); phones open PyShare at http://192.168.x.x, where it is undefined, so fall back to
+// the textarea + execCommand('copy') path, which works there during a user gesture.
+// Resolves to true when the text was copied.
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text).then(() => true, () => legacyCopyText(text));
+    }
+    return Promise.resolve(legacyCopyText(text));
+}
+
+function legacyCopyText(text) {
+    const active = document.activeElement;
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');          // no on-screen keyboard on phones
+        ta.style.cssText = 'position:fixed; top:-1000px; left:0; opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch (e) {
+        return false;
+    } finally {
+        if (active && active.focus) { try { active.focus({ preventScroll: true }); } catch (e) {} }
+    }
+}
+window.copyToClipboard = copyToClipboard;
+
 // Embed any value as a JavaScript string argument inside an inline on*="..." attribute.
 // escapeHtml() alone is NOT enough there: the browser decodes &#39; back to ' before the
 // handler runs, so a crafted filename/nickname/message could break out and execute code.
@@ -880,8 +912,8 @@ function setMediaPlaybackRate(rate) {
 function copyPreviewText() {
     const textEl = document.getElementById('previewTextContent');
     if (textEl) {
-        navigator.clipboard.writeText(textEl.innerText).then(() => {
-            showToast('Copied to clipboard!', 'copy');
+        copyToClipboard(textEl.innerText).then((ok) => {
+            showToast(ok ? 'Copied to clipboard!' : 'Could not copy. Select the text and copy it manually.', ok ? 'copy' : 'error');
         });
     }
 }
@@ -923,12 +955,8 @@ function handleIncomingChatMessage(msg) {
             updateChatUnreadBadges();
         }
 
-        // If on Host and auto-sync is enabled, copy incoming peer text directly to OS clipboard
-        if (window.isHostSession && msg.text && localStorage.getItem('pyshare_host_auto_clipboard') !== 'false') {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(msg.text).catch(() => {});
-            }
-        }
+        // Auto-copy to the host PC's clipboard happens on the server (host setting). Never call the
+        // clipboard API here: writing without a click triggers a browser permission prompt.
     }
 }
 window.handleIncomingChatMessage = handleIncomingChatMessage;
@@ -1025,15 +1053,17 @@ const CHAT_CHECK_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="no
 
 function copyChatMessage(btn, text) {
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+    copyToClipboard(text).then((ok) => {
+        if (!ok) {
+            showToast('Could not copy. Long-press the message to copy it.', 'error');
+            return;
+        }
         showToast('Copied to clipboard!', 'copy');
         if (btn) {
             btn.innerHTML = CHAT_CHECK_SVG;
             btn.classList.add('copied');
             setTimeout(() => { btn.innerHTML = CHAT_COPY_SVG; btn.classList.remove('copied'); }, 1500);
         }
-    }).catch(() => {
-        showToast('Failed to copy', 'error');
     });
 }
 window.copyChatMessage = copyChatMessage;
@@ -1147,17 +1177,23 @@ function copySharedClipboard() {
     const display = document.getElementById('clipboardCurrent');
     const raw = display?.dataset?.raw;
     if (raw) {
-        navigator.clipboard.writeText(raw).then(() => {
-            showToast('Copied to system clipboard!', 'copy');
+        copyToClipboard(raw).then((ok) => {
+            showToast(ok ? 'Copied to system clipboard!' : 'Could not copy to the clipboard', ok ? 'copy' : 'error');
         });
     }
 }
 
+let chatSendInFlight = false;
+
 async function sendClipboard() {
     const input = document.getElementById('clipboardInput');
-    if (!input || !input.value.trim()) return;
-
+    if (!input) return;
     const text = input.value.trim();
+    if (!text || chatSendInFlight) return;
+
+    chatSendInFlight = true;
+    const sendBtn = document.querySelector('.btn-send');
+    if (sendBtn) sendBtn.disabled = true;
     try {
         const res = await fetch('/api/text', {
             method: 'POST',
@@ -1166,13 +1202,39 @@ async function sendClipboard() {
         });
         if (res.ok) {
             input.value = '';
-            showToast('Message sent!', 'chat');
-            loadClipboard();
+            // The server returns the updated conversation: render it straight away
+            const data = await res.json().catch(() => null);
+            if (data && Array.isArray(data.messages)) {
+                renderClipboardChat(data.messages);
+                if (data.timestamp) lastClipboardTs = data.timestamp;
+            } else {
+                loadClipboard();
+            }
+        } else if (res.status === 401) {
+            showToast('Your session ended. Reconnecting...', 'error');
+            setTimeout(() => window.location.reload(), 1500);
+        } else if (res.status === 413) {
+            showToast('That message is too long (max 64 KB)', 'warning');
+        } else {
+            showToast(`Message not sent (server error ${res.status})`, 'error');
         }
     } catch (e) {
-        showToast('Failed to send message', 'error');
+        showToast('Message not sent. Check your Wi-Fi connection.', 'error');
+    } finally {
+        chatSendInFlight = false;
+        if (sendBtn) sendBtn.disabled = false;
     }
 }
+
+// Phones: when the keyboard opens, keep the newest messages in view above it
+document.addEventListener('focusin', (e) => {
+    if (e.target && e.target.id === 'clipboardInput') {
+        setTimeout(() => {
+            const list = document.getElementById('clipboardChatList');
+            if (list) list.scrollTop = list.scrollHeight;
+        }, 300);
+    }
+});
 
 // --- HOST ACTIONS ---
 function deleteFile(filename, folder) {

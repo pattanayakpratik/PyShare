@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
     <title>PyShare — Instant Web Transfer</title>
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="apple-touch-icon" href="app_icon.png">
@@ -568,10 +568,11 @@
                 <div id="clipboardCurrent" style="font-size: 13px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; word-break: break-all;">
                     <span style="color: var(--text-sub);">Clipboard is empty.</span>
                 </div>
-                <div style="display: flex; gap: 8px; margin-top: 6px;">
-                    <input type="text" id="clipboardInput" placeholder="Type text or paste link..." class="search-input-box" style="margin-bottom: 0; flex: 1; min-width: 0;" onkeydown="if(event.key==='Enter') sendClipboardP2P()">
-                    <button class="btn-primary" onclick="sendClipboardP2P()" style="padding: 10px 18px; font-size: 13px; border-radius: 10px; flex-shrink: 0;">Send</button>
-                </div>
+                <!-- Real <form> so the phone keyboard's Send/Go key always submits -->
+                <form style="display: flex; gap: 8px; margin-top: 6px;" onsubmit="event.preventDefault(); sendClipboardP2P();" autocomplete="off">
+                    <input type="text" id="clipboardInput" placeholder="Type text or paste link..." class="search-input-box" style="margin-bottom: 0; flex: 1; min-width: 0;" aria-label="Text to send" enterkeyhint="send" autocomplete="off">
+                    <button type="submit" class="btn-primary" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" style="padding: 10px 18px; font-size: 13px; border-radius: 10px; flex-shrink: 0;">Send</button>
+                </form>
             </div>
         </div>
     </div>
