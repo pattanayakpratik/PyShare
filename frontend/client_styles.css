@@ -282,10 +282,7 @@ body {
 /* Disconnect Overlay (Cyber Dim Backdrop) */
 .disconnect-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;  /* matches the visible screen even while the mobile address bar is showing */
     background: rgba(4, 7, 16, 0.9);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
@@ -375,6 +372,7 @@ body {
 .chat-modal-box {
     max-width: 520px;
     height: min(640px, 82vh);
+    height: min(640px, 82dvh);  /* dvh follows the visible area (browser UI / keyboard) */
     display: flex;
     flex-direction: column;
 }
@@ -401,6 +399,12 @@ body {
     padding: 10px 2px;
 }
 
+/* When space is tight the message list shrinks; the header and message box never do */
+.chat-modal-box > .modal-header,
+.chat-modal-body > .chat-composer {
+    flex-shrink: 0;
+}
+
 @keyframes sheetUp {
     from { transform: translateY(40px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
@@ -413,8 +417,10 @@ body {
     }
     .chat-sheet .chat-modal-box {
         max-width: none;
-        height: 84vh;
-        max-height: 84vh;
+        /* Size against the backdrop (= the visible screen via inset:0), not viewport units:
+           stays correct while the address bar or keyboard is showing, even without dvh support */
+        height: 86%;
+        max-height: calc(100% - 12px);
         border-radius: 22px 22px 0 0;
         border-bottom: none;
         animation: sheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);

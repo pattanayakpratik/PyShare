@@ -2,7 +2,9 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <!-- interactive-widget=resizes-content: on Android the on-screen keyboard shrinks the layout,
+         so the bottom chat sheet sits above the keyboard instead of underneath it -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
     <title>PyShare Client</title>
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="apple-touch-icon" href="app_icon.png">
@@ -174,16 +176,20 @@
                 </div>
 
                 <!-- Chat Input Controls -->
-                <div class="chat-composer">
+                <!-- A real <form>: the phone keyboard's Send/Go key submits it reliably (a bare input
+                     can get a "Next"/"Done" key on Android that never fires Enter). -->
+                <form class="chat-composer" onsubmit="event.preventDefault(); sendClipboard();" autocomplete="off">
                     <input type="file" id="chatFileInput" hidden onchange="if(this.files[0]) uploadChatAttachment(this.files[0])">
                     <button type="button" class="btn-icon" onclick="document.getElementById('chatFileInput').click()" title="Attach a file or screenshot" aria-label="Attach file">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                     </button>
-                    <input type="text" id="clipboardInput" class="chat-input" placeholder="Message, link, or paste an image" aria-label="Chat message" onkeydown="if(event.key==='Enter') sendClipboard()">
-                    <button class="btn-primary btn-send" onclick="sendClipboard()" title="Send" aria-label="Send message">
+                    <input type="text" id="clipboardInput" class="chat-input" placeholder="Message, link, or paste an image" aria-label="Chat message" enterkeyhint="send" autocomplete="off" autocapitalize="sentences">
+                    <!-- pointerdown preventDefault keeps focus (and the keyboard) on the input so tapping Send
+                         doesn't collapse the keyboard and shift the layout mid-tap -->
+                    <button type="submit" class="btn-primary btn-send" title="Send" aria-label="Send message" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                     </button>
-                </div>
+                </form>
             </div>
         </div>
     </div>
