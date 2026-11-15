@@ -137,7 +137,8 @@ def get_default_directories():
         "window_y": None,
         "minimize_to_tray": True,
         "pin_mode": "rotating",
-        "static_pin": "1234"
+        "static_pin": "1234",
+        "auto_clipboard": True
     }
 
 def load_app_config():
@@ -273,6 +274,7 @@ CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
 NEXT_CHANGE = 0    # Track timestamp when PIN rotates
 SESSIONS = {}      # Stores authenticated client session tokens (token -> created_timestamp)
+AUTO_CLIPBOARD = True  # Host setting: copy chat messages from devices to this PC's clipboard
 SHARED_TEXT = ""   # In-memory shared clipboard / quick link
 TEXT_TIMESTAMP = 0 # Timestamp of last clipboard change
 MAX_CHAT_HISTORY = 30
@@ -1724,6 +1726,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(403, "Forbidden")
             return
 
+        # Host Settings (Host Only)
+        if self.path == '/api/settings':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            self.send_json({"auto_clipboard": AUTO_CLIPBOARD})
+            return
+
         # Connected Peers Endpoint (Host Only)
         if self.path == '/api/peers':
             if not self.is_host_client():
@@ -2001,7 +2011,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return
 
     def do_POST(self):
-        global PIN_MODE, STATIC_PIN, CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE
+        global PIN_MODE, STATIC_PIN, CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, AUTO_CLIPBOARD
 
         # Handle Server Shutdown via POST
         if self.path in ('/shutdown', '/api/stop', '/api/shutdown'):
@@ -2285,6 +2295,29 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
             return
 
+        # Update Host Settings (/api/settings - Host Only)
+        if self.path == '/api/settings':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 1024:
+                self.send_error(400, "Bad Request")
+                return
+            try:
+                data = json.loads(self.rfile.read(length).decode('utf-8', errors='ignore') or "{}")
+            except Exception:
+                self.send_error(400, "Invalid JSON")
+                return
+            if "auto_clipboard" in data:
+                AUTO_CLIPBOARD = bool(data["auto_clipboard"])
+                cfg = load_app_config()
+                cfg["auto_clipboard"] = AUTO_CLIPBOARD
+                save_app_config(cfg)
+                add_event(f"Auto-copy chat to PC clipboard: {'on' if AUTO_CLIPBOARD else 'off'}")
+            self.send_json({"status": "ok", "auto_clipboard": AUTO_CLIPBOARD})
+            return
+
         # Handle PIN Mode Switch (/api/pin/mode - Host Only)
         if self.path == '/api/pin/mode':
             if not self.is_host_client():
@@ -2380,11 +2413,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     "new_message": msg
                 }
 
-            # Direct sync to Windows OS clipboard
-            try:
-                pyperclip.copy(new_text)
-            except Exception:
-                pass
+            # Auto-copy incoming messages to the host PC's clipboard (host setting). Done server-side
+            # only: a browser-side navigator.clipboard.writeText() without a click makes Chromium /
+            # WebView2 show a "wants to see text and images copied to the clipboard" permission prompt.
+            if AUTO_CLIPBOARD and not is_host:
+                try:
+                    pyperclip.copy(new_text)
+                except Exception:
+                    pass
 
             snippet = (new_text[:35] + "...") if len(new_text) > 35 else new_text
             add_event(f"Chat from {sender_name}: {snippet}")
@@ -2746,7 +2782,12 @@ def launch_desktop_app(url):
 
 
 class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
+    # On Windows, SO_REUSEADDR lets a SECOND process bind a port that is already listening.
+    # Two PyShare instances then silently share 8010 and the OS splits clients between them:
+    # phones land on the server that doesn't have their session (random 401s, chat "won't send",
+    # missing files). Claim the port exclusively there so the port loop moves on to 8011.
+    # On Linux/macOS SO_REUSEADDR only allows quick restarts (TIME_WAIT), so keep it.
+    allow_reuse_address = (os.name != 'nt')
     daemon_threads = True
 
     def handle_error(self, request, client_address):
@@ -2756,6 +2797,8 @@ class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
         super().handle_error(request, client_address)
 
     def server_bind(self):
+        if os.name == 'nt' and hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         try:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4194304)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4194304)
@@ -2771,15 +2814,26 @@ class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
             pass
         return conn, addr
 
+def apply_saved_settings(cfg):
+    """Apply persisted host settings (PIN mode, fixed PIN, auto-copy) from the config dict."""
+    global PIN_MODE, STATIC_PIN, AUTO_CLIPBOARD
+    with state_lock:
+        PIN_MODE = cfg.get("pin_mode") if cfg.get("pin_mode") in ("static", "rotating") else "rotating"
+        saved_pin = str(cfg.get("static_pin", "1234")).strip()
+        STATIC_PIN = saved_pin if (len(saved_pin) == 4 and saved_pin.isdigit()) else "1234"
+        AUTO_CLIPBOARD = bool(cfg.get("auto_clipboard", True))
+
 def start_server():
     global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, httpd, ACTUAL_PORT, zc
-    
+
     print("\n" + "="*45)
     print("[*] Starting PyShare...")
 
     try:
         cfg = load_app_config()
         defaults = get_default_directories()
+        # Saved settings used to be ignored at startup (a fixed PIN reverted to rotating on restart)
+        apply_saved_settings(cfg)
         DOWNLOAD_DIR = os.path.abspath(cfg.get("shared_dir", defaults["shared_dir"]))
         UPLOAD_DIR = os.path.abspath(cfg.get("received_dir", defaults["received_dir"]))
         try:
