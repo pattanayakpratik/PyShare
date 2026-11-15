@@ -71,15 +71,9 @@ function copyHostIp() {
         }
     }
     const fullUrl = `http://${addr}/`;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(fullUrl).then(() => {
-            showToast(`Server URL copied: ${fullUrl}`, 'copy');
-        }).catch(() => {
-            showToast(`Server URL: ${fullUrl}`, 'info');
-        });
-    } else {
-        showToast(`Server URL: ${fullUrl}`, 'info');
-    }
+    copyToClipboard(fullUrl).then((ok) => {
+        showToast(ok ? `Server URL copied: ${fullUrl}` : `Server URL: ${fullUrl}`, ok ? 'copy' : 'info');
+    });
 }
 window.copyHostIp = copyHostIp;
 
@@ -92,21 +86,37 @@ function handleFilesHost(files) {
     uploadManager.addFiles(files, '/?dest=host');
 }
 
-// Host Clipboard Direct Sync & Auto-Sync Switch
-function toggleHostAutoClipboardSync(checked) {
+// Auto-copy incoming chat to this PC's clipboard. This is a server setting: the server writes the
+// Windows clipboard itself, so the browser never calls the clipboard API without a click (which
+// made Chromium/WebView2 show a "wants to see text and images copied to the clipboard" prompt).
+async function toggleHostAutoClipboardSync(checked) {
+    const cb = document.getElementById('toggleHostAutoClipboard');
     try {
-        localStorage.setItem('pyshare_host_auto_clipboard', checked ? 'true' : 'false');
-        showToast(checked ? 'OS Clipboard Auto-Sync enabled' : 'OS Clipboard Auto-Sync disabled', checked ? 'check' : 'info');
-    } catch(e) {}
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ auto_clipboard: !!checked })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (cb) cb.checked = !!data.auto_clipboard;
+        showToast(data.auto_clipboard ? 'Incoming messages will be copied to this PC' : 'Auto-copy to this PC is off', data.auto_clipboard ? 'check' : 'info');
+    } catch (e) {
+        if (cb) cb.checked = !checked;  // revert: the setting didn't change
+        showToast('Could not change the auto-copy setting', 'error');
+    }
 }
 window.toggleHostAutoClipboardSync = toggleHostAutoClipboardSync;
 
-(function initHostAutoClipboard() {
+(async function initHostAutoClipboard() {
     const cb = document.getElementById('toggleHostAutoClipboard');
-    if (cb) {
-        const val = localStorage.getItem('pyshare_host_auto_clipboard');
-        cb.checked = (val !== 'false'); // Default to true
-    }
+    if (!cb) return;
+    cb.checked = true;  // server default
+    try {
+        const res = await fetch('/api/settings');
+        if (res.ok) cb.checked = !!(await res.json()).auto_clipboard;
+    } catch (e) {}
+    try { localStorage.removeItem('pyshare_host_auto_clipboard'); } catch (e) {}  // old browser-side flag
 })();
 
 async function syncPCClipboard() {
@@ -742,8 +752,8 @@ async function toggleTunnel() {
 
 function copyTunnelUrl() {
     if (currentTunnelUrl) {
-        navigator.clipboard.writeText(currentTunnelUrl).then(() => {
-            showToast('Copied Public URL to clipboard!', 'copy');
+        copyToClipboard(currentTunnelUrl).then((ok) => {
+            showToast(ok ? 'Copied Public URL to clipboard!' : 'Could not copy the link', ok ? 'copy' : 'error');
         });
     }
 }

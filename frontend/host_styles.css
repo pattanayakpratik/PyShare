@@ -34,6 +34,8 @@
             "col-connect col-files col-hub";
         height: 100vh;
         max-height: 100vh;
+        height: 100dvh;      /* tablets in landscape: exclude browser toolbars */
+        max-height: 100dvh;
         overflow: hidden;
         gap: 12px;
         padding: 6px 18px 14px 18px;
