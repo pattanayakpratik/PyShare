@@ -6,6 +6,9 @@ let pcFiles = [];
 let mobileFiles = [];
 let lastClipboardTs = 0;
 window.globalSSE = null;
+// Declared up here (not next to initClientDevice) because init() below runs immediately and
+// reads it: a `let` declared later in the file is in its temporal dead zone at that point.
+let currentClientNickname = localStorage.getItem('pyshare_device_name') || 'My Device';
 
 (function init() {
     const urlTheme = new URLSearchParams(window.location.search).get('theme');
@@ -245,6 +248,15 @@ function escapeHtml(str) {
     }[m]));
 }
 
+// Embed any value as a JavaScript string argument inside an inline on*="..." attribute.
+// escapeHtml() alone is NOT enough there: the browser decodes &#39; back to ' before the
+// handler runs, so a crafted filename/nickname/message could break out and execute code.
+// JSON.stringify produces a valid JS string literal; escapeHtml then protects the attribute.
+// Usage: onclick="fn(${jsArg(value)})"  (no surrounding quotes)
+function jsArg(value) {
+    return escapeHtml(JSON.stringify(value == null ? '' : String(value)));
+}
+
 function formatSize(bytes) {
     if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
@@ -362,9 +374,13 @@ class UploadQueueManager {
 
     addFiles(files, uploadUrl = '/') {
         if (!files || !files.length) return;
-        
+
         const drawer = document.getElementById('floatingQueue');
         if (drawer) drawer.style.display = 'flex';
+        this.batchSummaryShown = false;
+        clearTimeout(this.hideTimer);
+        const speedEl = document.getElementById('queueSpeed');
+        if (speedEl && this.activeUploads === 0) speedEl.innerText = 'Starting…';
 
         Array.from(files).forEach(file => {
             const item = {
@@ -394,7 +410,7 @@ class UploadQueueManager {
                 <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</span>
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span id="${item.id}_status" style="color:var(--text-sub); font-family:monospace; font-size:10px;">${formatSize(item.file.size)}</span>
-                    <button id="${item.id}_cancel" class="icon-btn" onclick="uploadManager.cancelItem('${item.id}')" style="width:18px; height:18px; padding:0; border:none; background:transparent; color:var(--text-muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;" title="Cancel Upload" aria-label="Cancel">
+                    <button id="${item.id}_cancel" class="icon-btn" onclick="uploadManager.cancelItem(${jsArg(item.id)})" style="width:18px; height:18px; padding:0; border:none; background:transparent; color:var(--text-muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;" title="Cancel Upload" aria-label="Cancel">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
@@ -455,8 +471,19 @@ class UploadQueueManager {
             if (totalRemaining > 0) {
                 statusEl.innerText = `Uploading ${totalRemaining} file${totalRemaining > 1 ? 's' : ''}...`;
             } else if (this.queue.length > 0) {
-                statusEl.innerText = `All uploads complete!`;
-                setTimeout(() => {
+                const done = this.queue.filter(i => i.status === 'done').length;
+                const failed = this.queue.filter(i => i.status === 'error').length;
+                statusEl.innerText = failed ? `${done} sent, ${failed} failed` : 'All uploads complete!';
+                const speedDoneEl = document.getElementById('queueSpeed');
+                if (speedDoneEl) speedDoneEl.innerText = '';  // don't leave "calculating..." on a finished batch
+                // One summary toast per batch (per-file "Saved" toasts used to pile up)
+                if (!this.batchSummaryShown && done > 0) {
+                    this.batchSummaryShown = true;
+                    const plural = done === 1 ? 'file' : 'files';
+                    showToast(window.isHostSession ? `Added ${done} ${plural} to Shared` : `Sent ${done} ${plural} to the host`, 'success');
+                }
+                clearTimeout(this.hideTimer);
+                this.hideTimer = setTimeout(() => {
                     const drawer = document.getElementById('floatingQueue');
                     if (drawer) drawer.style.display = 'none';
                     const list = document.getElementById('queueItemsList');
@@ -530,7 +557,6 @@ class UploadQueueManager {
                 }
                 if (statusEl) statusEl.innerText = 'Done';
                 if (navigator.vibrate) navigator.vibrate(50);
-                showToast(`Saved: ${item.file.name}`, 'success');
             } else {
                 item.status = 'error';
                 if (statusEl) statusEl.innerText = 'Failed';
@@ -565,28 +591,64 @@ function handleFiles(files) {
     uploadManager.addFiles(files, '/');
 }
 
+// Drop files anywhere on the page (not just the drop zone). A full-window overlay explains
+// what will happen; dropping onto an open chat sends the files as chat attachments instead.
 function setupDragDrop() {
     const dropZone = document.getElementById('dropZone');
     if (!dropZone) return;
 
-    window.addEventListener('dragover', (e) => e.preventDefault(), false);
-    window.addEventListener('drop', (e) => e.preventDefault(), false);
+    let overlay = null;
+    let dragDepth = 0;
+    const isFileDrag = (e) => !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'));
 
-    dropZone.addEventListener('dragenter', () => dropZone.classList.add('dragover'), false);
-    dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'), false);
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'), false);
-
-    dropZone.addEventListener('drop', async (e) => {
+    const showOverlay = () => {
+        if (!overlay) {
+            const host = window.isHostSession === true;
+            overlay = document.createElement('div');
+            overlay.className = 'page-drop-overlay';
+            overlay.innerHTML = `<div class="page-drop-card">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <strong>${host ? 'Drop to share' : 'Drop to send to the host'}</strong>
+                <span>${host ? 'Connected devices will be able to download them' : 'Files are saved on the host computer'}</span>
+            </div>`;
+            document.body.appendChild(overlay);
+        }
+        overlay.classList.add('visible');
+        dropZone.classList.add('dragover');
+    };
+    const hideOverlay = () => {
+        dragDepth = 0;
+        if (overlay) overlay.classList.remove('visible');
         dropZone.classList.remove('dragover');
-        if (e.dataTransfer) {
-            const extractedFiles = await extractFilesFromDataTransfer(e.dataTransfer);
-            if (extractedFiles && extractedFiles.length > 0) {
-                if (window.handleFilesCustom) {
-                    window.handleFilesCustom(extractedFiles);
-                } else {
-                    handleFiles(extractedFiles);
-                }
-            }
+    };
+
+    window.addEventListener('dragenter', (e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        dragDepth++;
+        showOverlay();
+    }, false);
+    window.addEventListener('dragover', (e) => e.preventDefault(), false);
+    window.addEventListener('dragleave', (e) => {
+        if (!isFileDrag(e)) return;
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) hideOverlay();
+    }, false);
+    window.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        hideOverlay();
+        if (!isFileDrag(e)) return;
+        const files = await extractFilesFromDataTransfer(e.dataTransfer);
+        if (!files || !files.length) return;
+
+        const chatOpen = (document.getElementById('clipboardModal')?.classList.contains('open'))
+            || (document.getElementById('hubClipPane')?.classList.contains('active') && e.target.closest?.('#hubClipPane'));
+        if (chatOpen) {
+            files.forEach(f => uploadChatAttachment(f));
+        } else if (window.handleFilesCustom) {
+            window.handleFilesCustom(files);
+        } else {
+            handleFiles(files);
         }
     }, false);
 }
@@ -609,16 +671,36 @@ async function loadFiles() {
     } catch (e) {}
 }
 
+function setCountBadge(id, count) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = count;
+}
+
 function renderPCFiles() {
     const query = (document.getElementById('searchPC')?.value || '').toLowerCase();
     const filtered = pcFiles.filter(f => f.name.toLowerCase().includes(query));
-    renderFileList(filtered, 'file-list', 'No files in Shared folder', 'shared');
+    setCountBadge('sharedCount', pcFiles.length);
+    const emptyMsg = query ? 'No shared files match your search'
+        : (window.isHostSession ? 'Nothing shared yet. Drop files on the left to share them.' : 'The host hasn\'t shared any files yet');
+    renderFileList(filtered, 'file-list', emptyMsg, 'shared');
 }
 
 function renderMobileFiles() {
     const query = (document.getElementById('searchMobile')?.value || '').toLowerCase();
     const filtered = mobileFiles.filter(f => f.name.toLowerCase().includes(query));
-    renderFileList(filtered, 'mobile-list', 'No uploads yet', 'received');
+    setCountBadge('receivedCount', mobileFiles.length);
+    renderFileList(filtered, 'mobile-list', query ? 'No received files match your search' : 'No files received yet. Files sent from phones land here.', 'received');
+}
+
+// "just now", "5 min ago", "3 h ago", "Yesterday", "12 Nov"
+function formatRelativeTime(unixSeconds) {
+    if (!unixSeconds) return '';
+    const diff = Math.max(0, Date.now() / 1000 - unixSeconds);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+    if (diff < 172800) return 'Yesterday';
+    return new Date(unixSeconds * 1000).toLocaleDateString([], { day: 'numeric', month: 'short' });
 }
 
 function renderFileList(files, elementId, emptyMsg, folderType) {
@@ -626,7 +708,7 @@ function renderFileList(files, elementId, emptyMsg, folderType) {
     if (!list) return;
 
     if (!files.length) {
-        list.innerHTML = `<li class="empty-state">${emptyMsg}</li>`;
+        list.innerHTML = `<li class="empty-state">${escapeHtml(emptyMsg)}</li>`;
         return;
     }
 
@@ -636,33 +718,28 @@ function renderFileList(files, elementId, emptyMsg, folderType) {
         const icon = getSmartIcon(f.category, f.ext);
         const size = formatSize(f.size);
         const encName = encodeURIComponent(f.name);
-        
+        const previewCall = `openPreview(${jsArg(f.name)}, ${jsArg(f.category)}, ${Number(f.size) || 0})`;
+
+        const age = formatRelativeTime(f.mtime);
+        const catClass = /^[a-z]+$/.test(f.category || '') ? `cat-${f.category}` : '';
+
         return `
         <li class="file-row">
-            <div class="file-icon">${icon}</div>
+            <div class="file-icon ${catClass}">${icon}</div>
             <div class="file-details">
-                <a href="javascript:void(0)" onclick="openPreviewEnc('${encName}', '${f.category}', ${f.size})" class="file-name" title="${escapeHtml(f.name)}">
-                    ${escapeHtml(f.name)}
-                </a>
-                <div class="file-size">${size}</div>
+                <a href="javascript:void(0)" onclick="${previewCall}" class="file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</a>
+                <div class="file-size">${size}${age ? `<span class="file-meta-sep">&bull;</span>${escapeHtml(age)}` : ''}</div>
             </div>
             <div class="file-actions">
-                <button class="action-circle-btn" onclick="openPreviewEnc('${encName}', '${f.category}', ${f.size})" title="Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <button class="action-circle-btn" onclick="${previewCall}" title="Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                 <a href="/download/${encName}" class="action-circle-btn" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
-                ${isHost ? `<button class="action-circle-btn btn-del" onclick="deleteFileEnc('${encName}', '${folderType}')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
+                ${isHost ? `<button class="action-circle-btn btn-del" onclick="deleteFile(${jsArg(f.name)}, ${jsArg(folderType)})" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
             </div>
         </li>`;
     }).join('');
 }
 
 // --- MEDIA PREVIEW LIGHTBOX MODAL ---
-function openPreviewEnc(encName, category, size) {
-    openPreview(decodeURIComponent(encName), category, size);
-}
-
-function deleteFileEnc(encName, folderType) {
-    deleteFile(decodeURIComponent(encName), folderType);
-}
 async function openPreview(filename, category, size) {
     const modal = document.getElementById('previewModal');
     const title = document.getElementById('previewModalTitle');
@@ -678,7 +755,12 @@ async function openPreview(filename, category, size) {
     const fileUrl = `/view/${encodeURIComponent(filename)}`;
 
     if (category === 'image') {
-        body.innerHTML = `<img src="${fileUrl}" alt="${escapeHtml(filename)}" loading="lazy">`;
+        body.innerHTML = `<img src="${fileUrl}" alt="${escapeHtml(filename)}">`;
+        // Some formats (e.g. iPhone HEIC photos) can't be decoded by most browsers
+        body.querySelector('img').addEventListener('error', () => {
+            body.innerHTML = previewUnavailableHtml(filename, size,
+                "This browser can't display this image format (common for iPhone HEIC photos). Download it to view.");
+        }, { once: true });
     } else if (category === 'video') {
         body.innerHTML = `
             <div style="display:flex; flex-direction:column; gap:12px; width:100%; align-items:center;">
@@ -728,30 +810,43 @@ async function openPreview(filename, category, size) {
                     </div>
                 </div>
             </div>`;
-    } else if (category === 'code' || filename.endsWith('.txt') || filename.endsWith('.log') || filename.endsWith('.md')) {
+    } else if (category === 'code' || /\.(txt|log|md|csv)$/i.test(filename)) {
+        const PREVIEW_LIMIT = 256 * 1024;  // never pull a multi-GB log into the page
         try {
-            const res = await fetch(fileUrl);
-            const text = await res.text();
+            const res = await fetch(fileUrl, { headers: { Range: `bytes=0-${PREVIEW_LIMIT - 1}` } });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const bytes = new Uint8Array(await res.arrayBuffer());
+            if (bytes.subarray(0, 8192).includes(0)) {
+                body.innerHTML = previewUnavailableHtml(filename, size, "This looks like a binary file, so it can't be shown as text.");
+                return;
+            }
+            const text = new TextDecoder('utf-8').decode(bytes);
+            const truncated = size > bytes.length;
             body.innerHTML = `
-                <div style="width:100%; display:flex; justify-content:flex-end; margin-bottom:8px;">
-                    <button class="btn-secondary" onclick="copyPreviewText()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Text</button>
+                <div style="width:100%; display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+                    <span class="preview-note" style="margin:0; flex:1; min-width:0;">${truncated ? `Showing the first ${formatSize(bytes.length)} of ${formatSize(size)}` : ''}</span>
+                    <button class="btn-secondary" style="white-space:nowrap; flex-shrink:0;" onclick="copyPreviewText()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Text</button>
                 </div>
                 <pre id="previewTextContent"><code>${escapeHtml(text)}</code></pre>`;
         } catch (e) {
-            body.innerHTML = `<p style="color:var(--text-sub);">Could not load text preview.</p>`;
+            body.innerHTML = previewUnavailableHtml(filename, size, 'Could not load the text preview.');
         }
     } else {
-        body.innerHTML = `
-            <div style="text-align:center; padding:30px;">
-                <div style="margin-bottom:12px;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></div>
-                <h3>${escapeHtml(filename)}</h3>
-                <p style="color:var(--text-sub); margin:8px 0 20px 0;">${formatSize(size)}</p>
-                <div style="display:flex; gap:10px; justify-content:center;">
-                    <a href="${fileUrl}" target="_blank" class="btn-secondary">Open in New Tab</a>
-                    <a href="/download/${encodeURIComponent(filename)}" class="btn-primary">Download File</a>
-                </div>
-            </div>`;
+        body.innerHTML = previewUnavailableHtml(filename, size, '');
     }
+}
+
+// Fallback card for files that can't be previewed inline
+function previewUnavailableHtml(filename, size, reason) {
+    const fileUrl = `/view/${encodeURIComponent(filename)}`;
+    return `
+        <div class="preview-unavailable">
+            <div style="margin-bottom:12px;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></div>
+            <h3 style="color:var(--text-main); word-break:break-word;">${escapeHtml(filename)}</h3>
+            <p style="margin:8px 0 ${reason ? '8px' : '20px'} 0;">${formatSize(size)}</p>
+            ${reason ? `<p style="margin:0 auto 20px auto; max-width:360px; font-size:13px; line-height:1.5;">${escapeHtml(reason)}</p>` : ''}
+            <a href="${fileUrl}" target="_blank" rel="noopener" class="btn-secondary">Open in New Tab</a>
+        </div>`;
 }
 
 function closePreview() {
@@ -817,8 +912,7 @@ function playChatChime() {
 
 function handleIncomingChatMessage(msg) {
     if (!msg) return;
-    const myNickname = (typeof currentClientNickname !== 'undefined' ? currentClientNickname : '') || localStorage.getItem('pyshare_device_name') || '';
-    const isSelf = Boolean(myNickname && msg.sender === myNickname);
+    const isSelf = isOwnChatMessage(msg);
     if (!isSelf) {
         playChatChime();
         if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
@@ -926,20 +1020,34 @@ function formatChatText(text) {
     return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="chat-link">$1</a>');
 }
 
+const CHAT_COPY_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const CHAT_CHECK_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
 function copyChatMessage(btn, text) {
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
         showToast('Copied to clipboard!', 'copy');
         if (btn) {
-            const original = btn.innerHTML;
-            btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="20 6 9 17 4 12"/></svg> <span>Copied</span>`;
-            setTimeout(() => { btn.innerHTML = original; }, 1500);
+            btn.innerHTML = CHAT_CHECK_SVG;
+            btn.classList.add('copied');
+            setTimeout(() => { btn.innerHTML = CHAT_COPY_SVG; btn.classList.remove('copied'); }, 1500);
         }
     }).catch(() => {
         showToast('Failed to copy', 'error');
     });
 }
 window.copyChatMessage = copyChatMessage;
+
+// Was this chat message sent by this device? Host: messages flagged is_host. Client: match on the
+// session id the server reports (/api/info peer_id), falling back to nickname for older servers.
+let currentPeerId = '';
+function isOwnChatMessage(msg) {
+    if (!msg) return false;
+    if (window.isHostSession) return !!msg.is_host;
+    if (currentPeerId && msg.sender_id) return msg.sender_id === currentPeerId;
+    const myNickname = currentClientNickname || localStorage.getItem('pyshare_device_name') || '';
+    return Boolean(myNickname && msg.sender === myNickname);
+}
 
 function renderClipboardChat(messages) {
     chatMessagesCache = Array.isArray(messages) ? messages : [];
@@ -954,53 +1062,38 @@ function renderClipboardChat(messages) {
     const listEl = document.getElementById('clipboardChatList');
     if (listEl) {
         if (chatMessagesCache.length === 0) {
-            listEl.innerHTML = `<div class="empty-state" style="padding: 24px 0; font-size: 13px; color: var(--text-sub);">No messages yet. Send a message, file, or paste screenshot!</div>`;
+            listEl.innerHTML = `<div class="hub-empty">No messages yet. Send text, a link, or paste a screenshot.</div>`;
         } else {
             let html = '';
-            const myNickname = (typeof currentClientNickname !== 'undefined' ? currentClientNickname : '') || localStorage.getItem('pyshare_device_name') || '';
             chatMessagesCache.forEach(msg => {
-                const isSelf = Boolean(myNickname && msg.sender === myNickname);
+                const isSelf = isOwnChatMessage(msg);
                 const roleClass = isSelf ? 'self' : (msg.is_host ? 'host' : 'peer');
                 const timeText = msg.time_str || (msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
-                const rawEscapedAttr = (msg.text || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                const senderLabel = isSelf ? 'You' : (msg.sender || 'Device');
 
                 let attachmentHtml = '';
                 if (msg.attachment) {
                     if (msg.attachment.is_image) {
-                        attachmentHtml = `
-                            <div class="chat-attachment-img-box" style="margin-top:6px; border-radius:10px; overflow:hidden; border:1px solid var(--border-color); max-width:240px; max-height:180px; background:rgba(0,0,0,0.25);">
-                                <img src="${escapeHtml(msg.attachment.preview_url || msg.attachment.url)}" alt="${escapeHtml(msg.attachment.name)}" style="width:100%; height:auto; max-height:180px; object-fit:contain; display:block; cursor:pointer;" onclick="window.open('${escapeHtml(msg.attachment.url)}', '_blank')">
-                            </div>
-                        `;
+                        attachmentHtml = `<div class="chat-attachment-img-box"><img src="${escapeHtml(msg.attachment.preview_url || msg.attachment.url)}" alt="${escapeHtml(msg.attachment.name)}" onclick="window.open(${jsArg(msg.attachment.url)}, '_blank')"></div>`;
                     } else {
-                        attachmentHtml = `
-                            <a href="${escapeHtml(msg.attachment.url)}" download="${escapeHtml(msg.attachment.name)}" class="chat-file-card" style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.2); border-radius:8px; margin-top:6px; text-decoration:none; color:inherit;">
-                                <span style="color:var(--accent-cyan); display:inline-flex;">${getToastSvg('save')}</span>
-                                <div style="flex:1; min-width:0;">
-                                    <div style="font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(msg.attachment.name)}</div>
-                                    <div style="font-size:10px; color:var(--text-sub);">${formatSize(msg.attachment.size || 0)}</div>
-                                </div>
-                            </a>
-                        `;
+                        attachmentHtml = `<a href="${escapeHtml(msg.attachment.url)}" download="${escapeHtml(msg.attachment.name)}" class="chat-file-card">`
+                            + `<span style="color:var(--accent-cyan); display:inline-flex;">${getToastSvg('save')}</span>`
+                            + `<span style="flex:1; min-width:0;"><span style="display:block; font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(msg.attachment.name)}</span>`
+                            + `<span style="display:block; font-size:10px; color:var(--text-sub);">${formatSize(msg.attachment.size || 0)}</span></span></a>`;
                     }
                 }
 
+                // Keep bubble markup free of template whitespace: .chat-text uses white-space: pre-wrap
+                const bubble = `<div class="chat-bubble">${msg.text ? `<div class="chat-text">${formatChatText(msg.text)}</div>` : ''}${attachmentHtml}</div>`;
+                const copyBtn = msg.text
+                    ? `<button type="button" class="chat-copy-btn" onclick="copyChatMessage(this, ${jsArg(msg.text)})" title="Copy text" aria-label="Copy message">${CHAT_COPY_SVG}</button>`
+                    : '';
+
                 html += `
                     <div class="chat-msg-row ${roleClass}">
-                        <div class="chat-msg-header">
-                            <span class="chat-sender-name">${escapeHtml(msg.sender || 'Device')}</span>
-                            <span class="chat-msg-time">${escapeHtml(timeText)}</span>
-                        </div>
-                        <div class="chat-bubble">
-                            <div class="chat-text">${formatChatText(msg.text)}</div>
-                            ${attachmentHtml}
-                            <button type="button" class="chat-copy-btn" onclick="copyChatMessage(this, '${rawEscapedAttr}')" title="Copy text">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                <span>Copy</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
+                        <div class="chat-msg-header"><span class="chat-sender-name">${escapeHtml(senderLabel)}</span><span class="chat-msg-time">${escapeHtml(timeText)}</span></div>
+                        <div class="chat-msg-body">${bubble}${copyBtn}</div>
+                    </div>`;
             });
             listEl.innerHTML = html;
             listEl.scrollTop = listEl.scrollHeight;
@@ -1083,10 +1176,13 @@ async function sendClipboard() {
 
 // --- HOST ACTIONS ---
 function deleteFile(filename, folder) {
+    const isShared = folder === 'shared';
     showPyShareConfirm({
-        title: "PyShare",
-        message: `Are you sure you want to delete "${filename}"?`,
-        confirmText: "Delete",
+        title: isShared ? 'Remove from Shared?' : 'Delete this file?',
+        message: isShared
+            ? `"${filename}" will no longer be available to connected devices.`
+            : `"${filename}" will be permanently deleted from the Received folder on this PC.`,
+        confirmText: isShared ? 'Remove' : 'Delete',
         isDanger: true,
         onConfirm: async () => {
             try {
@@ -1096,7 +1192,7 @@ function deleteFile(filename, folder) {
                     body: JSON.stringify({ filename: filename, folder: folder })
                 });
                 if (res.ok) {
-                    showToast(`Deleted ${filename}`, 'trash');
+                    showToast(isShared ? `Removed ${filename} from Shared` : `Deleted ${filename}`, 'trash');
                     loadFiles();
                 } else {
                     showToast('Failed to delete file', 'error');
@@ -1127,9 +1223,7 @@ function disconnectServer() {
     });
 }
 
-// --- Client Device Nickname Management ---
-let currentClientNickname = localStorage.getItem('pyshare_device_name') || 'My Device';
-
+// --- Client Device Nickname Management (currentClientNickname is declared at the top) ---
 async function initClientDevice() {
     const nameEl = document.getElementById('clientDeviceNameText');
     if (nameEl && currentClientNickname) {
@@ -1145,6 +1239,9 @@ async function initClientDevice() {
                 if (nameEl) nameEl.innerText = data.nickname;
                 try { localStorage.setItem('pyshare_device_name', data.nickname); } catch(e) {}
             }
+            if (data && data.peer_id) currentPeerId = data.peer_id;
+            // Chat may have rendered before we knew who we are: re-render so own messages align right
+            if (chatMessagesCache.length) renderClipboardChat(chatMessagesCache);
         }
     } catch (e) {}
 }

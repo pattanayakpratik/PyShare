@@ -435,7 +435,7 @@ function showPyShareConfirm({
                     </div>
                     <div style="padding: 22px 20px; color: var(--text-sub); font-size: 14px; line-height: 1.5;" id="pyshareConfirmMessage">
                     </div>
-                    <div class="modal-footer" style="padding: 14px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.15);">
+                    <div class="modal-footer" style="padding: 14px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color);">
                         <button type="button" class="btn-secondary" id="pyshareConfirmCancelBtn" style="padding: 8px 18px; font-size: 13px; font-weight: 600; border-radius: 10px; cursor: pointer;">Cancel</button>
                         <button type="button" class="btn-primary" id="pyshareConfirmOkBtn" style="padding: 8px 20px; font-size: 13px; font-weight: 700; border-radius: 10px; cursor: pointer;">Confirm</button>
                     </div>
@@ -539,7 +539,8 @@ function showPySharePrompt({
     placeholder = 'Type here...',
     confirmText = 'Save',
     cancelText = 'Cancel',
-    maxLength = 32
+    maxLength = 32,
+    inputMode = 'text'
 } = {}) {
     return new Promise((resolve) => {
         let modal = document.getElementById('pysharePromptModal');
@@ -562,7 +563,7 @@ function showPySharePrompt({
                             <label id="pysharePromptMessage" style="color: var(--text-sub); font-size: 13px; line-height: 1.4;"></label>
                             <input type="text" id="pysharePromptInput" class="search-input-box" style="margin: 0; width: 100%; box-sizing: border-box; font-size: 14px;" />
                         </div>
-                        <div class="modal-footer" style="padding: 14px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.15);">
+                        <div class="modal-footer" style="padding: 14px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color);">
                             <button type="button" class="btn-secondary" id="pysharePromptCancelBtn" style="padding: 8px 18px; font-size: 13px; font-weight: 600; border-radius: 10px; cursor: pointer;">Cancel</button>
                             <button type="submit" class="btn-primary" id="pysharePromptOkBtn" style="padding: 8px 20px; font-size: 13px; font-weight: 700; border-radius: 10px; cursor: pointer;">Save</button>
                         </div>
@@ -586,6 +587,8 @@ function showPySharePrompt({
             inputEl.value = defaultValue || '';
             inputEl.placeholder = placeholder || '';
             inputEl.maxLength = maxLength;
+            inputEl.inputMode = inputMode;  // e.g. 'numeric' brings up the number pad on phones
+            inputEl.setAttribute('aria-label', title);
         }
         if (okBtn) okBtn.innerText = confirmText;
         if (cancelBtn) cancelBtn.innerText = cancelText;

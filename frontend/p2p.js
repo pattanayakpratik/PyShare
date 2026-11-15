@@ -160,9 +160,17 @@ function showToast(message, icon = 'info') {
 
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>"']/g, (m) => ({
+    return String(str).replace(/[&<>"']/g, (m) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[m]));
+}
+
+// Embed any value as a JavaScript string argument inside an inline on*="..." attribute.
+// File ids/names arrive from the remote peer, so they must never be spliced into JS source
+// directly (the browser decodes &#39; back to ' before the handler runs).
+// Usage: onclick="fn(${jsArg(value)})"  (no surrounding quotes)
+function jsArg(value) {
+    return escapeHtml(JSON.stringify(value == null ? '' : String(value)));
 }
 
 function formatSize(bytes) {
@@ -175,7 +183,7 @@ function formatSize(bytes) {
 
 function getCategory(ext) {
     ext = (ext || '').toLowerCase().replace(/^\./, '');
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(ext)) return 'image';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'heic', 'heif'].includes(ext)) return 'image';
     if (['mp4', 'mkv', 'mov', 'webm', 'avi', 'wmv', 'm4v'].includes(ext)) return 'video';
     if (['mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a', 'wma'].includes(ext)) return 'audio';
     if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'csv'].includes(ext)) return 'document';
@@ -378,29 +386,96 @@ function connectToHost(pin) {
     }
 }
 
-// Setup DataChannel Event Handlers
-function setupConnectionHandlers(conn) {
-    conn.on('open', () => {
-        activeConnections.push(conn);
-        
-        if (isHost) {
+// --- ROOM ACCESS APPROVAL ---
+// Room codes are only 4 digits on a public signalling broker, so anyone can guess one.
+// The host therefore approves every incoming device before it may send or receive anything.
+function describeThisDevice() {
+    const ua = navigator.userAgent || '';
+    const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android device'
+             : /Windows/.test(ua) ? 'Windows PC' : /Macintosh|Mac OS X/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux PC' : 'Device';
+    const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox'
+                  : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+    return `${os} (${browser})`;
+}
+
+let hostApprovalChain = Promise.resolve();  // One approval dialog at a time
+
+function askHostToApprove(conn, deviceLabel) {
+    if (conn._approvalAsked) return;
+    conn._approvalAsked = true;
+    clearTimeout(conn._approvalTimer);
+
+    hostApprovalChain = hostApprovalChain.then(async () => {
+        if (!conn.open) return;  // Device left while an earlier request was on screen
+        const label = String(deviceLabel || 'A device').slice(0, 60);
+        const message = `${label} wants to join your room. Allow it to send and receive files?`;
+        if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+        const allowed = (typeof showPyShareConfirm === 'function')
+            ? await showPyShareConfirm({ title: 'Device Wants to Join', message, confirmText: 'Allow', cancelText: 'Decline' })
+            : window.confirm(message);
+        if (!conn.open) return;
+
+        if (allowed) {
+            conn._approved = true;
+            if (!activeConnections.includes(conn)) activeConnections.push(conn);
+            try { conn.send({ type: 'join_accepted' }); } catch (e) {}
             updateConnectionStatus('Connected to Client Peer!', 'green');
             document.getElementById('hostConnectedBadge').style.display = 'flex';
             showToast('Peer connected! Ready to transfer.', 'success');
-            
-            // Sync current shared files list with newly connected client
-            syncSharedFilesToPeer(conn);
+            syncSharedFilesToPeer(conn);  // Send the current shared-files catalog
         } else {
-            updateClientStatus('Connected to Host!', 'green');
-            showToast('Connected! Ready to transfer.', 'success');
+            try { conn.send({ type: 'join_declined' }); } catch (e) {}
+            setTimeout(() => { try { conn.close(); } catch (e) {} }, 400);
+            showToast(`Declined ${label}`, 'error');
+        }
+    });
+}
+
+function markJoinedHost(conn) {
+    conn._approved = true;
+    if (!activeConnections.includes(conn)) activeConnections.push(conn);
+    updateClientStatus('Connected to Host!', 'green');
+    showToast('Connected! Ready to transfer.', 'success');
+}
+
+// Setup DataChannel Event Handlers
+function setupConnectionHandlers(conn) {
+    conn._approved = false;
+
+    conn.on('open', () => {
+        if (isHost) {
+            updateConnectionStatus('Device asking to join...', 'yellow');
+            // Guests introduce themselves right away; if one never does (older version), ask anyway.
+            conn._approvalTimer = setTimeout(() => askHostToApprove(conn, null), 2500);
+        } else {
+            updateClientStatus('Waiting for Host to accept...', 'yellow');
+            try { conn.send({ type: 'join_request', device: describeThisDevice() }); } catch (e) {}
         }
     });
 
     conn.on('data', (data) => {
+        if (isHost && !conn._approved) {
+            // Until approved, the only thing a device may send is its introduction.
+            if (data && data.type === 'join_request') askHostToApprove(conn, data.device);
+            return;
+        }
+        if (!isHost && !conn._approved) {
+            if (data && data.type === 'join_declined') {
+                conn._declined = true;
+                updateClientStatus('Host declined the connection', 'red');
+                showToast('The host declined your request', 'error');
+                return;
+            }
+            // 'join_accepted', or any data from a host on an older version, means we're in.
+            markJoinedHost(conn);
+            if (data && data.type === 'join_accepted') return;
+        }
         handleIncomingData(data, conn);
     });
 
     conn.on('close', () => {
+        clearTimeout(conn._approvalTimer);
+        const wasApproved = conn._approved;
         activeConnections = activeConnections.filter(c => c !== conn);
         if (conn._sendQueue) conn._sendQueue = [];
         conn._isSending = false;
@@ -411,10 +486,12 @@ function setupConnectionHandlers(conn) {
                 updateConnectionStatus('Ready! Waiting for device to scan...', 'blue');
                 document.getElementById('hostConnectedBadge').style.display = 'none';
             }
-            showToast('Peer disconnected', 'warning');
+            if (wasApproved) showToast('Peer disconnected', 'warning');
         } else {
-            updateClientStatus('Disconnected from Host', 'red');
-            showToast('Disconnected from Host', 'warning');
+            if (!conn._declined) {
+                updateClientStatus('Disconnected from Host', 'red');
+                showToast('Disconnected from Host', 'warning');
+            }
             pendingFileRequests.clear();
         }
     });
@@ -917,13 +994,14 @@ function renderQueueItem(id, filename, totalSize, direction) {
         el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; gap:6px;";
         list.appendChild(el);
     }
+    const safeId = escapeHtml(id);  // id may come from the remote peer
     el.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
             <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(filename)}">${direction === 'upload' ? '↑' : '↓'} ${escapeHtml(filename)}</span>
-            <span id="q_status_${id}" style="color:var(--accent-cyan); font-family:monospace; font-size:11px;">0% • ${formatSize(totalSize)}</span>
+            <span id="q_status_${safeId}" style="color:var(--accent-cyan); font-family:monospace; font-size:11px;">0% • ${formatSize(totalSize)}</span>
         </div>
         <div style="height:6px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden;">
-            <div id="q_bar_${id}" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition:width 0.15s ease; border-radius:99px;"></div>
+            <div id="q_bar_${safeId}" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition:width 0.15s ease; border-radius:99px;"></div>
         </div>
     `;
 }
@@ -1017,13 +1095,13 @@ function renderReceivedFilesUI() {
             <li class="file-row">
                 <div class="file-icon">${getSmartIcon(f.category, f.ext)}</div>
                 <div class="file-details">
-                    <a href="javascript:void(0)" onclick="openPreviewBlobById('${encodeURIComponent(f.id)}')" class="file-name" title="${escapeHtml(f.name)}">
+                    <a href="javascript:void(0)" onclick="openPreviewBlobById(${jsArg(f.id)})" class="file-name" title="${escapeHtml(f.name)}">
                         ${escapeHtml(f.name)}
                     </a>
                     <div class="file-size">${formatSize(f.size)}</div>
                 </div>
                 <div class="file-actions">
-                    <button class="action-circle-btn" onclick="openPreviewBlobById('${encodeURIComponent(f.id)}')" title="Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                    <button class="action-circle-btn" onclick="openPreviewBlobById(${jsArg(f.id)})" title="Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                     <a href="${f.url}" download="${escapeHtml(f.name)}" class="action-circle-btn" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
                 </div>
             </li>
@@ -1077,7 +1155,7 @@ function renderPeerCatalog(files) {
                     <div class="file-size">${formatSize(f.size)}</div>
                 </div>
                 <div class="file-actions">
-                    <button id="btn_dl_${f.id}" class="${btnClass}" ${btnDisabled} onclick="requestFileFromHost('${f.id}')" style="${btnStyle}">${btnContent}</button>
+                    <button id="btn_dl_${escapeHtml(f.id)}" class="${btnClass}" ${btnDisabled} onclick="requestFileFromHost(${jsArg(f.id)})" style="${btnStyle}">${btnContent}</button>
                 </div>
             </li>
         `;
@@ -1122,8 +1200,7 @@ function updateCatalogButtonState(fileId, state, pct = 0) {
 
 // --- LIGHTBOX PREVIEW MODAL ---
 function openPreviewBlobById(fileId) {
-    const id = decodeURIComponent(fileId);
-    const f = receivedFilesList.find(item => item.id === id);
+    const f = receivedFilesList.find(item => item.id === fileId);
     if (f) {
         openPreviewBlob(f.name, f.category, f.url, f.size);
     }
