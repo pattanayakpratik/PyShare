@@ -44,6 +44,9 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         # Start live in-process server on ephemeral loopback port for HTTP API tests
         cls.test_dir = tempfile.mkdtemp()
+        # Never touch the developer's real ~/.pyshare_config.json (PIN-mode tests save settings)
+        cls._real_config_file = main.CONFIG_FILE
+        main.CONFIG_FILE = os.path.join(cls.test_dir, "pyshare_test_config.json")
         main.BASE_DIR = cls.test_dir
         main.DOWNLOAD_DIR = os.path.join(cls.test_dir, "Shared")
         main.UPLOAD_DIR = os.path.join(cls.test_dir, "Received")
@@ -67,6 +70,7 @@ class TestPyShareAllFeatures(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server.server_close()
+        main.CONFIG_FILE = cls._real_config_file
         try:
             shutil.rmtree(cls.test_dir, ignore_errors=True)
         except Exception:
@@ -1140,6 +1144,100 @@ class TestPyShareAllFeatures(unittest.TestCase):
         self.assertIn("display: flex;", css_content)
 
         print("  [PASS] Step 4.13: Host tab visibility and hubClipPane inline style isolation verified")
+
+
+    def test_25_fullscreen_overlays_fit_visible_mobile_screen(self):
+        """Full-screen overlays must use inset:0, never height:100vh.
+
+        On Android Chrome 100vh is the height with the address bar hidden, so a 100vh overlay
+        extends below the visible screen and bottom-pinned content (the chat sheet's message box)
+        is cut off while the address bar is showing."""
+        frontend = os.path.join(os.path.dirname(__file__), "..", "frontend")
+        checks = {"styles.css": ".modal-backdrop {", "client_styles.css": ".disconnect-overlay {"}
+        for css_file, selector in checks.items():
+            with open(os.path.join(frontend, css_file), "r", encoding="utf-8") as f:
+                css = f.read()
+            start = css.index(selector)
+            block = css[start:css.index("}", start)]
+            block = re.sub(r"/\*.*?\*/", "", block, flags=re.S)  # ignore explanatory comments
+            self.assertIn("inset: 0", block, f"{selector} in {css_file} must be pinned with inset: 0")
+            self.assertNotRegex(block, r"(?<![-\w])height:\s*100vh", f"{selector} in {css_file} must not use height: 100vh")
+        print("  [PASS] Step 4.14: Full-screen overlays fit the visible mobile screen (no 100vh)")
+
+
+    def test_26_auto_clipboard_setting_is_server_side(self):
+        """Auto-copy to the host PC clipboard is a host setting applied by the server.
+
+        The browser must never write the clipboard on its own: an unprompted
+        navigator.clipboard.writeText() makes Chromium/WebView2 show a clipboard permission prompt."""
+        from unittest import mock
+
+        class RecordingClipboard:
+            def __init__(self): self.copied = []
+            def copy(self, text): self.copied.append(text)
+            def paste(self): return self.copied[-1] if self.copied else ""
+
+        fake = RecordingClipboard()
+        saved_setting = main.AUTO_CLIPBOARD
+        remote = {"X-Forwarded-For": "192.168.1.61", "Content-Type": "application/json"}
+        try:
+            with mock.patch.object(main, "pyperclip", fake):
+                # Remote client session
+                req = urllib.request.Request(f"{self.base_url}/login", data=f"pin={main.CURRENT_PIN}".encode(),
+                                             headers={"X-Forwarded-For": "192.168.1.61"}, method="POST")
+                with urllib.request.urlopen(req, timeout=3) as res:
+                    cookie = res.headers.get("Set-Cookie").split(";")[0]
+
+                def post_settings(value, headers=None):
+                    r = urllib.request.Request(f"{self.base_url}/api/settings", data=json.dumps({"auto_clipboard": value}).encode(),
+                                               headers=headers or {"Content-Type": "application/json"}, method="POST")
+                    with urllib.request.urlopen(r, timeout=3) as res:
+                        return json.loads(res.read())
+
+                def send(text, from_phone=True):
+                    h = {**remote, "Cookie": cookie} if from_phone else {"Content-Type": "application/json"}
+                    r = urllib.request.Request(f"{self.base_url}/api/text", data=json.dumps({"text": text}).encode(), headers=h, method="POST")
+                    with urllib.request.urlopen(r, timeout=3) as res:
+                        self.assertEqual(res.status, 200)
+
+                self.assertTrue(post_settings(True)["auto_clipboard"])
+                with urllib.request.urlopen(f"{self.base_url}/api/settings", timeout=3) as res:
+                    self.assertTrue(json.loads(res.read())["auto_clipboard"])
+                send("from phone, auto-copy on")
+                send("typed on the host", from_phone=False)
+                self.assertEqual(fake.copied, ["from phone, auto-copy on"], "Only incoming device messages are copied")
+
+                self.assertFalse(post_settings(False)["auto_clipboard"])
+                send("from phone, auto-copy off")
+                self.assertEqual(fake.copied, ["from phone, auto-copy on"], "Nothing copied while the setting is off")
+
+                # Devices can't read or change host settings
+                for method in ("GET", "POST"):
+                    r = urllib.request.Request(f"{self.base_url}/api/settings", method=method,
+                                               data=b'{"auto_clipboard": true}' if method == "POST" else None,
+                                               headers={**remote, "Cookie": cookie})
+                    with self.assertRaises(urllib.error.HTTPError) as ctx:
+                        urllib.request.urlopen(r, timeout=3)
+                    self.assertEqual(ctx.exception.code, 403)
+        finally:
+            main.AUTO_CLIPBOARD = saved_setting
+
+        # The browser-side auto-copy is gone (it triggered the permission prompt)
+        with open(os.path.join(os.path.dirname(__file__), "..", "frontend", "scripts.js"), encoding="utf-8") as f:
+            self.assertNotIn("navigator.clipboard.writeText(msg.text)", f.read())
+        print("  [PASS] Step 4.15: Auto-copy is a server-side host setting; no unprompted browser clipboard writes")
+
+    def test_27_saved_settings_applied_at_startup(self):
+        """A fixed PIN (and auto-copy choice) saved in config must survive a restart."""
+        saved = (main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD)
+        try:
+            main.apply_saved_settings({"pin_mode": "static", "static_pin": "2580", "auto_clipboard": False})
+            self.assertEqual((main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD), ("static", "2580", False))
+            main.apply_saved_settings({"pin_mode": "bogus", "static_pin": "12ab"})
+            self.assertEqual((main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD), ("rotating", "1234", True))
+        finally:
+            main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD = saved
+        print("  [PASS] Step 4.16: Saved PIN mode, fixed PIN and auto-copy are applied at startup")
 
 
 if __name__ == "__main__":

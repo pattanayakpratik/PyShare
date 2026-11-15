@@ -40,6 +40,9 @@ class TestPyShareSecurityAudit(unittest.TestCase):
         print("=" * 65)
 
         cls.test_dir = tempfile.mkdtemp()
+        # Never touch the developer's real ~/.pyshare_config.json (PIN-mode tests save settings)
+        cls._real_config_file = main.CONFIG_FILE
+        main.CONFIG_FILE = os.path.join(cls.test_dir, "pyshare_test_config.json")
         main.BASE_DIR = cls.test_dir
         main.DOWNLOAD_DIR = os.path.join(cls.test_dir, "Shared")
         main.UPLOAD_DIR = os.path.join(cls.test_dir, "Received")
@@ -71,6 +74,7 @@ class TestPyShareSecurityAudit(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server.server_close()
+        main.CONFIG_FILE = cls._real_config_file
         shutil.rmtree(cls.test_dir, ignore_errors=True)
         print("\n[*] Audit server shut down and temporary storage wiped.")
 
@@ -449,6 +453,21 @@ class TestPyShareSecurityAudit(unittest.TestCase):
         for beacon in bad_beacons:
             self.assertIsNone(main.parse_discovery_beacon(beacon, "192.168.1.50", 1.0), f"Accepted bad beacon {beacon!r}")
         print("  [PASS] SEC-15: LAN discovery beacons validated and room URLs rebuilt server-side")
+
+    def test_sec_17_second_server_cannot_share_listening_port(self):
+        """SEC-17: A second PyShare server must not bind a port another instance is listening on.
+
+        With Windows SO_REUSEADDR both bind and the OS splits clients between them, so phones hit
+        the instance without their session (random 401s, chat messages silently not sent)."""
+        first = main.FastThreadingTCPServer(('127.0.0.1', 0), main.FinalFileHandler)
+        try:
+            port = first.server_address[1]
+            with self.assertRaises(OSError, msg="Second server bound an in-use port (port sharing)"):
+                second = main.FastThreadingTCPServer(('127.0.0.1', port), main.FinalFileHandler)
+                second.server_close()
+        finally:
+            first.server_close()
+        print("  [PASS] SEC-17: Second instance cannot hijack/share an in-use port")
 
     def test_sec_16_inline_handlers_never_splice_quoted_values(self):
         """SEC-16: Frontend inline on*="..." handlers must pass values via jsArg(), never '${...}'.
