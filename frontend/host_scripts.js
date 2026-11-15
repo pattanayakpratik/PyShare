@@ -170,12 +170,13 @@ async function togglePinMode() {
     if (newMode === 'static') {
         const input = (typeof showPySharePrompt === 'function')
             ? await showPySharePrompt({
-                title: 'Static PIN Mode',
-                message: 'Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):',
-                defaultValue: '1234',
-                placeholder: '4-digit PIN (e.g. 1234)',
-                confirmText: 'Enable Static PIN',
-                maxLength: 4
+                title: 'Use a fixed PIN',
+                message: 'Pick a 4-digit PIN that stays the same, handy on your own home network. Leave it empty to use 1234.',
+                defaultValue: '',
+                placeholder: '4 digits, e.g. 2580',
+                confirmText: 'Use this PIN',
+                maxLength: 4,
+                inputMode: 'numeric'
             })
             : prompt("Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):", "");
         if (input === null) return; // User cancelled
@@ -267,19 +268,7 @@ function setupHostSSE(es) {
     // 2. Real-time Activity Log (Pushed instantly on events)
     es.addEventListener('log', (e) => {
         try {
-            const entryData = JSON.parse(e.data);
-            const logBox = document.getElementById('hubLogPane');
-            if (logBox) {
-                const entry = document.createElement('div');
-                entry.className = 'log-entry-row';
-                entry.innerHTML = `<span class="log-timestamp">${escapeHtml(entryData.time)}</span><span class="log-message" title="${escapeHtml(entryData.msg)}">${escapeHtml(entryData.msg)}</span>`;
-                logBox.prepend(entry);
-                // Keep max 50 log rows to avoid DOM bloat and memory leaks
-                while (logBox.children.length > 50) {
-                    logBox.removeChild(logBox.lastChild);
-                }
-                logBox.scrollTop = 0;
-            }
+            addActivityEntry(JSON.parse(e.data));
         } catch (err) {}
     });
 
@@ -363,6 +352,36 @@ function setupHostSSE(es) {
             }
         } catch (err) {}
     });
+}
+
+// --- ACTIVITY LOG (history on open + live entries, newest first) ---
+const MAX_ACTIVITY_ROWS = 60;
+const seenActivity = new Set();  // time|msg keys, so history + live SSE never double-render
+
+function addActivityEntry(entry) {
+    const logBox = document.getElementById('hubLogPane');
+    if (!logBox || !entry || !entry.msg) return;
+    const key = `${entry.time}|${entry.msg}`;
+    if (seenActivity.has(key)) return;
+    seenActivity.add(key);
+
+    document.getElementById('hubLogEmpty')?.remove();
+    const row = document.createElement('div');
+    row.className = 'log-entry-row';
+    row.innerHTML = `<span class="log-timestamp">${escapeHtml(entry.time)}</span><span class="log-message" title="${escapeHtml(entry.msg)}">${escapeHtml(entry.msg)}</span>`;
+    logBox.prepend(row);
+    while (logBox.children.length > MAX_ACTIVITY_ROWS) {
+        logBox.removeChild(logBox.lastChild);
+    }
+}
+
+async function loadActivityHistory() {
+    try {
+        const res = await fetch('/api/updates');
+        if (!res.ok) return;
+        const data = await res.json();
+        (data.events || []).forEach(addActivityEntry);  // oldest first => newest ends on top
+    } catch (e) {}
 }
 
 // --- Host Join Request Handling ---
@@ -562,10 +581,13 @@ function renderPeers(peers) {
         const pDevice = escapeHtml(p.device);
         const pBrowser = escapeHtml(p.browser);
 
+        // Inline handlers get jsArg() values: nicknames come from client devices and must not
+        // be able to break out of the JS string (escapeHtml's &#39; is decoded before JS runs).
+        const idArg = jsArg(p.id);
         const isIpVisible = !peersIpMasked || revealedPeerIps.has(p.id);
-        const ipBadgeHtml = isIpVisible 
-            ? `<span class="peer-ip-badge" onclick="togglePeerIp('${pId}')" title="Click to hide IP">${pIp}</span>`
-            : `<span class="peer-ip-badge private" onclick="togglePeerIp('${pId}')" title="Click to reveal IP"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>IP Hidden</span>`;
+        const ipBadgeHtml = isIpVisible
+            ? `<span class="peer-ip-badge" onclick="togglePeerIp(${idArg})" title="Click to hide IP">${pIp}</span>`
+            : `<span class="peer-ip-badge private" onclick="togglePeerIp(${idArg})" title="Click to reveal IP"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>IP Hidden</span>`;
 
         return `
             <div class="peer-card" id="peer-${pId}">
@@ -576,24 +598,20 @@ function renderPeers(peers) {
                     </div>
                     <div class="peer-details">
                         <div class="peer-title">
-                            <span class="peer-nickname">${pNickname}</span>
-                            <button type="button" class="peer-rename-btn" onclick="renamePeer('${pId}', '${pNickname}')" title="Rename this device">
+                            <span class="peer-nickname" title="${pNickname}">${pNickname}</span>
+                            <button type="button" class="peer-rename-btn" onclick="renamePeer(${idArg}, ${jsArg(p.nickname || p.device || 'Device')})" title="Rename this device" aria-label="Rename device">
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                             </button>
-                            <span style="font-weight:400; font-size:11px; color:var(--text-sub); margin-left:2px;">(${pBrowser})</span>
                         </div>
                         <div class="peer-meta">
+                            <span>${pBrowser}</span>
                             ${ipBadgeHtml}
-                            <span>• ${timeAgo}</span>
+                            <span>${timeAgo}</span>
                         </div>
                     </div>
                 </div>
-                <button class="btn-peer-revoke" onclick="disconnectPeer('${pId}', '${pIp}')" title="Revoke device session">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                    Revoke
+                <button class="btn-icon btn-icon-danger btn-peer-revoke" onclick="disconnectPeer(${idArg}, ${jsArg(p.ip)})" title="Revoke access (disconnect this device)" aria-label="Revoke device access">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"></line></svg>
                 </button>
             </div>
         `;
@@ -666,13 +684,14 @@ function updateTunnelUI(data) {
     } else if (data.status === 'active' && data.url) {
         currentTunnelUrl = data.url;
         iconEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-        titleEl.innerText = 'Public Internet Mode';
+        titleEl.innerText = 'Internet Mode';
         titleEl.style.color = 'var(--accent-green)';
-        subEl.innerText = 'Accessible via 4G/5G mobile data worldwide';
+        subEl.innerText = 'Public HTTPS link';
         btnEl.disabled = false;
         btnEl.style.borderColor = 'rgba(239, 68, 68, 0.4)';
         btnEl.style.color = 'var(--accent-red)';
-        btnTextEl.innerText = 'Switch to Local';
+        btnTextEl.innerText = 'Turn off';
+        btnEl.title = 'Stop the public link and go back to local Wi-Fi only';
         if (badgeEl && urlTextEl) {
             badgeEl.style.display = 'inline-block';
             urlTextEl.innerText = data.url;
@@ -683,13 +702,14 @@ function updateTunnelUI(data) {
     } else {
         currentTunnelUrl = null;
         iconEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
-        titleEl.innerText = 'Local Wi-Fi Mode';
+        titleEl.innerText = 'Local Wi-Fi';
         titleEl.style.color = 'inherit';
-        subEl.innerText = 'Works on same Wi-Fi / Hotspot';
+        subEl.innerText = 'Same network only';
         btnEl.disabled = false;
         btnEl.style.borderColor = 'var(--border-color)';
         btnEl.style.color = 'var(--text-main)';
-        btnTextEl.innerText = 'Enable Internet';
+        btnTextEl.innerText = 'Go online';
+        btnEl.title = 'Share over 4G/5G mobile data or a different Wi-Fi';
         if (badgeEl) {
             badgeEl.style.display = 'none';
         }
@@ -761,7 +781,8 @@ async function checkLanRoomsHost() {
     } catch (e) {}
 }
 
-// Initial Connected Peers & Pending Join Requests Check
+// Initial Activity History, Connected Peers & Pending Join Requests Check
+loadActivityHistory();
 fetchPeers();
 checkPendingJoinRequests();
 checkLanRoomsHost();
