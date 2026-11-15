@@ -26,6 +26,7 @@ import queue
 import pyperclip
 import re
 import secrets
+import ipaddress
 try:
     import ifaddr
 except ImportError:
@@ -312,28 +313,56 @@ LOCKOUT_DURATION = 30     # seconds lockout after repeated failures
 zip_semaphore = threading.BoundedSemaphore(1)  # Strict maximum 1 active ZIP generation at a time
 
 # --- SERVER-SENT EVENTS (SSE) REAL-TIME PUSH ENGINE ---
-sse_subscribers = set()
+sse_subscribers = {}  # queue -> {"host": bool, "token": session token or None}
 sse_lock = threading.Lock()
 
-def add_sse_subscriber(q):
+# Events a client device may receive. Everything else (live PIN, peer list with IPs,
+# join requests, tunnel URL, activity log, incoming-upload monitor) is host-only.
+CLIENT_SSE_EVENTS = frozenset({"files", "clipboard"})
+SSE_CLOSE = "__close__"  # Sentinel telling a stream handler to end the connection
+
+def add_sse_subscriber(q, is_host=False, token=None):
     with sse_lock:
-        sse_subscribers.add(q)
+        sse_subscribers[q] = {"host": bool(is_host), "token": token}
 
 def remove_sse_subscriber(q):
     with sse_lock:
-        sse_subscribers.discard(q)
+        sse_subscribers.pop(q, None)
 
 def broadcast_sse(event_type, data):
-    """Pushes a typed event packet down to all active SSE subscribers."""
+    """Pushes a typed event packet to every SSE subscriber allowed to see it."""
     with sse_lock:
         dead = []
-        for q in sse_subscribers:
+        for q, meta in sse_subscribers.items():
+            if not meta["host"] and event_type not in CLIENT_SSE_EVENTS:
+                continue
             try:
                 q.put_nowait((event_type, data))
             except queue.Full:
                 dead.append(q)
         for q in dead:
-            sse_subscribers.discard(q)
+            sse_subscribers.pop(q, None)
+
+def close_sse_streams(tokens):
+    """End the open event streams of revoked sessions so they stop receiving updates."""
+    with sse_lock:
+        for q, meta in sse_subscribers.items():
+            if meta["token"] and meta["token"] in tokens:
+                try:
+                    q.put_nowait((SSE_CLOSE, None))
+                except queue.Full:
+                    pass  # Stream handler also re-checks the session on every keep-alive
+
+def is_session_valid(token):
+    """True if the session token exists and is younger than 24 hours."""
+    if not token:
+        return False
+    with state_lock:
+        sess = SESSIONS.get(token)
+        if sess is None:
+            return False
+        created_at = sess.get("created_at", 0) if isinstance(sess, dict) else sess
+        return (time.time() - created_at) < 86400
 
 # --- CLOUDFLARE TUNNEL (PUBLIC INTERNET MODE) ---
 TUNNEL_PROC = None
@@ -567,6 +596,34 @@ discovered_lock = threading.Lock()
 lan_discovery_running = True
 _discovery_thread_started = False
 
+def parse_discovery_beacon(info, src_ip, now):
+    """Validate a LAN discovery beacon and return a room entry, or None.
+
+    Beacons are unauthenticated UDP broadcasts, so every field is validated and the
+    room URL is always rebuilt from the IP and port: a spoofed beacon must not be able
+    to plant e.g. a javascript: link in the login page's room list."""
+    if not isinstance(info, dict) or info.get("app") != "PyShare":
+        return None
+    try:
+        peer_ip = str(ipaddress.IPv4Address(str(info.get("ip") or src_ip)))
+        peer_port = int(info.get("port"))
+    except (ValueError, TypeError):
+        return None
+    if not 0 < peer_port < 65536:
+        return None
+
+    def clean(value, default):
+        return re.sub(r'[\x00-\x1f\x7f]', '', str(value or default))[:64]
+
+    return {
+        "room": clean(info.get("room"), f"PyShare ({peer_ip})"),
+        "ip": peer_ip,
+        "port": peer_port,
+        "device": clean(info.get("device"), "Unknown Device"),
+        "url": f"http://{peer_ip}:{peer_port}",
+        "last_seen": now
+    }
+
 def lan_discovery_worker():
     """Background UDP beacon & listener for zero-conf PyShare room discovery on local subnet."""
     global lan_discovery_running
@@ -629,21 +686,10 @@ def lan_discovery_worker():
             else:
                 try:
                     info = json.loads(data.decode('utf-8', errors='ignore'))
-                    if isinstance(info, dict) and info.get("app") == "PyShare":
-                        peer_ip = info.get("ip") or addr[0]
-                        peer_port = info.get("port")
-                        my_ip = get_ip()
-                        if not (peer_ip == my_ip and peer_port == ACTUAL_PORT):
-                            room_key = f"{peer_ip}:{peer_port}"
-                            with discovered_lock:
-                                DISCOVERED_ROOMS[room_key] = {
-                                    "room": info.get("room", f"PyShare ({peer_ip})"),
-                                    "ip": peer_ip,
-                                    "port": peer_port,
-                                    "device": info.get("device", "Unknown Device"),
-                                    "url": info.get("url", f"http://{peer_ip}:{peer_port}"),
-                                    "last_seen": now
-                                }
+                    room = parse_discovery_beacon(info, addr[0], now)
+                    if room and not (room["ip"] == get_ip() and room["port"] == ACTUAL_PORT):
+                        with discovered_lock:
+                            DISCOVERED_ROOMS[f"{room['ip']}:{room['port']}"] = room
                 except Exception:
                     pass
         except socket.timeout:
@@ -770,7 +816,7 @@ def open_folder(path):
 
 def get_category(ext):
     ext = ext.lower().lstrip('.')
-    if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif']:
+    if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'heic', 'heif']:
         return 'image'
     if ext in ['mp4', 'mkv', 'mov', 'webm', 'avi', 'wmv', 'm4v']:
         return 'video'
@@ -1260,6 +1306,13 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 return item.split("pyshare_session=")[1].strip()
         return None
 
+    def build_session_cookie(self, token):
+        """Set-Cookie value for a new client session (adds Secure when served over the HTTPS tunnel)."""
+        flags = "Path=/; Max-Age=86400; SameSite=Lax; HttpOnly"
+        if self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-Proto") == "https":
+            flags += "; Secure"
+        return f"pyshare_session={token}; {flags}"
+
     def get_client_ip(self):
         # Only trust reverse-proxy headers if the incoming socket connection is from local loopback
         if self.client_address[0] in ("127.0.0.1", "localhost", "::1"):
@@ -1302,13 +1355,24 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if self.client_address[0] not in ("127.0.0.1", "localhost", "::1", get_ip()):
             return False
 
+        allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip(), socket.gethostname().lower(), f"{socket.gethostname().lower()}.local")
+
+        # DNS-rebinding defense: a malicious site that re-resolves its domain to 127.0.0.1 still
+        # sends its own name in the Host header (and can suppress Origin/Referer), so require Host
+        # to name this machine before granting Host privileges.
+        try:
+            host_name = urllib.parse.urlsplit("//" + self.headers.get("Host", "")).hostname
+        except ValueError:
+            host_name = None
+        if not host_name or host_name.lower() not in allowed_hosts:
+            return False
+
         # Allow top-level browser page navigation (GET /) so the Host is never locked out of host.html
         is_top_nav = (self.command == "GET" and self.path in ("/", "/index.html") and self.headers.get("Sec-Fetch-Mode") == "navigate")
         if not is_top_nav:
             sec_fetch = self.headers.get("Sec-Fetch-Site")
             if sec_fetch == "cross-site":
                 return False
-            allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip(), socket.gethostname().lower(), f"{socket.gethostname().lower()}.local")
             for hdr in ("Origin", "Referer"):
                 val = self.headers.get(hdr)
                 if val:
@@ -1398,7 +1462,41 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(info_data)
             return
 
-        asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
+        # 3b. KNOCK-TO-JOIN STATUS (No Auth Required: the guest has no session until the Host approves.
+        #     The unguessable 128-bit request_id returned by /api/join/request is the credential.)
+        if self.path.startswith('/api/join/status'):
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            req_id = params.get('request_id', [''])[0].strip() or params.get('id', [''])[0].strip()
+
+            now = time.time()
+            with state_lock:
+                req = PENDING_JOIN_REQUESTS.get(req_id) if req_id else None
+                status = req.get("status", "pending") if req else "expired"
+                if status == "pending" and now > req.get("expires_at", 0):
+                    req["status"] = status = "expired"
+                token = req.get("token") if (req and status == "approved") else None
+                expires_in = max(0, int(req.get("expires_at", 0) - now)) if req else 0
+
+            if status == "approved" and token:
+                body_bytes = json.dumps({"status": "approved"}).encode('utf-8')
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body_bytes)))
+                self.send_header("Set-Cookie", self.build_session_cookie(token))
+                self.send_header("Cache-Control", "no-store")
+                self.send_security_headers()
+                self.end_headers()
+                self.wfile.write(body_bytes)
+            elif status == "declined":
+                self.send_json({"status": "declined", "message": "Host declined the request"})
+            elif status == "pending":
+                self.send_json({"status": "pending", "expires_in": expires_in})
+            else:
+                self.send_json({"status": "expired", "message": "Request expired or not found"})
+            return
+
+        asset_exts =('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
         raw_clean = urllib.parse.unquote(self.path.split('?')[0]).lstrip('/')
         # Strictly reject directory traversal sequences
         if '..' in raw_clean or '\\' in raw_clean:
@@ -1504,14 +1602,16 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
 
+            is_host = self.is_host_client()
+            sse_token = None if is_host else self.get_session_token()
             q = queue.Queue(maxsize=50)
-            add_sse_subscriber(q)
+            add_sse_subscriber(q, is_host=is_host, token=sse_token)
 
             # Send initial state snapshot immediately
             try:
                 # 0. Server info snapshot
                 ip = get_ip()
-                srv_json = json.dumps({"ip": ip, "port": ACTUAL_PORT, "url": f"http://{ip}:{ACTUAL_PORT}", "is_host": self.is_host_client()})
+                srv_json = json.dumps({"ip": ip, "port": ACTUAL_PORT, "url": f"http://{ip}:{ACTUAL_PORT}", "is_host": is_host})
                 self.wfile.write(f"event: server_info\ndata: {srv_json}\n\n".encode('utf-8'))
 
                 # 1. File list snapshot
@@ -1527,21 +1627,19 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     })
                 self.wfile.write(f"event: clipboard\ndata: {clip_json}\n\n".encode('utf-8'))
                 
-                # 3. PIN snapshot (Host only)
-                if self.is_host_client():
+                if is_host:
+                    # 3. PIN snapshot (Host only)
                     with state_lock:
                         ttl = -1 if PIN_MODE == "static" else max(0, int(NEXT_CHANGE - time.time()))
                         pin_json = json.dumps({"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE})
                     self.wfile.write(f"event: pin\ndata: {pin_json}\n\n".encode('utf-8'))
 
-                # 4. Tunnel snapshot (Host only)
-                if self.is_host_client():
+                    # 4. Tunnel snapshot (Host only)
                     with TUNNEL_LOCK:
                         tun_json = json.dumps({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
                     self.wfile.write(f"event: tunnel\ndata: {tun_json}\n\n".encode('utf-8'))
 
-                # 5. Connected peers snapshot (Host only)
-                if self.is_host_client():
+                    # 5. Connected peers snapshot (Host only)
                     peers_json = json.dumps(get_connected_peers())
                     self.wfile.write(f"event: peers\ndata: {peers_json}\n\n".encode('utf-8'))
                 self.wfile.flush()
@@ -1553,12 +1651,17 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 while True:
                     try:
                         event_type, event_data = q.get(timeout=10)
+                    except queue.Empty:
+                        event_type, event_data = None, None
+                    # Revoked or expired client sessions lose their stream immediately
+                    if event_type == SSE_CLOSE or (not is_host and not is_session_valid(sse_token)):
+                        break
+                    if event_type is None:
+                        self.wfile.write(b": keep-alive\n\n")
+                    else:
                         msg = f"event: {event_type}\ndata: {json.dumps(event_data)}\n\n".encode('utf-8')
                         self.wfile.write(msg)
-                        self.wfile.flush()
-                    except queue.Empty:
-                        self.wfile.write(b": keep-alive\n\n")
-                        self.wfile.flush()
+                    self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError, Exception):
                 pass
             finally:
@@ -1637,45 +1740,6 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 active_rooms = [v for v in DISCOVERED_ROOMS.values() if now - v.get("last_seen", 0) <= 10.0]
             self.send_json({"rooms": active_rooms, "count": len(active_rooms)})
             return
-
-        # Check Join Request Status (/api/join/status?request_id=...)
-        if self.path.startswith('/api/join/status'):
-            query = urllib.parse.urlparse(self.path).query
-            params = urllib.parse.parse_qs(query)
-            req_id = params.get('request_id', [''])[0].strip() or params.get('id', [''])[0].strip()
-            
-            with state_lock:
-                req = PENDING_JOIN_REQUESTS.get(req_id)
-                if not req:
-                    self.send_json({"status": "expired", "message": "Request expired or not found"})
-                    return
-                
-                now = time.time()
-                if now > req.get("expires_at", 0):
-                    req["status"] = "expired"
-                    self.send_json({"status": "expired", "message": "Request expired"})
-                    return
-
-                status = req.get("status", "pending")
-                if status == "declined":
-                    self.send_json({"status": "declined", "message": "Host declined the request"})
-                    return
-
-                if status == "approved":
-                    token = req.get("token")
-                    cookie_header = f"pyshare_session={token}; Path=/; HttpOnly; SameSite=Lax"
-                    body_bytes = json.dumps({"status": "approved", "token": token}).encode('utf-8')
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(body_bytes)))
-                    self.send_header('Set-Cookie', cookie_header)
-                    self.end_headers()
-                    self.wfile.write(body_bytes)
-                    return
-
-                expires_in = max(0, int(req.get("expires_at", 0) - now))
-                self.send_json({"status": "pending", "expires_in": expires_in})
-                return
 
         # List Pending Join Requests (/api/join/pending - Host Only)
         if self.path == '/api/join/pending':
@@ -1857,6 +1921,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if byte_range == -1:
                 self.send_response(416, "Range Not Satisfiable")
                 self.send_header("Content-Range", f"bytes */{file_size}")
+                self.send_header("Content-Length", "0")  # Empty body; without this keep-alive clients hang
                 self.send_security_headers()
                 self.end_headers()
                 return
@@ -2044,10 +2109,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain; charset=utf-8")
                 self.send_header("Content-Length", str(len(body_bytes)))
-                cookie_flags = "Path=/; Max-Age=86400; SameSite=Lax; HttpOnly"
-                if self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-Proto") == "https":
-                    cookie_flags += "; Secure"
-                self.send_header("Set-Cookie", f"pyshare_session={token}; {cookie_flags}")
+                self.send_header("Set-Cookie", self.build_session_cookie(token))
                 self.send_security_headers()
                 self.end_headers()
                 self.wfile.write(body_bytes)
@@ -2438,6 +2500,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     for t in to_remove:
                         SESSIONS.pop(t, None)
                         removed += 1
+                if to_remove:
+                    close_sse_streams(set(to_remove))
                 if removed > 0:
                     add_event(f"Revoked device access ({target_id or target_ip})")
                     broadcast_sse("peers", get_connected_peers())
