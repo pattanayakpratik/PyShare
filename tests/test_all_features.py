@@ -732,8 +732,10 @@ class TestPyShareAllFeatures(unittest.TestCase):
             self.assertEqual(len(matched), 1)
             self.assertEqual(matched[0]["nickname"], "Visitor Pixel")
 
-        # 3. Client checks status while pending
-        req_status = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id}")
+        # 3. Client checks status while pending. The guest polls as a remote device with no
+        #    session (X-Forwarded-For makes the loopback request non-host), exactly like a phone.
+        guest_headers = {"X-Forwarded-For": "192.168.1.150"}
+        req_status = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id}", headers=guest_headers)
         with urllib.request.urlopen(req_status, timeout=3) as res:
             self.assertEqual(res.status, 200)
             sdata = json.loads(res.read().decode('utf-8'))
@@ -771,14 +773,17 @@ class TestPyShareAllFeatures(unittest.TestCase):
             self.assertEqual(res.status, 200)
             sdata = json.loads(res.read().decode('utf-8'))
             self.assertEqual(sdata.get("status"), "approved")
+            self.assertNotIn("token", sdata, "Session token must only travel in the HttpOnly cookie")
             set_cookie = res.headers.get("Set-Cookie", "")
             self.assertIn("pyshare_session=", set_cookie)
+            self.assertIn("HttpOnly", set_cookie)
+            self.assertIn("Max-Age=86400", set_cookie)
             token = re.search(r'pyshare_session=([a-f0-9]+)', set_cookie).group(1)
 
-        # 7. Client uses the session cookie to access files
+        # 7. Client uses the session cookie to access files (still as the remote guest)
         req_files = urllib.request.Request(
             f"{self.base_url}/api/files",
-            headers={"Cookie": f"pyshare_session={token}"}
+            headers={"Cookie": f"pyshare_session={token}", **guest_headers}
         )
         with urllib.request.urlopen(req_files, timeout=3) as res:
             self.assertEqual(res.status, 200)
@@ -804,7 +809,7 @@ class TestPyShareAllFeatures(unittest.TestCase):
         with urllib.request.urlopen(req_decline, timeout=3) as res:
             self.assertEqual(res.status, 200)
 
-        req_status2 = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id2}")
+        req_status2 = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id2}", headers=guest_headers)
         with urllib.request.urlopen(req_status2, timeout=3) as res:
             sdata2 = json.loads(res.read().decode('utf-8'))
             self.assertEqual(sdata2.get("status"), "declined")
@@ -1032,9 +1037,12 @@ class TestPyShareAllFeatures(unittest.TestCase):
         fn_linux_arm, _ = main.get_cloudflared_target(sys_plat="linux", sys_arch="armv7l")
         self.assertEqual(fn_linux_arm, "cloudflared-linux-arm")
 
-        # 4. Verify single-instance lock resilience across platforms
+        # 4. Verify single-instance lock resilience across platforms. Use a test-only mutex name so a
+        #    PyShare instance running on the developer's machine doesn't make this call sys.exit().
         if app_gui is not None:
-            instance_lock = app_gui.ensure_single_instance()
+            from unittest import mock
+            with mock.patch.object(app_gui, "MUTEX_NAME", f"Global\\PyShare_Test_Instance_{os.getpid()}"):
+                instance_lock = app_gui.ensure_single_instance()
             self.assertIsNotNone(instance_lock, "Single instance locking mechanism should return a valid handle or lock")
             if sys.platform == "win32" and instance_lock:
                 ctypes.windll.kernel32.CloseHandle(instance_lock)
