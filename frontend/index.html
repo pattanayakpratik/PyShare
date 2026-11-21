@@ -127,20 +127,27 @@
             0% { transform: translateY(0px); }
             100% { transform: translateY(-5px); }
         }
+        /* White plate with a PyShare gradient rim (matches the Host screen QR card) */
         .qr-wrapper {
-            background: var(--qr-wrapper-bg);
-            padding: 14px;
+            background:
+                linear-gradient(var(--qr-wrapper-bg), var(--qr-wrapper-bg)) padding-box,
+                linear-gradient(135deg, #22d3ee, #2563eb 55%, #8b5cf6) border-box;
+            padding: 12px;
             border-radius: 20px;
             display: inline-flex;
             justify-content: center;
             align-items: center;
             box-shadow: var(--qr-wrapper-shadow);
-            border: var(--qr-wrapper-border);
+            border: 2px solid transparent;
             margin: 12px 0;
             transition: transform 0.25s ease;
         }
         .qr-wrapper:hover {
             transform: scale(1.02);
+        }
+        #qrcodeContainer .brand-qr {
+            display: block;
+            border-radius: 10px;
         }
         .keypad-grid {
             display: grid;
@@ -281,7 +288,7 @@
             .qr-wrapper {
                 margin: 8px 0 !important;
             }
-            #qrcodeContainer img, #qrcodeContainer canvas {
+            #qrcodeContainer img, #qrcodeContainer canvas, #qrcodeContainer svg {
                 max-width: 130px !important;
                 height: auto !important;
             }

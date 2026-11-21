@@ -723,7 +723,7 @@
                 updateKnockCountdownDisplay();
                 if (knockSecondsRemaining <= 0) {
                     clearInterval(knockCountdownTimer);
-                    cancelJoinRequest();
+                    cancelJoinRequest('timeout');
                     if (typeof showPyShareAlert === 'function') {
                         showPyShareAlert('Host approval timed out.', 'Join Request');
                     } else {
@@ -750,6 +750,7 @@
                     if (res.ok) {
                         const data = await res.json();
                         if (data.status === 'approved') {
+                            activeJoinRequestId = null;   // joined: navigating away must not withdraw it
                             clearInterval(joinPollTimer);
                             clearInterval(knockCountdownTimer);
                             const nameEl = document.getElementById('knockDeviceName');
@@ -757,6 +758,7 @@
                             if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
                             window.location.href = safeNextUrl();
                         } else if (data.status === 'declined') {
+                            activeJoinRequestId = null;
                             clearInterval(joinPollTimer);
                             clearInterval(knockCountdownTimer);
                             hideKnockWaitModal();
@@ -766,6 +768,7 @@
                                 alert('The Host declined your join request.');
                             }
                         } else if (data.status === 'expired') {
+                            activeJoinRequestId = null;
                             clearInterval(joinPollTimer);
                             clearInterval(knockCountdownTimer);
                             hideKnockWaitModal();
@@ -787,19 +790,39 @@
             if (joinPollTimer) clearInterval(joinPollTimer);
         }
 
-        async function cancelJoinRequest() {
-            if (activeJoinRequestId) {
-                try {
-                    await fetch('/api/join/cancel', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: activeJoinRequestId })
-                    });
-                } catch(e) {}
-                activeJoinRequestId = null;
-            }
+        // Withdraw the knock so it disappears from the Host's screen at once.
+        // reason 'timeout' (countdown ran out) shows there as expired rather than cancelled.
+        async function cancelJoinRequest(reason) {
+            const id = activeJoinRequestId;
+            activeJoinRequestId = null;
             hideKnockWaitModal();
+            if (!id) return;
+            try {
+                await fetch('/api/join/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id, reason: reason === 'timeout' ? 'timeout' : 'cancel' }),
+                    keepalive: true
+                });
+            } catch(e) {}
         }
+
+        // Leaving while waiting (Back, closing the tab, opening another page) also withdraws the knock.
+        // pagehide, not visibilitychange: switching apps for a moment must keep the request alive.
+        window.addEventListener('pagehide', () => {
+            const id = activeJoinRequestId;
+            if (!id) return;
+            activeJoinRequestId = null;
+            hideKnockWaitModal();   // if the page is restored from the back/forward cache, start clean
+            const payload = JSON.stringify({ id: id, reason: 'cancel' });
+            try {
+                const queued = navigator.sendBeacon &&
+                    navigator.sendBeacon('/api/join/cancel', new Blob([payload], { type: 'application/json' }));
+                if (!queued) {
+                    fetch('/api/join/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+                }
+            } catch(e) {}
+        });
 
         // Auto-fill and submit PIN if passed in URL query param (?pin=1234)
         const urlPin = new URLSearchParams(window.location.search).get('pin');

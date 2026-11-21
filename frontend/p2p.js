@@ -307,6 +307,47 @@ function startHostMode() {
     }
 }
 
+// PyShare-styled QR as inline SVG, the same look as the Host screen QR the server draws
+// (backend/main.py build_qr_svg): rounded modules and finder eyes in the brand gradient, app icon in the centre.
+function buildBrandQrSvg(model, logoSrc) {
+    const n = model.getModuleCount();
+    const quiet = 2;
+    const size = n + 2 * quiet;
+    const fmt = (v) => +v.toFixed(3);
+    // From version 7 an alignment pattern sits in the middle of the code, so leave the centre alone
+    const version = (n - 17) / 4;
+    const plate = (logoSrc && version <= 6) ? (Math.max(5, Math.round(n * 0.24)) | 1) : 0;
+    const p0 = (n - plate) / 2;
+    const inEye = (r, c) => (r < 7 || r >= n - 7) && (c < 7 || c >= n - 7) && !(r >= n - 7 && c >= n - 7);
+    const underLogo = (r, c) => plate && r >= p0 && r < p0 + plate && c >= p0 && c < p0 + plate;
+    const rrect = (x, y, w, h, rad) => `M${fmt(x + rad)} ${y}h${fmt(w - 2 * rad)}a${rad} ${rad} 0 0 1 ${rad} ${rad}v${fmt(h - 2 * rad)}`
+        + `a${rad} ${rad} 0 0 1 ${-rad} ${rad}h${fmt(2 * rad - w)}a${rad} ${rad} 0 0 1 ${-rad} ${-rad}`
+        + `v${fmt(2 * rad - h)}a${rad} ${rad} 0 0 1 ${rad} ${-rad}z`;
+
+    let dots = '';
+    for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+            if (model.isDark(r, c) && !inEye(r, c) && !underLogo(r, c)) {
+                dots += `M${fmt(c + quiet + 0.35)} ${fmt(r + quiet + 0.35)}h.3v.3h-.3z`;
+            }
+        }
+    }
+    const eyes = [[quiet, quiet], [quiet + n - 7, quiet], [quiet, quiet + n - 7]]
+        // Keep the frame corners nearly square (scanners find the code by them); round only the centre
+        .map(([x, y]) => rrect(x, y, 7, 7, 0.5) + rrect(x + 1, y + 1, 5, 5, 0.3) + rrect(x + 2, y + 2, 3, 3, 0.8))
+        .join('');
+    const logo = plate
+        ? `<image href="${logoSrc}" x="${fmt(p0 + quiet + 0.5)}" y="${fmt(p0 + quiet + 0.5)}" width="${plate - 1}" height="${plate - 1}"/>`
+        : '';
+    return `<svg class="brand-qr" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="170" height="170" role="img" aria-label="QR code to join this room">`
+        + `<defs><linearGradient id="pyshareQrGradient" x1="0" y1="0" x2="${size}" y2="${size}" gradientUnits="userSpaceOnUse">`
+        + `<stop offset="0" stop-color="#0369a1"/><stop offset=".5" stop-color="#1d4ed8"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs>`
+        + `<rect width="${size}" height="${size}" fill="#fff"/>`
+        + `<path fill="url(#pyshareQrGradient)" stroke="url(#pyshareQrGradient)" stroke-width=".6" stroke-linejoin="round" d="${dots}"/>`
+        + `<path fill="url(#pyshareQrGradient)" fill-rule="evenodd" d="${eyes}"/>`
+        + `${logo}</svg>`;
+}
+
 // Generate QR Code on Screen
 function generateHostQR(pin) {
     const qrContainer = document.getElementById('qrcodeContainer');
@@ -317,14 +358,21 @@ function generateHostQR(pin) {
     
     // Check if QRCode library loaded
     if (window.QRCode) {
-        new QRCode(qrContainer, {
+        const scratch = document.createElement('div');
+        const qr = new QRCode(scratch, {
             text: shareUrl,
             width: 170,
             height: 170,
             colorDark: "#000000",
             colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.M
+            correctLevel: QRCode.CorrectLevel.H
         });
+        const model = qr && qr._oQRCode;
+        if (model && typeof model.isDark === 'function' && typeof model.getModuleCount === 'function') {
+            qrContainer.innerHTML = buildBrandQrSvg(model, 'app_icon.png');
+        } else {
+            qrContainer.append(...scratch.childNodes);   // plain QR if the library internals ever change
+        }
     } else {
         qrContainer.innerHTML = `<a href="${shareUrl}" target="_blank" style="font-size:12px;color:var(--accent-blue);word-break:break-all;">${shareUrl}</a>`;
     }
