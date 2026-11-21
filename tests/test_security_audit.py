@@ -469,6 +469,31 @@ class TestPyShareSecurityAudit(unittest.TestCase):
             first.server_close()
         print("  [PASS] SEC-17: Second instance cannot hijack/share an in-use port")
 
+    def test_sec_18_host_qr_not_served_to_guests(self):
+        """SEC-18: The Host QR encodes ?pin=<live PIN>. It used to be public at /qrcode.png, so anyone on the
+        Wi-Fi (or the internet via the tunnel) could fetch it, decode it and join without being shown the PIN."""
+        token = self._client_login("10.77.0.18")
+        attempts = {
+            "logged-in phone": {"Cookie": f"pyshare_session={token}", "X-Forwarded-For": "10.77.0.18"},
+            "tunnel visitor": {"CF-Connecting-IP": "203.0.113.50", "CF-Ray": "abc123"},
+        }
+        for who, headers in attempts.items():
+            conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+            conn.request("GET", "/api/qr", headers=headers)
+            res = conn.getresponse()
+            body = res.read()
+            conn.close()
+            self.assertEqual(res.status, 403, f"{who} could fetch the Host QR")
+            self.assertNotIn(b"<svg", body)
+        # The old public path must not hand out a QR image any more
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+        conn.request("GET", "/qrcode.png", headers={"X-Forwarded-For": "10.77.0.18"})
+        res = conn.getresponse()
+        res.read()
+        conn.close()
+        self.assertNotEqual(res.getheader("Content-Type"), "image/png", "Legacy /qrcode.png still served")
+        print("  [PASS] SEC-18: Host QR (carries the PIN) is Host-only")
+
     def test_sec_16_inline_handlers_never_splice_quoted_values(self):
         """SEC-16: Frontend inline on*="..." handlers must pass values via jsArg(), never '${...}'.
 

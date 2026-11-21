@@ -324,29 +324,47 @@ class TestPyShareAllFeatures(unittest.TestCase):
         print("  [PASS] Step 3.1: Static vs Rotating PIN toggle API verified")
 
     def test_10_qr_code_instant_login_payload(self):
-        """Step 3.2: Verify QR code payload embeds current PIN parameter and regenerates on rotation."""
-        with main.state_lock:
-            main.CURRENT_PIN = "5678"
-        main.generate_qr()
-        # Ensure qrcode.png exists and is accessible
-        qr_file = main.get_qr_path()
-        self.assertTrue(os.path.isfile(qr_file), f"QR code image was not found at {qr_file}")
-        self.assertGreater(os.path.getsize(qr_file), 0, "QR code image is empty")
+        """Step 3.2: Host QR is built in memory (no file on disk), carries the live PIN and is Host-only."""
+        saved_pin = main.CURRENT_PIN
+        try:
+            with main.state_lock:
+                main.CURRENT_PIN = "5678"
+            self.assertTrue(main.get_connect_url().endswith("/?pin=5678"), main.get_connect_url())
 
-        # Verify QR request endpoint
-        req = urllib.request.Request(f"{self.base_url}/qrcode.png")
-        with urllib.request.urlopen(req, timeout=3) as res:
-            self.assertEqual(res.status, 200)
-            self.assertEqual(res.headers.get("Content-Type"), "image/png")
+            svg = main.build_qr_svg(main.get_connect_url())
+            self.assertTrue(svg.startswith("<svg") and svg.endswith("</svg>"), "QR is not an SVG document")
+            for color in main.QR_GRADIENT:
+                self.assertIn(color, svg, "QR is missing the PyShare gradient")
+
+            req = urllib.request.Request(f"{self.base_url}/api/qr")
+            with urllib.request.urlopen(req, timeout=3) as res:
+                self.assertEqual(res.status, 200)
+                self.assertEqual(res.headers.get("Content-Type"), "image/svg+xml")
+                self.assertIn("no-store", res.headers.get("Cache-Control", ""))
+                self.assertIn(b"<svg", res.read())
+
+            # Nothing lands in the user's PyShare folder (it used to hold qrcode.png)
+            self.assertEqual(
+                [f for f in os.listdir(main.BASE_DIR) if f.lower().endswith((".png", ".svg"))], [],
+                "QR image was written to disk")
+
+            # The QR reveals the PIN, so guests (LAN or tunnel) must not be able to fetch it
+            guest = urllib.request.Request(f"{self.base_url}/api/qr", headers={"X-Forwarded-For": "203.0.113.9"})
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(guest, timeout=3)
+            self.assertEqual(cm.exception.code, 403)
+        finally:
+            with main.state_lock:
+                main.CURRENT_PIN = saved_pin
 
         # Verify host_scripts.js refreshes QR code on PIN rotation
         host_js_path = os.path.join(main.ASSET_DIR, "host_scripts.js")
         with open(host_js_path, "r", encoding="utf-8") as f:
             hjs = f.read()
         self.assertIn("lastDisplayedPin", hjs, "Missing lastDisplayedPin in host_scripts.js")
-        self.assertIn("qrImg.src = '/qrcode.png?t='", hjs, "Missing dynamic QR image refresh in host_scripts.js")
+        self.assertIn("qrImg.src = '/api/qr?t='", hjs, "Missing dynamic QR image refresh in host_scripts.js")
 
-        print("  [PASS] Step 3.2: QR code generation, rotation regeneration, and instant-login embedding verified")
+        print("  [PASS] Step 3.2: QR built in memory with live PIN, Host-only, nothing written to disk")
 
     def test_11_login_template_camera_scanner_elements(self):
         """Step 3.3: Verify login.html contains QR scanner modal and haptic triggers."""
@@ -1238,6 +1256,113 @@ class TestPyShareAllFeatures(unittest.TestCase):
         finally:
             main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD = saved
         print("  [PASS] Step 4.16: Saved PIN mode, fixed PIN and auto-copy are applied at startup")
+
+    def test_28_legacy_qr_file_removed_only_from_pyshare_folder(self):
+        """Old builds left qrcode.png in the PyShare folder; clean it up there but never elsewhere."""
+        saved_base = main.BASE_DIR
+        root = tempfile.mkdtemp()
+        try:
+            own = os.path.join(root, "PyShare_Files")
+            other = os.path.join(root, "Movies")   # parent of a user-chosen shared folder
+            for folder in (own, other):
+                os.makedirs(folder)
+                with open(os.path.join(folder, "qrcode.png"), "wb") as f:
+                    f.write(b"x")
+            main.BASE_DIR = own
+            main.remove_legacy_qr_file()
+            self.assertFalse(os.path.exists(os.path.join(own, "qrcode.png")), "Legacy QR left in PyShare_Files")
+            main.BASE_DIR = other
+            main.remove_legacy_qr_file()
+            self.assertTrue(os.path.exists(os.path.join(other, "qrcode.png")), "Deleted a user's own qrcode.png")
+        finally:
+            main.BASE_DIR = saved_base
+            shutil.rmtree(root, ignore_errors=True)
+        print("  [PASS] Step 3.6: Legacy qrcode.png tidied from PyShare_Files only")
+
+    def test_29_cancelled_knock_closes_on_host(self):
+        """A guest cancelling a knock (button, leaving the page, timeout) must clear it from every Host screen at
+        once, and a cancel that races the Host's Allow must not leave a phantom device behind."""
+        sent = []
+        real_broadcast = main.broadcast_sse
+        main.broadcast_sse = lambda ev, data: (sent.append((ev, data)), real_broadcast(ev, data))
+        guest = {"X-Forwarded-For": "10.88.0.29"}
+        created_tokens = []
+
+        def post(path, payload, headers=None):
+            req = urllib.request.Request(f"{self.base_url}{path}", data=json.dumps(payload).encode(),
+                                         headers={"Content-Type": "application/json", **(headers or {})})
+            with urllib.request.urlopen(req, timeout=3) as res:
+                return json.loads(res.read() or b"{}")
+
+        def knock(name):
+            return post("/api/join/request", {"nickname": name}, guest)["request_id"]
+
+        def last_closed():
+            closed = [d for ev, d in sent if ev == "join_request_closed"]
+            return closed[-1] if closed else None
+
+        try:
+            # 1. Cancel while waiting: Host screens are told at once, the request can no longer be accepted
+            rid = knock("Cancel Phone")
+            post("/api/join/cancel", {"id": rid}, guest)
+            self.assertEqual(last_closed(), {"id": rid, "nickname": "Cancel Phone", "reason": "cancelled"})
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                post("/api/join/respond", {"id": rid, "action": "accept"})
+            self.assertEqual(cm.exception.code, 404)
+            with urllib.request.urlopen(f"{self.base_url}/api/join/pending", timeout=3) as res:
+                self.assertNotIn(rid, [r["id"] for r in json.loads(res.read())["requests"]])
+
+            # 2. The guest's countdown ran out: reported as expired, not cancelled
+            rid = knock("Slow Phone")
+            post("/api/join/cancel", {"id": rid, "reason": "timeout"}, guest)
+            self.assertEqual(last_closed()["reason"], "expired")
+
+            # 3. Host answers: other Host windows close their copy of the dialog
+            rid = knock("Racing Phone")
+            post("/api/join/respond", {"id": rid, "action": "accept"})
+            self.assertEqual(last_closed(), {"id": rid, "nickname": "Racing Phone", "reason": "approved"})
+            # ...and the guest cancels before collecting the session: no phantom device is left behind
+            token = main.PENDING_JOIN_REQUESTS[rid]["token"]
+            created_tokens.append(token)
+            self.assertIn(token, main.SESSIONS)
+            post("/api/join/cancel", {"id": rid}, guest)
+            self.assertNotIn(token, main.SESSIONS, "Session kept after the guest cancelled before receiving it")
+
+            # 4. Guest already collected the session: a late cancel (e.g. pagehide while navigating in) is a no-op
+            rid = knock("Joined Phone")
+            post("/api/join/respond", {"id": rid, "action": "accept"})
+            token = main.PENDING_JOIN_REQUESTS[rid]["token"]
+            created_tokens.append(token)
+            with urllib.request.urlopen(f"{self.base_url}/api/join/status?request_id={rid}", timeout=3) as res:
+                self.assertEqual(json.loads(res.read())["status"], "approved")
+            before = len(sent)
+            post("/api/join/cancel", {"id": rid}, guest)
+            self.assertIn(token, main.SESSIONS, "A late cancel logged out a guest who had already joined")
+            self.assertEqual(len(sent), before, "A no-op cancel still notified the Host")
+
+            # 5. Oversized / malformed cancel bodies are rejected or ignored without errors
+            big = urllib.request.Request(f"{self.base_url}/api/join/cancel", data=b"{" + b" " * 5000 + b"}",
+                                         headers={"Content-Type": "application/json", **guest})
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(big, timeout=3)
+            self.assertEqual(cm.exception.code, 400)
+            bad = urllib.request.Request(f"{self.base_url}/api/join/cancel", data=b"not json", headers=guest)
+            with urllib.request.urlopen(bad, timeout=3) as res:
+                self.assertEqual(res.status, 200)
+        finally:
+            main.broadcast_sse = real_broadcast
+            with main.state_lock:
+                for t in created_tokens:
+                    main.SESSIONS.pop(t, None)
+
+        # Host page reacts to the event; the guest page withdraws the knock when it is left
+        with open(os.path.join(main.ASSET_DIR, "host_scripts.js"), encoding="utf-8") as f:
+            self.assertIn("addEventListener('join_request_closed'", f.read())
+        with open(os.path.join(main.ASSET_DIR, "login.html"), encoding="utf-8") as f:
+            login = f.read()
+        self.assertIn("addEventListener('pagehide'", login)
+        self.assertIn("sendBeacon('/api/join/cancel'", login)
+        print("  [PASS] Step 4.17: Cancelled knock closes on the Host at once; no phantom device on a racing Allow")
 
 
 if __name__ == "__main__":
