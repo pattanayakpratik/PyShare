@@ -21,6 +21,7 @@ import random
 import string
 import zipfile
 import io
+import base64
 import datetime
 import queue
 import pyperclip
@@ -483,7 +484,6 @@ def tunnel_worker():
                 with TUNNEL_LOCK:
                     TUNNEL_URL = found_url
                     TUNNEL_STATUS = "active"
-                generate_qr(TUNNEL_URL)
                 broadcast_sse("tunnel", {"status": "active", "url": TUNNEL_URL})
                 add_event(f"Public Internet Mode Active: {TUNNEL_URL}")
                 break
@@ -511,7 +511,6 @@ def tunnel_worker():
                 TUNNEL_STATUS = "idle"
                 TUNNEL_URL = None
                 TUNNEL_PROC = None
-                generate_qr()
                 broadcast_sse("tunnel", {"status": "idle", "url": None})
 
 def start_tunnel():
@@ -538,7 +537,6 @@ def stop_tunnel():
                 except Exception:
                     pass
             TUNNEL_PROC = None
-    generate_qr()
     broadcast_sse("tunnel", {"status": "idle", "url": None})
     add_event("Reverted to Local Wi-Fi Mode")
 
@@ -563,10 +561,8 @@ mimetypes.add_type("application/manifest+json", ".json")
 def pin_rotator():
     """Manages 4-digit PIN: rotates every 30 seconds or stays fixed in static mode."""
     global CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, PIN_MODE, STATIC_PIN
-    last_qr_pin = None
     while True:
         now = time.time()
-        pin_changed = False
         with state_lock:
             if PIN_MODE == "static":
                 CURRENT_PIN = STATIC_PIN if (STATIC_PIN and len(STATIC_PIN) == 4 and STATIC_PIN.isdigit()) else "1234"
@@ -578,12 +574,7 @@ def pin_rotator():
                     CURRENT_PIN = f"{random.randint(1000, 9999)}"
                     NEXT_CHANGE = now + 30
                 ttl = max(0, int(NEXT_CHANGE - now))
-            if CURRENT_PIN != last_qr_pin:
-                last_qr_pin = CURRENT_PIN
-                pin_changed = True
             pin_data = {"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE}
-        if pin_changed:
-            generate_qr()
         broadcast_sse("pin", pin_data)
         time.sleep(1)
 
@@ -856,38 +847,95 @@ def get_unique_filepath(directory, filename):
         counter += 1
     return candidate
 
-def get_qr_path():
-    """Returns the dynamic QR code image path, creating parent directory or falling back to temp dir."""
-    target_dir = BASE_DIR if (BASE_DIR and os.path.isdir(BASE_DIR)) else tempfile.gettempdir()
-    if BASE_DIR and not os.path.exists(BASE_DIR):
+# --- HOST QR CODE: built in memory on every request, never written to disk ---
+# PyShare brand gradient (sky -> blue -> violet), darkened so every stop is >= 5.9:1 against white
+QR_GRADIENT = ("#0369a1", "#1d4ed8", "#6d28d9")
+_qr_logo_cache = None
+
+def get_connect_url():
+    """The address the Host QR sends phones to: the public tunnel or the LAN, plus the live PIN for instant login."""
+    base = TUNNEL_URL or f"http://{get_ip()}:{ACTUAL_PORT}"
+    pin = CURRENT_PIN
+    return f"{base}/?pin={pin}" if pin and pin != "0000" else base
+
+def _qr_logo_data_uri():
+    """The app icon shrunk to 96px for the QR centre. Built once and kept in memory ("" if unavailable)."""
+    global _qr_logo_cache
+    if _qr_logo_cache is None:
+        _qr_logo_cache = ""
         try:
-            os.makedirs(BASE_DIR, exist_ok=True)
-            target_dir = BASE_DIR
-        except Exception:
-            target_dir = tempfile.gettempdir()
-    return os.path.join(target_dir, "qrcode.png")
+            from PIL import Image
+            with Image.open(os.path.join(get_asset_dir(), "app_icon.png")) as im:
+                icon = im.convert("RGBA")
+                icon.thumbnail((96, 96), Image.LANCZOS)
+                buf = io.BytesIO()
+                icon.save(buf, "PNG", optimize=True)
+            _qr_logo_cache = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        except Exception as e:
+            print(f"[!] QR logo unavailable, using a plain centre: {e}")
+    return _qr_logo_cache
 
-def generate_qr(url=None):
-    """Generates a dynamic QR Code pointing to current server URL with auto-login pin."""
-    try:
-        if url is None:
-            if TUNNEL_URL:
-                base = TUNNEL_URL
-            else:
-                ip = get_ip()
-                base = f"http://{ip}:{ACTUAL_PORT}"
-            url = f"{base}/?pin={CURRENT_PIN}" if CURRENT_PIN and CURRENT_PIN != "0000" else base
-        elif "pin=" not in url and CURRENT_PIN and CURRENT_PIN != "0000":
-            sep = "&" if "?" in url else "/?"
-            url = f"{url}{sep}pin={CURRENT_PIN}"
-        qr_path = get_qr_path()
+def _rounded_rect_path(x, y, w, h, r):
+    """SVG path data for a rounded rectangle, drawn clockwise."""
+    return (f"M{x + r:g} {y:g}h{w - 2 * r:g}a{r:g} {r:g} 0 0 1 {r:g} {r:g}v{h - 2 * r:g}"
+            f"a{r:g} {r:g} 0 0 1 {-r:g} {r:g}h{-(w - 2 * r):g}a{r:g} {r:g} 0 0 1 {-r:g} {-r:g}"
+            f"v{-(h - 2 * r):g}a{r:g} {r:g} 0 0 1 {r:g} {-r:g}z")
 
-        qr = pyqrcode.create(url)
-        qr.png(qr_path, scale=6)
-        return qr_path
-    except Exception as e:
-        print(f"[!] QR generation failed: {e}")
-        return None
+def build_qr_svg(data):
+    """Render `data` as a PyShare-styled QR code (SVG): rounded modules and finder eyes in the brand
+    gradient, with the app icon in the centre. Error correction H keeps it readable with the centre covered."""
+    qr = pyqrcode.create(data, error='H')
+    matrix = qr.code
+    n = len(matrix)
+    quiet = 2          # modules of white margin inside the image; the white host card adds more
+    size = n + 2 * quiet
+    # From version 7 an alignment pattern sits in the middle of the code, so leave the centre alone
+    logo = _qr_logo_data_uri() if qr.version <= 6 else ""
+    plate = (max(5, round(n * 0.24)) | 1) if logo else 0   # odd, so it centres on the module grid
+    p0 = (n - plate) // 2
+
+    def in_eye(r, c):
+        return (r < 7 or r >= n - 7) and (c < 7 or c >= n - 7) and not (r >= n - 7 and c >= n - 7)
+
+    def under_logo(r, c):
+        return plate and p0 <= r < p0 + plate and p0 <= c < p0 + plate
+
+    # Each data module: a 0.3 square stroked 0.6 wide with round joins = a 0.9 rounded square, radius 0.3
+    dots = "".join(
+        f"M{c + quiet + .35:g} {r + quiet + .35:g}h.3v.3h-.3z"
+        for r, row in enumerate(matrix) for c, dark in enumerate(row)
+        if dark and not in_eye(r, c) and not under_logo(r, c)
+    )
+    # Finder eyes, one even-odd path: a frame with only slightly softened corners (scanners locate the code
+    # by the frame's square outline; rounder frames made OpenCV miss most codes) around a rounded centre
+    eyes = "".join(
+        _rounded_rect_path(x, y, 7, 7, .5) + _rounded_rect_path(x + 1, y + 1, 5, 5, .3) + _rounded_rect_path(x + 2, y + 2, 3, 3, .8)
+        for x, y in ((quiet, quiet), (quiet + n - 7, quiet), (quiet, quiet + n - 7))
+    )
+    logo_svg = ""
+    if logo:
+        lx = p0 + quiet + .5
+        logo_svg = f'<image href="{logo}" x="{lx:g}" y="{lx:g}" width="{plate - 1:g}" height="{plate - 1:g}"/>'
+    g0, g1, g2 = QR_GRADIENT
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}">'
+        f'<defs><linearGradient id="pg" x1="0" y1="0" x2="{size}" y2="{size}" gradientUnits="userSpaceOnUse">'
+        f'<stop offset="0" stop-color="{g0}"/><stop offset=".5" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/>'
+        f'</linearGradient></defs>'
+        f'<rect width="{size}" height="{size}" fill="#fff"/>'
+        f'<path fill="url(#pg)" stroke="url(#pg)" stroke-width=".6" stroke-linejoin="round" d="{dots}"/>'
+        f'<path fill="url(#pg)" fill-rule="evenodd" d="{eyes}"/>'
+        f'{logo_svg}</svg>'
+    )
+
+def remove_legacy_qr_file():
+    """Older builds kept qrcode.png beside Received_Files/Shared_Files. The QR lives in memory now, so tidy it
+    away, but only inside PyShare's own folder: a user-chosen shared folder's parent may hold their own files."""
+    if BASE_DIR and os.path.basename(os.path.normpath(BASE_DIR)) == "PyShare_Files":
+        try:
+            os.remove(os.path.join(BASE_DIR, "qrcode.png"))
+        except OSError:
+            pass
 
 def parse_range_header(range_header, file_size):
     """Parse HTTP Range header for 206 Partial Content video/audio streaming."""
@@ -1390,26 +1438,28 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         global SHARED_TEXT, TEXT_TIMESTAMP
         ASSET_DIR = get_asset_dir()
 
-        # 1. SERVE QR CODE (Must precede static assets)
-        if self.path == '/qrcode.png' or self.path.startswith('/qrcode.png?'):
-            qr_path = get_qr_path()
-
-            if not os.path.exists(qr_path):
-                generate_qr()
-            if os.path.exists(qr_path):
-                with open(qr_path, "rb") as f:
-                    content = f.read()
-                try:
-                    self.send_response(200) 
-                    self.send_header("Content-Type", "image/png")
-                    self.send_header("Content-Length", str(len(content)))
-                    self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                    self.end_headers()
-                    self.wfile.write(content)
-                except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
-                    pass
-            else:
-                self.send_error(404, "QR Code not ready")
+        # 1. HOST QR CODE: rendered in memory for the Host screen only. It carries the live PIN,
+        #    so a guest on the Wi-Fi or behind the tunnel must not be able to fetch and decode it.
+        if self.path == '/api/qr' or self.path.startswith('/api/qr?'):
+            if not self.is_host_client():
+                self.send_error(403, "Forbidden")
+                return
+            try:
+                content = build_qr_svg(get_connect_url()).encode("utf-8")
+            except Exception as e:
+                print(f"[!] QR generation failed: {e}")
+                self.send_error(503, "QR Code not ready")
+                return
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/svg+xml")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "no-store")
+                self.send_security_headers()
+                self.end_headers()
+                self.wfile.write(content)
+            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                pass
             return
 
         # Check for PyShare Application Updates (Public endpoint)
@@ -1478,6 +1528,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 if status == "pending" and now > req.get("expires_at", 0):
                     req["status"] = status = "expired"
                 token = req.get("token") if (req and status == "approved") else None
+                if token:
+                    req["delivered"] = True   # the guest now holds the session; a late cancel won't revoke it
                 expires_in = max(0, int(req.get("expires_at", 0) - now)) if req else 0
 
             if status == "approved" and token:
@@ -2202,19 +2254,46 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"status": "pending", "request_id": req_id, "expires_in": JOIN_REQUEST_TTL})
             return
 
-        # HANDLE JOIN CANCEL (/api/join/cancel - Client Cancel)
+        # HANDLE JOIN CANCEL (/api/join/cancel - the guest withdraws a knock: Cancel button, leaving the
+        # page, or its countdown running out). The unguessable request_id is the credential.
         if self.path == '/api/join/cancel':
             length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(length).decode('utf-8', errors='ignore') if length else "{}"
+            if length > 2048:
+                self.send_error(400, "Bad Request")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore') if length else ""
             try:
                 data = json.loads(body) if body else {}
-                req_id = data.get("id", data.get("request_id", ""))
-                with state_lock:
-                    if req_id in PENDING_JOIN_REQUESTS:
-                        PENDING_JOIN_REQUESTS[req_id]["status"] = "cancelled"
-                self.send_json({"status": "ok"})
-            except Exception as e:
-                self.send_error(500, str(e))
+            except ValueError:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            req_id = str(data.get("id", data.get("request_id", ""))).strip()
+            reason = "expired" if data.get("reason") == "timeout" else "cancelled"
+
+            withdrawn_nickname = None
+            revoked_session = False
+            with state_lock:
+                req = PENDING_JOIN_REQUESTS.get(req_id) if req_id else None
+                if req and req.get("status") == "pending":
+                    req["status"] = reason
+                    withdrawn_nickname = req.get("nickname", "Device")
+                elif req and req.get("status") == "approved" and not req.get("delivered"):
+                    # The Host clicked Allow just as the guest gave up: the guest never received the
+                    # session, so drop it rather than leave a phantom device in the Host's list
+                    SESSIONS.pop(req.get("token"), None)
+                    req["status"], req["token"] = reason, None
+                    withdrawn_nickname = req.get("nickname", "Device")
+                    revoked_session = True
+
+            if withdrawn_nickname is not None:
+                if reason == "cancelled":
+                    add_event(f"Join request cancelled by guest: {withdrawn_nickname}")
+                # Close the request on every open Host screen right away
+                broadcast_sse("join_request_closed", {"id": req_id, "nickname": withdrawn_nickname, "reason": reason})
+                if revoked_session:
+                    broadcast_sse("peers", get_connected_peers())
+            self.send_json({"status": "ok"})
             return
 
         # HANDLE JOIN RESPOND (/api/join/respond - Host Only)
@@ -2262,6 +2341,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     else:
                         req["status"] = "declined"
 
+                # Any other open Host window (desktop app + a browser tab) closes its copy of the dialog
+                broadcast_sse("join_request_closed", {
+                    "id": req_id, "nickname": req_nickname,
+                    "reason": "approved" if action == "accept" else "declined"
+                })
                 if action == "accept":
                     add_event(f"Device joined (Host approved): {req_nickname}")
                     trigger_desktop_notification("PyShare — Device Connected", f"{req_nickname} connected")
@@ -2346,7 +2430,6 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 cfg["static_pin"] = STATIC_PIN
                 save_app_config(cfg)
 
-                generate_qr()
                 add_event(f"PIN Security Mode: {PIN_MODE.capitalize()} ({CURRENT_PIN})")
 
                 self.send_json({"status": "ok", "mode": PIN_MODE, "pin": CURRENT_PIN})
@@ -2871,9 +2954,7 @@ def start_server():
 
     ip = get_ip()
     url = f'http://{ip}:{ACTUAL_PORT}'
-    
-    # Generate Dynamic QR code on startup
-    generate_qr(url)
+    remove_legacy_qr_file()
 
     # mDNS Service Broadcast
     try:
