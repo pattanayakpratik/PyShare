@@ -174,12 +174,16 @@
     border: 1px solid rgba(0, 240, 255, 0.25);
 }
 
+/* White plate (QR codes need dark-on-light to scan) with a PyShare gradient rim:
+   the plate paints the padding box, the gradient shows through the transparent border */
 .qr-white-card {
-    background: #ffffff;
+    background:
+        linear-gradient(#ffffff, #ffffff) padding-box,
+        linear-gradient(135deg, #22d3ee, #2563eb 55%, #8b5cf6) border-box;
+    border: 2px solid transparent;
     padding: 8px;
-    border-radius: 14px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(0, 240, 255, 0.25);
-    border: 2px solid rgba(0, 240, 255, 0.3);
+    border-radius: 18px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 22px rgba(37, 99, 235, 0.35);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -188,14 +192,14 @@
 
 .qr-white-card:hover {
     transform: scale(1.02);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 0 24px rgba(0, 240, 255, 0.45);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5), 0 0 30px rgba(124, 58, 237, 0.45);
 }
 
 .qr-code-img {
     width: 136px;
     height: 136px;
     display: block;
-    image-rendering: pixelated;
+    border-radius: 10px;
 }
 
 .qr-caption {
@@ -813,9 +817,11 @@
 }
 
 [data-theme="light"] .qr-white-card {
-    background: var(--qr-wrapper-bg);
-    border: var(--qr-wrapper-border);
-    box-shadow: var(--qr-wrapper-shadow);
+    box-shadow: 0 16px 36px -14px rgba(37, 99, 235, 0.4), 0 0 22px rgba(124, 58, 237, 0.12);
+}
+
+[data-theme="light"] .qr-white-card:hover {
+    box-shadow: 0 18px 40px -14px rgba(37, 99, 235, 0.45), 0 0 28px rgba(124, 58, 237, 0.2);
 }
 
 [data-theme="light"] .pin-display-box {

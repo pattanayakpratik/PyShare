@@ -132,7 +132,7 @@
                 </div>
 
                 <div class="qr-white-card">
-                    <img src="/qrcode.png" class="qr-code-img" alt="Scan QR Code to Connect" onerror="setTimeout(() => { this.src = '/qrcode.png?t=' + Date.now(); }, 1000);">
+                    <img src="/api/qr" class="qr-code-img" alt="QR code: scan with a phone to connect" onerror="if ((this.dataset.retries = (+this.dataset.retries || 0) + 1) <= 5) setTimeout(() => { this.src = '/api/qr?t=' + Date.now(); }, 1000);">
                 </div>
                 <div class="qr-caption">Scan with a phone camera to connect</div>
                 <div id="tunnel-url-badge" class="tunnel-url-badge" style="display: none;" onclick="copyTunnelUrl()" title="Click to copy public link">

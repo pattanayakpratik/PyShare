@@ -209,7 +209,7 @@ async function togglePinMode() {
             showToast(label, 'success');
             if (navigator.vibrate) navigator.vibrate(40);
             const qrImg = document.querySelector('.qr-code-img');
-            if (qrImg) qrImg.src = '/qrcode.png?t=' + Date.now();
+            if (qrImg) qrImg.src = '/api/qr?t=' + Date.now();
         }
     } catch (e) {
         showToast("Error updating PIN mode", "error");
@@ -246,7 +246,7 @@ function setupHostSSE(es) {
             if (data.pin && data.pin !== lastDisplayedPin) {
                 lastDisplayedPin = data.pin;
                 const qrImg = document.querySelector('.qr-code-img');
-                if (qrImg) qrImg.src = '/qrcode.png?t=' + Date.now();
+                if (qrImg) qrImg.src = '/api/qr?t=' + Date.now();
             }
             if (timerTextEl) {
                 if (data.ttl < 0 || data.mode === 'static') {
@@ -362,6 +362,19 @@ function setupHostSSE(es) {
             }
         } catch (err) {}
     });
+
+    // 7. A knock ended elsewhere: the guest cancelled or left the page, it timed out, or another Host window answered
+    es.addEventListener('join_request_closed', (e) => {
+        try {
+            const d = JSON.parse(e.data);
+            if (!d || !d.id) return;
+            const name = d.nickname || 'The device';
+            const message = d.reason === 'cancelled' ? `${name} cancelled the join request`
+                : d.reason === 'expired' ? `Join request from ${name} expired`
+                : '';
+            closeHostJoinRequest(d.id, message);
+        } catch (err) {}
+    });
 }
 
 // --- ACTIVITY LOG (history on open + live entries, newest first) ---
@@ -395,23 +408,37 @@ async function loadActivityHistory() {
 }
 
 // --- Host Join Request Handling ---
+// One knock is on screen at a time; any others wait on the server and appear when it closes.
 let activeHostJoinRequest = null;
 let hostJoinReqCountdownTimer = null;
+const closedJoinRequestIds = new Set();     // answered, cancelled or expired: never show again
+const announcedJoinRequestIds = new Set();  // knocks waiting behind the current one, already toasted
 
 function displayHostJoinRequest(req) {
-    activeHostJoinRequest = req;
+    if (!req || !req.id || closedJoinRequestIds.has(req.id)) return;
     const modal = document.getElementById('hostJoinRequestModal');
+    if (!modal) return;
+    if (activeHostJoinRequest && activeHostJoinRequest.id !== req.id) {
+        if (!announcedJoinRequestIds.has(req.id)) {
+            announcedJoinRequestIds.add(req.id);
+            showToast(`${req.nickname || 'Another device'} is also waiting to join`, 'bell');
+        }
+        return;
+    }
+    const isNew = !activeHostJoinRequest;
+    activeHostJoinRequest = { ...req, shownAt: isNew ? Date.now() : activeHostJoinRequest.shownAt };
+
     const nameEl = document.getElementById('joinReqDeviceName');
     const infoEl = document.getElementById('joinReqDeviceInfo');
     const timerEl = document.getElementById('joinReqTimer');
-    if (!modal) return;
-
     if (nameEl) nameEl.innerText = req.nickname || 'Unknown Device';
     if (infoEl) infoEl.innerText = `${req.browser || 'Browser'} on ${req.device || 'Device'} • IP: ${req.ip || 'Unknown'}`;
 
     modal.style.display = 'flex';
-    showToast(`Device wants to join: ${req.nickname}`, 'bell');
-    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+    if (isNew) {
+        showToast(`Device wants to join: ${req.nickname}`, 'bell');
+        if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+    }
 
     let secondsLeft = req.expires_in || 60;
     if (timerEl) timerEl.innerText = `Auto-expires in ${secondsLeft}s`;
@@ -419,12 +446,19 @@ function displayHostJoinRequest(req) {
     if (hostJoinReqCountdownTimer) clearInterval(hostJoinReqCountdownTimer);
     hostJoinReqCountdownTimer = setInterval(() => {
         secondsLeft--;
-        if (timerEl) timerEl.innerText = `Auto-expires in ${secondsLeft}s`;
-        if (secondsLeft <= 0) {
-            clearInterval(hostJoinReqCountdownTimer);
-            hideHostJoinRequestModal();
-        }
+        if (timerEl) timerEl.innerText = `Auto-expires in ${Math.max(0, secondsLeft)}s`;
+        if (secondsLeft <= 0) closeHostJoinRequest(req.id);
     }, 1000);
+}
+
+// The knock is over: the guest cancelled or left, it expired, or it was answered (here or in another
+// Host window). Close it if it's on screen, then show the next device waiting, if any.
+function closeHostJoinRequest(id, message) {
+    closedJoinRequestIds.add(id);
+    if (!activeHostJoinRequest || activeHostJoinRequest.id !== id) return;
+    hideHostJoinRequestModal();
+    if (message) showToast(message, 'info');
+    checkPendingJoinRequests();
 }
 
 function hideHostJoinRequestModal() {
@@ -438,45 +472,53 @@ function hideHostJoinRequestModal() {
 }
 
 async function respondHostJoinRequest(action) {
-    if (!activeHostJoinRequest || !activeHostJoinRequest.id) {
+    const req = activeHostJoinRequest;
+    if (!req || !req.id) {
         hideHostJoinRequestModal();
         return;
     }
-    const reqId = activeHostJoinRequest.id;
-    const reqNickname = activeHostJoinRequest.nickname;
+    closedJoinRequestIds.add(req.id);
     hideHostJoinRequestModal();
 
     try {
         const res = await fetch('/api/join/respond', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: reqId, action: action })
+            body: JSON.stringify({ id: req.id, action: action })
         });
-        const data = await res.json();
-        if (data.status === 'ok') {
-            if (action === 'accept') {
-                showToast(`Allowed ${reqNickname} to connect`, 'success');
-                fetchPeers();
-            } else {
-                showToast(`Declined request from ${reqNickname}`, 'error');
-            }
+        if (!res.ok) {
+            // The guest cancelled (or it expired) in the moment before the click
+            showToast(`${req.nickname || 'That device'} is no longer waiting to join`, 'warning');
+        } else if (action === 'accept') {
+            showToast(`Allowed ${req.nickname} to connect`, 'success');
+            fetchPeers();
+        } else {
+            showToast(`Declined request from ${req.nickname}`, 'error');
         }
     } catch (e) {
         showToast('Error responding to join request', 'error');
     }
+    checkPendingJoinRequests();
 }
 window.respondHostJoinRequest = respondHostJoinRequest;
 
-// Check for any currently pending join requests on Host load
+// Show the oldest waiting knock: on load, after each one closes, and every 15s as a fallback
+// that also catches a cancel whose live event was missed (e.g. the event stream reconnecting).
 async function checkPendingJoinRequests() {
+    const startedAt = Date.now();
     try {
         const res = await fetch('/api/join/pending');
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.requests && data.requests.length > 0) {
-                displayHostJoinRequest(data.requests[0]);
-            }
+        if (!res.ok) return;
+        const data = await res.json();
+        const requests = (data && Array.isArray(data.requests)) ? data.requests : [];
+        const active = activeHostJoinRequest;
+        // Only trust this snapshot about a dialog that was already open when it was taken
+        if (active && active.shownAt < startedAt && !requests.some(r => r && r.id === active.id)) {
+            closeHostJoinRequest(active.id, `${active.nickname || 'The device'} is no longer waiting to join`);
+            return;
         }
+        const next = requests.find(r => r && r.id && !closedJoinRequestIds.has(r.id) && r.expires_in > 1);
+        if (next) displayHostJoinRequest(next);
     } catch (e) {}
 }
 
@@ -707,7 +749,7 @@ function updateTunnelUI(data) {
             urlTextEl.innerText = data.url;
         }
         if (qrImg) {
-            qrImg.src = '/qrcode.png?t=' + Date.now();
+            qrImg.src = '/api/qr?t=' + Date.now();
         }
     } else {
         currentTunnelUrl = null;
@@ -724,7 +766,7 @@ function updateTunnelUI(data) {
             badgeEl.style.display = 'none';
         }
         if (qrImg) {
-            qrImg.src = '/qrcode.png?t=' + Date.now();
+            qrImg.src = '/api/qr?t=' + Date.now();
         }
     }
 }
