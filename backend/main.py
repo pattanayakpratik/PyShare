@@ -300,8 +300,13 @@ def make_chat_message(text, sender, sender_id, is_host=False, device_type="devic
         "time_str": time_str
     }
 state_lock = threading.RLock()
-events_queue = [] 
-upload_status = {}
+events_queue = []
+# Incoming uploads. Phones send up to 2 files at once, so progress is tracked per file and per batch
+# and the Host gets one combined status (it used to be one slot per IP that concurrent files overwrote).
+upload_status = {}    # transfer id -> {"filename", "current", "total", "batch", "started"}
+upload_batches = {}   # "ip|batch id" -> {"files", "bytes"} the phone announced + {"done_files", "done_bytes"}
+UPLOAD_BATCH_GRACE = 5  # seconds a batch outlives its last file, so the next queued file continues its count
+_last_upload_broadcast = 0.0
 
 # --- JOIN REQUESTS QUEUE (Host Approval / Knock-to-Enter) ---
 PENDING_JOIN_REQUESTS = {}  # request_id -> dict
@@ -720,20 +725,82 @@ def add_event(msg):
             events_queue.pop(0)
     broadcast_sse("log", ev)
 
-def set_upload_status(client_ip, filename, current, total):
+def _prune_upload_batches(now):
+    """Forget batches with no file in flight for longer than the grace period. Call with state_lock held."""
+    in_flight = {t["batch"] for t in upload_status.values()}
+    for key in [k for k, b in upload_batches.items() if k not in in_flight and now - b["updated"] > UPLOAD_BATCH_GRACE]:
+        upload_batches.pop(key, None)
+
+def start_upload(client_ip, filename, total, batch_id="", batch_files=0, batch_bytes=0):
+    """Register an incoming file and return its transfer id. batch_* is the sender's current view of its
+    whole queue (it shrinks when the sender cancels a file), so the Host can show progress for all of it."""
+    transfer_id = secrets.token_hex(8)
+    key = f"{client_ip}|{batch_id or transfer_id}"
+    now = time.time()
     with state_lock:
-        upload_status[client_ip] = {
-            "filename": filename, 
-            "current": current, 
-            "total": total
+        _prune_upload_batches(now)
+        batch = upload_batches.setdefault(key, {"files": 0, "bytes": 0, "done_files": 0, "done_bytes": 0, "updated": now})
+        if batch_id:
+            batch["files"], batch["bytes"] = batch_files, batch_bytes
+        batch["updated"] = now
+        upload_status[transfer_id] = {"filename": filename, "current": 0, "total": total, "batch": key, "started": now}
+    return transfer_id
+
+def update_upload(transfer_id, current):
+    with state_lock:
+        transfer = upload_status.get(transfer_id)
+        if transfer:
+            transfer["current"] = current
+            batch = upload_batches.get(transfer["batch"])
+            if batch:
+                batch["updated"] = time.time()
+
+def finish_upload(transfer_id, ok):
+    """Stop tracking a file; a completed one counts towards its batch. Safe to call twice."""
+    with state_lock:
+        transfer = upload_status.pop(transfer_id, None) if transfer_id else None
+        batch = upload_batches.get(transfer["batch"]) if transfer else None
+        if batch:
+            batch["updated"] = time.time()
+            if ok:
+                batch["done_files"] += 1
+                batch["done_bytes"] += transfer["total"]
+
+def upload_snapshot():
+    """Everything being received right now, combined into one status for the Host's progress bar.
+    None when nothing has been received recently; active == 0 means the batch just finished."""
+    with state_lock:
+        _prune_upload_batches(time.time())
+        if not upload_batches:
+            return None
+        in_flight = sorted(upload_status.values(), key=lambda t: t["started"])
+        files = done = received = total = 0
+        for key, batch in upload_batches.items():
+            mine = [t for t in in_flight if t["batch"] == key]
+            # Trust the sender's totals, but never show less than what has actually arrived
+            files += max(batch["files"], batch["done_files"] + len(mine))
+            total += max(batch["bytes"], batch["done_bytes"] + sum(t["total"] for t in mine))
+            done += batch["done_files"]
+            received += batch["done_bytes"] + sum(t["current"] for t in mine)
+        return {
+            "active": len(in_flight),
+            "filename": in_flight[0]["filename"] if in_flight else "",
+            "done": done,
+            "files": files,
+            "received": received,
+            "total": total,
         }
 
-def clear_upload_status(client_ip=None):
+def publish_upload_progress(force=False):
+    """Push the combined receive status to Host screens: at most ~5 times a second while bytes flow
+    (every upload thread calls this), and always when a file starts or ends."""
+    global _last_upload_broadcast
+    now = time.time()
     with state_lock:
-        if client_ip:
-            upload_status.pop(client_ip, None)
-        else:
-            upload_status.clear()
+        if not force and now - _last_upload_broadcast < 0.2:
+            return
+        _last_upload_broadcast = now
+    broadcast_sse("upload", upload_snapshot())
 
 def pop_events():
     with state_lock:
@@ -1832,9 +1899,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
         # F. API: Updates / Poll (Fallback)
         if self.path == '/api/updates':
+            current_upload = upload_snapshot()
             with state_lock:
-                active_uploads = list(upload_status.values()) if upload_status else None
-                current_upload = active_uploads[0] if active_uploads else None
                 data = {
                     "events": list(events_queue), 
                     "upload": current_upload,
@@ -2679,6 +2745,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
         # 5. HANDLE FILE UPLOAD (High-speed 256KB buffer + throttled progress lock)
         client_ip = self.get_client_ip()
+        transfer_id = None
         try:
             is_chat_upload = ("dest=chat" in self.path) or self.path.startswith("/api/chat/upload")
             is_host_upload = (("dest=host" in self.path) and self.is_host_client()) or is_chat_upload
@@ -2731,9 +2798,20 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             remain = length
             total_size = length
             
-            if not is_host_upload: 
+            if not is_host_upload:
                 add_event(f"Receiving: {actual_fn}")
-            
+
+                def header_int(name, cap):
+                    try:
+                        return min(max(int(self.headers.get(name, 0)), 0), cap)
+                    except (TypeError, ValueError):
+                        return 0
+                # Optional batch hints from the phone's upload queue (UploadQueueManager in scripts.js)
+                batch_id = re.sub(r'[^A-Za-z0-9_-]', '', self.headers.get('X-Upload-Batch', ''))[:32]
+                transfer_id = start_upload(client_ip, actual_fn, total_size, batch_id,
+                                           header_int('X-Batch-Files', 100000), header_int('X-Batch-Bytes', 1 << 50))
+                publish_upload_progress(force=True)
+
             last_status_time = 0
             read_fn = self.rfile.read1 if hasattr(self.rfile, 'read1') else self.rfile.read
             try:
@@ -2745,16 +2823,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         f.write(chunk)
                         remain -= len(chunk)
                         
-                        if not is_host_upload:
+                        if transfer_id:
                             now = time.time()
-                            if now - last_status_time >= 0.25 or remain == 0:
+                            if now - last_status_time >= 0.25:
                                 last_status_time = now
-                                set_upload_status(client_ip, actual_fn, total_size - remain, total_size)
-                                broadcast_sse("upload", {
-                                    "filename": actual_fn,
-                                    "current": total_size - remain,
-                                    "total": total_size
-                                })
+                                update_upload(transfer_id, total_size - remain)
+                                publish_upload_progress()
                 if remain == 0:
                     # Atomic commit: Rename completed .part file to final path
                     if os.path.exists(out_path):
@@ -2774,9 +2848,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         pass
                 raise e
             
-            clear_upload_status(client_ip)
-            broadcast_sse("upload", None)
-            
+            if transfer_id:
+                finish_upload(transfer_id, ok=True)
+                publish_upload_progress(force=True)
+
             if is_chat_upload:
                 client_token = self.get_session_token()
                 if client_token and client_token in SESSIONS:
@@ -2844,8 +2919,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"status": "ok", "filename": actual_fn})
             
         except Exception as e:
-            clear_upload_status(client_ip)
-            broadcast_sse("upload", None)
+            if transfer_id:
+                finish_upload(transfer_id, ok=False)
+                publish_upload_progress(force=True)
             self.send_error(500, str(e))
 
 # --- SERVER CONTROLLER ---
