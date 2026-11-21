@@ -282,58 +282,10 @@ function setupHostSSE(es) {
         } catch (err) {}
     });
 
-    // 3. Incoming Mobile Upload Monitor (High-frequency throttled push with Speed & ETA)
-    let lastRxLoaded = 0;
-    let lastRxTime = Date.now();
-    let rxSmoothedSpeed = 0;
-    let currentRxFile = '';
-
+    // 3. Incoming uploads: one combined status for everything phones are sending
     es.addEventListener('upload', (e) => {
         try {
-            const upload = JSON.parse(e.data);
-            const rxBox = document.getElementById('rx-container');
-            const rxBar = document.getElementById('rx-bar');
-            const rxName = document.getElementById('rx-filename');
-            const rxStats = document.getElementById('rx-stats');
-            const rxEta = document.getElementById('rx-eta');
-
-            if (rxBox && rxBar && rxName) {
-                if (upload) {
-                    rxBox.style.display = 'block';
-                    rxName.innerText = upload.filename;
-
-                    if (currentRxFile !== upload.filename) {
-                        currentRxFile = upload.filename;
-                        lastRxLoaded = upload.current;
-                        lastRxTime = Date.now();
-                        rxSmoothedSpeed = 0;
-                    }
-
-                    const pct = Math.round((upload.current / upload.total) * 100);
-                    rxBar.style.width = pct + "%";
-
-                    const now = Date.now();
-                    const timeDiff = (now - lastRxTime) / 1000;
-                    if (timeDiff >= 0.25) {
-                        const curSpeed = (upload.current - lastRxLoaded) / timeDiff;
-                        rxSmoothedSpeed = rxSmoothedSpeed === 0 ? curSpeed : (0.7 * rxSmoothedSpeed + 0.3 * curSpeed);
-                        lastRxLoaded = upload.current;
-                        lastRxTime = now;
-                    }
-
-                    const remBytes = Math.max(0, upload.total - upload.current);
-                    const etaSec = rxSmoothedSpeed > 0 ? Math.round(remBytes / rxSmoothedSpeed) : 0;
-                    const speedStr = rxSmoothedSpeed > 0 ? `${formatSize(rxSmoothedSpeed)}/s` : 'calculating...';
-                    const etaStr = etaSec > 0 ? `${formatEta(etaSec)} left` : '';
-
-                    if (rxStats) rxStats.innerText = `${pct}% • ${speedStr}`;
-                    if (rxEta) rxEta.innerText = etaStr;
-                } else {
-                    rxBox.style.display = 'none';
-                    currentRxFile = '';
-                    rxSmoothedSpeed = 0;
-                }
-            }
+            renderReceiveStatus(JSON.parse(e.data));
         } catch (err) {}
     });
 
@@ -375,6 +327,87 @@ function setupHostSSE(es) {
             closeHostJoinRequest(d.id, message);
         } catch (err) {}
     });
+}
+
+// --- RECEIVE PROGRESS ---
+// The server sends one snapshot covering every file in flight (phones upload 2 at a time):
+// {active, filename, done, files, received, total}. One bar, one speed, one ETA, so nothing flips
+// between files. active == 0 means the batch finished; null means nothing is being received.
+let rxLastBytes = 0;
+let rxLastTime = 0;
+let rxSpeed = 0;
+let rxLastFilename = '';
+let rxDoneTimer = null;
+
+function renderReceiveStatus(u) {
+    const box = document.getElementById('rx-container');
+    const bar = document.getElementById('rx-bar');
+    const label = document.getElementById('rx-label-text');
+    const name = document.getElementById('rx-filename');
+    const stats = document.getElementById('rx-stats');
+    const eta = document.getElementById('rx-eta');
+    if (!box || !bar) return;
+    clearTimeout(rxDoneTimer);
+
+    const reset = () => {
+        box.style.display = 'none';
+        box.classList.remove('rx-done');
+        rxSpeed = 0;
+        rxLastTime = 0;
+    };
+    if (!u) {
+        reset();
+        return;
+    }
+
+    if (u.active > 0) {
+        const pct = u.total > 0 ? Math.min(100, Math.round((u.received / u.total) * 100)) : 0;
+        const now = Date.now();
+        if (!rxLastTime || u.received < rxLastBytes) {
+            // New batch, or a failed file's bytes dropped out of the total: restart the speed sample
+            rxLastBytes = u.received;
+            rxLastTime = now;
+        } else if (now - rxLastTime >= 400) {
+            const cur = (u.received - rxLastBytes) / ((now - rxLastTime) / 1000);
+            rxSpeed = rxSpeed > 0 ? 0.7 * rxSpeed + 0.3 * cur : cur;
+            rxLastBytes = u.received;
+            rxLastTime = now;
+        }
+        rxLastFilename = u.filename || rxLastFilename;
+
+        box.style.display = 'block';
+        box.classList.remove('rx-done');
+        bar.style.width = pct + '%';
+        if (label) label.innerText = u.files > 1 ? `Receiving ${u.done}/${u.files}` : 'Receiving';
+        if (name) {
+            name.innerText = u.filename;
+            name.title = u.filename;
+        }
+        const speedStr = rxSpeed > 0 ? `${formatSize(rxSpeed)}/s` : 'starting…';
+        const etaSec = rxSpeed > 0 ? Math.round(Math.max(0, u.total - u.received) / rxSpeed) : 0;
+        if (stats) stats.innerText = `${pct}% • ${speedStr}`;
+        if (eta) eta.innerText = etaSec > 0 ? `${formatEta(etaSec)} left` : '';
+        return;
+    }
+
+    // Nothing in flight. The phone's next queued file usually starts within a moment, so wait before
+    // calling it done, otherwise the bar would blink off and on between files. Counts update right away.
+    if (u.total > 0) bar.style.width = Math.min(100, Math.round((u.received / u.total) * 100)) + '%';
+    if (label && u.files > 1) label.innerText = `Receiving ${u.done}/${u.files}`;
+    rxDoneTimer = setTimeout(() => {
+        if (u.done === 0) {
+            reset();   // everything was cancelled or failed
+            return;
+        }
+        box.style.display = 'block';
+        box.classList.add('rx-done');
+        bar.style.width = '100%';
+        if (label) label.innerText = 'Received';
+        if (name) name.innerText = u.done === 1 ? rxLastFilename : `${u.done} files`;
+        if (stats) stats.innerText = `Done • ${formatSize(u.received)}`;
+        if (eta) eta.innerText = '';
+        rxDoneTimer = setTimeout(reset, 3500);
+    }, 1200);
 }
 
 // --- ACTIVITY LOG (history on open + live entries, newest first) ---

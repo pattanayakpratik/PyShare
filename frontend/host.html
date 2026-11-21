@@ -155,7 +155,7 @@
                 <!-- Receiving Progress (Active only when a client uploads) -->
                 <div id="rx-container" class="rx-card" style="display:none;">
                     <div class="rx-head">
-                        <span class="rx-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Receiving</span>
+                        <span class="rx-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <span id="rx-label-text">Receiving</span></span>
                         <span id="rx-filename" class="rx-filename">file.ext</span>
                     </div>
                     <div class="rx-track"><div id="rx-bar" class="rx-bar"></div></div>
@@ -325,14 +325,15 @@
 
     <!-- Floating Upload Queue Drawer -->
     <div id="floatingQueue" class="floating-queue">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700;">
+        <div class="floating-queue-header">
             <span id="queueOverallStatus">Uploading Files...</span>
             <div style="display:flex; align-items:center; gap:8px;">
-                <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
-                <button type="button" onclick="document.getElementById('floatingQueue').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); cursor:pointer; font-size:14px; padding:2px 6px; display:inline-flex; align-items:center;" title="Minimize Queue"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                <span id="queueSpeed" class="floating-queue-speed">0 KB/s</span>
+                <button type="button" class="floating-queue-toggle" onclick="toggleUploadQueue(event)" aria-expanded="true" aria-controls="queueItemsList" title="Minimize" aria-label="Minimize upload queue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
             </div>
         </div>
-        <div id="queueItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
+        <div class="floating-queue-progress" aria-hidden="true"><div id="queueOverallBar"></div></div>
+        <div id="queueItemsList" class="queue-items-container"></div>
     </div>
 
     <!-- In-App Lightbox Media Preview Modal -->
