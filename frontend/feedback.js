@@ -805,8 +805,31 @@ if (typeof window.showToast !== 'function') {
     };
 }
 
+// Upload queue: "minimize" folds it into a small bar that keeps showing status, overall progress and
+// speed; tapping the bar opens it again. (It used to hide the queue with no way to bring it back.)
+function toggleUploadQueue(event, expand) {
+    if (event) event.stopPropagation();
+    const queue = document.getElementById('floatingQueue');
+    if (!queue) return;
+    const minimized = expand === undefined ? !queue.classList.contains('minimized') : !expand;
+    queue.classList.toggle('minimized', minimized);
+    const btn = queue.querySelector('.floating-queue-toggle');
+    if (btn) {
+        btn.setAttribute('aria-expanded', String(!minimized));
+        btn.title = minimized ? 'Show uploads' : 'Minimize';
+        btn.setAttribute('aria-label', minimized ? 'Show upload queue' : 'Minimize upload queue');
+    }
+}
+
+if (typeof document !== 'undefined') {
+    document.addEventListener('click', (e) => {
+        if (e.target.closest && e.target.closest('.floating-queue.minimized')) toggleUploadQueue(null, true);
+    });
+}
+
 // Register globals & auto-check silently on startup
 if (typeof window !== 'undefined') {
+    window.toggleUploadQueue = toggleUploadQueue;
     window.checkForUpdates = checkForUpdates;
     window.closeUpdateModal = closeUpdateModal;
     setTimeout(() => {

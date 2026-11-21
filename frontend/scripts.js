@@ -414,12 +414,22 @@ class UploadQueueManager {
         const speedEl = document.getElementById('queueSpeed');
         if (speedEl && this.activeUploads === 0) speedEl.innerText = 'Starting…';
 
+        // Files added while others are still going join the same batch (one progress bar here and on the Host)
+        const busy = this.queue.some(i => i.status === 'uploading' || i.status === 'pending');
+        if (!busy || !this.batchId) {
+            this.batchId = 'b' + Math.random().toString(36).slice(2, 12);
+            this.speed = 0;
+            this.speedTime = 0;
+        }
+
         Array.from(files).forEach(file => {
             const item = {
                 id: 'upl_' + Math.random().toString(36).substr(2, 9),
                 file: file,
                 url: uploadUrl,
                 status: 'pending',
+                batchId: this.batchId,
+                loaded: 0,
                 xhr: null
             };
             this.queue.push(item);
@@ -501,8 +511,10 @@ class UploadQueueManager {
         const statusEl = document.getElementById('queueOverallStatus');
         if (statusEl) {
             if (totalRemaining > 0) {
-                statusEl.innerText = `Uploading ${totalRemaining} file${totalRemaining > 1 ? 's' : ''}...`;
+                this.updateOverall();
             } else if (this.queue.length > 0) {
+                const overallBar = document.getElementById('queueOverallBar');
+                if (overallBar) overallBar.style.width = '100%';
                 const done = this.queue.filter(i => i.status === 'done').length;
                 const failed = this.queue.filter(i => i.status === 'error').length;
                 statusEl.innerText = failed ? `${done} sent, ${failed} failed` : 'All uploads complete!';
@@ -526,6 +538,41 @@ class UploadQueueManager {
         }
     }
 
+    // The current batch as a whole: one percentage and one combined speed for the header and the
+    // minimized bar. (Two files upload at once, and each used to write its own speed into the header.)
+    updateOverall() {
+        const items = this.queue.filter(i => i.batchId === this.batchId && i.status !== 'cancelled');
+        const total = items.reduce((n, i) => n + i.file.size, 0);
+        const sent = items.reduce((n, i) => n + (i.status === 'done' ? i.file.size : i.status === 'uploading' ? (i.loaded || 0) : 0), 0);
+        const pct = total > 0 ? Math.min(100, Math.round((sent / total) * 100)) : 0;
+        const remaining = items.filter(i => i.status === 'uploading' || i.status === 'pending').length;
+
+        const now = Date.now();
+        if (!this.speedTime || sent < this.speedBytes) {
+            this.speedTime = now;
+            this.speedBytes = sent;
+        } else if (now - this.speedTime >= 400) {
+            const cur = (sent - this.speedBytes) / ((now - this.speedTime) / 1000);
+            this.speed = this.speed > 0 ? 0.7 * this.speed + 0.3 * cur : cur;
+            this.speedTime = now;
+            this.speedBytes = sent;
+        }
+
+        const bar = document.getElementById('queueOverallBar');
+        if (bar) bar.style.width = pct + '%';
+        if (!remaining) return;   // processNext writes the finished summary
+        const speedEl = document.getElementById('queueSpeed');
+        if (speedEl) speedEl.innerText = this.speed > 0 ? `${formatSize(this.speed)}/s` : 'Starting…';
+        const statusEl = document.getElementById('queueOverallStatus');
+        if (statusEl) statusEl.innerText = `Uploading ${remaining} file${remaining > 1 ? 's' : ''} • ${pct}%`;
+    }
+
+    // Tell the server what this batch holds, so the Host shows one bar for all of it
+    batchInfo(batchId) {
+        const items = this.queue.filter(i => i.batchId === batchId && i.status !== 'cancelled' && i.status !== 'error');
+        return { files: items.length, bytes: items.reduce((n, i) => n + i.file.size, 0) };
+    }
+
     uploadSingle(item) {
         this.activeUploads++;
         item.status = 'uploading';
@@ -533,7 +580,6 @@ class UploadQueueManager {
         const statusEl = document.getElementById(`${item.id}_status`);
         const barEl = document.getElementById(`${item.id}_bar`);
         const cancelBtn = document.getElementById(`${item.id}_cancel`);
-        const speedEl = document.getElementById('queueSpeed');
 
         const xhr = new XMLHttpRequest();
         item.xhr = xhr;
@@ -549,6 +595,10 @@ class UploadQueueManager {
             xhr.setRequestHeader('X-Relative-Path', encodeURIComponent(item.file.webkitRelativePath));
         }
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        const batch = this.batchInfo(item.batchId);
+        xhr.setRequestHeader('X-Upload-Batch', item.batchId);
+        xhr.setRequestHeader('X-Batch-Files', String(batch.files));
+        xhr.setRequestHeader('X-Batch-Bytes', String(batch.bytes));
 
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && item.status === 'uploading') {
@@ -571,8 +621,9 @@ class UploadQueueManager {
                 const speedText = smoothedSpeed > 0 ? `${formatSize(smoothedSpeed)}/s` : 'calculating...';
                 const etaText = etaSec > 0 ? ` • ${formatEta(etaSec)} left` : '';
 
-                if (speedEl) speedEl.innerText = speedText;
                 if (statusEl) statusEl.innerText = `${pct}% • ${speedText}${etaText}`;
+                item.loaded = e.loaded;
+                this.updateOverall();
             }
         };
 
