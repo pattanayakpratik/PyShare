@@ -228,22 +228,48 @@ class TestPyShareAllFeatures(unittest.TestCase):
         print("  [PASS] Step 2.1: Speedometer & ETA calculation algorithm verified")
 
     def test_07_upload_progress_tracker(self):
-        """Step 2.2: Verify upload progress tracking dictionary and reset."""
-        test_ip = "192.168.1.105"
-        test_file = "payload_video.mp4"
-        main.set_upload_status(test_ip, test_file, 25000000, 100000000)
+        """Step 2.2: Uploads are tracked per file and per batch, and combined into one Host status."""
+        saved = (dict(main.upload_status), dict(main.upload_batches))
+        main.upload_status.clear()
+        main.upload_batches.clear()
+        try:
+            ip = "192.168.1.105"
+            # A phone announces a 3-file / 300 MB batch and sends 2 files at once (same IP)
+            a = main.start_upload(ip, "a.mp4", 100_000_000, "batch1", 3, 300_000_000)
+            b = main.start_upload(ip, "b.mp4", 100_000_000, "batch1", 3, 300_000_000)
+            main.update_upload(a, 25_000_000)
+            main.update_upload(b, 50_000_000)
+            snap = main.upload_snapshot()
+            self.assertEqual((snap["active"], snap["done"], snap["files"]), (2, 0, 3))
+            self.assertEqual((snap["received"], snap["total"]), (75_000_000, 300_000_000))
+            self.assertEqual(snap["filename"], "a.mp4", "Oldest file in flight should be shown")
 
-        with main.state_lock:
-            self.assertIn(test_ip, main.upload_status)
-            entry = main.upload_status[test_ip]
-            self.assertEqual(entry["filename"], test_file)
-            self.assertEqual(entry["current"], 25000000)
-            self.assertEqual(entry["total"], 100000000)
+            # One finishing must not wipe the other (it used to clear the whole IP's slot)
+            main.finish_upload(b, ok=True)
+            snap = main.upload_snapshot()
+            self.assertEqual((snap["active"], snap["done"], snap["received"]), (1, 1, 125_000_000))
 
-        main.clear_upload_status(test_ip)
-        with main.state_lock:
-            self.assertNotIn(test_ip, main.upload_status)
-        print("  [PASS] Step 2.2: Live upload progress tracker verified")
+            # Everything finished: the batch is remembered briefly so the next queued file keeps the count
+            main.finish_upload(a, ok=True)
+            main.finish_upload(a, ok=True)   # idempotent
+            snap = main.upload_snapshot()
+            self.assertEqual((snap["active"], snap["done"]), (0, 2))
+            c = main.start_upload(ip, "c.mp4", 100_000_000, "batch1", 3, 300_000_000)
+            main.finish_upload(c, ok=True)
+            snap = main.upload_snapshot()
+            self.assertEqual((snap["done"], snap["files"], snap["received"], snap["total"]), (3, 3, 300_000_000, 300_000_000))
+
+            # ...and forgotten after the grace period
+            with main.state_lock:
+                for batch in main.upload_batches.values():
+                    batch["updated"] -= main.UPLOAD_BATCH_GRACE + 1
+            self.assertIsNone(main.upload_snapshot())
+        finally:
+            main.upload_status.clear()
+            main.upload_batches.clear()
+            main.upload_status.update(saved[0])
+            main.upload_batches.update(saved[1])
+        print("  [PASS] Step 2.2: Per-file upload tracking combined into one Host status")
 
     def test_08_unique_filepath_and_sanitization(self):
         """Step 2.3: Verify filename conflict resolution and sanitization."""
@@ -1363,6 +1389,68 @@ class TestPyShareAllFeatures(unittest.TestCase):
         self.assertIn("addEventListener('pagehide'", login)
         self.assertIn("sendBeacon('/api/join/cancel'", login)
         print("  [PASS] Step 4.17: Cancelled knock closes on the Host at once; no phantom device on a racing Allow")
+
+    def test_30_concurrent_uploads_one_steady_host_bar(self):
+        """Two files from one phone in flight together: the Host's bar must never be hidden (or reset)
+        while either is still arriving, and must cover both files."""
+        import http.client
+        events = []
+        real_broadcast = main.broadcast_sse
+        main.broadcast_sse = lambda ev, data: (events.append((ev, data)) if ev == "upload" else None, real_broadcast(ev, data))
+        main.upload_status.clear()
+        main.upload_batches.clear()
+        size = 2 * 1024 * 1024
+        batch = {"X-Upload-Batch": "t30batch", "X-Batch-Files": "2", "X-Batch-Bytes": str(2 * size)}
+        try:
+            cookie = {}   # loopback = Host session; a plain "/" upload still goes through the receive path
+            # Slow file: send half, pause while the second file is sent in full, then finish
+            slow = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+            slow.putrequest("POST", "/")
+            for k, v in {**batch, **cookie, "X-File-Name": "slow_video.mp4", "Content-Length": str(size),
+                         "Content-Type": "application/octet-stream"}.items():
+                slow.putheader(k, v)
+            slow.endheaders()
+            slow.send(b"\0" * (size // 2))
+            time.sleep(0.4)
+
+            fast = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+            fast.request("POST", "/", body=b"\1" * size, headers={**batch, **cookie, "X-File-Name": "fast_photo.jpg",
+                                                                  "Content-Type": "application/octet-stream"})
+            self.assertEqual(fast.getresponse().status, 200)
+            fast.close()
+            time.sleep(0.3)
+            mid = list(events)
+
+            slow.send(b"\0" * (size - size // 2))
+            self.assertEqual(slow.getresponse().status, 200)
+            slow.close()
+
+            snaps = [d for _, d in mid]
+            self.assertTrue(snaps, "No progress was published")
+            self.assertNotIn(None, snaps, "Bar was hidden while a file was still arriving")
+            self.assertTrue(all(d["active"] >= 1 for d in snaps), "Bar showed 'finished' while slow_video.mp4 was in flight")
+            self.assertTrue(all(d["files"] == 2 and d["total"] == 2 * size for d in snaps), "Bar did not cover both files")
+            received = [d["received"] for d in snaps]
+            self.assertEqual(received, sorted(received), "Combined progress went backwards")
+
+            final = events[-1][1]
+            self.assertEqual((final["active"], final["done"], final["received"]), (0, 2, 2 * size))
+        finally:
+            main.broadcast_sse = real_broadcast
+            main.upload_status.clear()
+            main.upload_batches.clear()
+            for name in ("slow_video.mp4", "fast_photo.jpg"):
+                try:
+                    os.remove(os.path.join(main.UPLOAD_DIR, name))
+                except OSError:
+                    pass
+
+        with open(os.path.join(main.ASSET_DIR, "client.html"), encoding="utf-8") as f:
+            client = f.read()
+        self.assertNotIn("getElementById('floatingQueue').style.display='none'", client,
+                         "Queue 'minimize' still hides it with no way back")
+        self.assertIn('onclick="toggleUploadQueue(event)"', client)
+        print("  [PASS] Step 2.6: Concurrent uploads show one steady Host bar; queue minimizes instead of vanishing")
 
 
 if __name__ == "__main__":
