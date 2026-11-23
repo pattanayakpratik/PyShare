@@ -10,9 +10,13 @@ Validates:
 """
 
 import os
+import re
 import sys
 import time
 import json
+import glob
+import socket
+import http.client
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -36,6 +40,9 @@ class TestPyShareSecurityAudit(unittest.TestCase):
         print("=" * 65)
 
         cls.test_dir = tempfile.mkdtemp()
+        # Never touch the developer's real ~/.pyshare_config.json (PIN-mode tests save settings)
+        cls._real_config_file = main.CONFIG_FILE
+        main.CONFIG_FILE = os.path.join(cls.test_dir, "pyshare_test_config.json")
         main.BASE_DIR = cls.test_dir
         main.DOWNLOAD_DIR = os.path.join(cls.test_dir, "Shared")
         main.UPLOAD_DIR = os.path.join(cls.test_dir, "Received")
@@ -67,6 +74,7 @@ class TestPyShareSecurityAudit(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server.server_close()
+        main.CONFIG_FILE = cls._real_config_file
         shutil.rmtree(cls.test_dir, ignore_errors=True)
         print("\n[*] Audit server shut down and temporary storage wiped.")
 
@@ -309,6 +317,200 @@ class TestPyShareSecurityAudit(unittest.TestCase):
         # Release semaphore
         main.zip_semaphore.release()
         print("  [PASS] SEC-10: ZIP archive generation single-instance semaphore verified")
+
+    # =========================================================================
+    # 6. PROTOCOL CORRECTNESS, EVENT-STREAM ISOLATION & ORIGIN HARDENING
+    # =========================================================================
+    def _client_login(self, ip):
+        """Log in as a remote client device (X-Forwarded-For => non-host) and return its token."""
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+        conn.request("POST", "/login", body=f"pin={main.CURRENT_PIN}&nickname=Audit",
+                     headers={"X-Forwarded-For": ip, "Content-Type": "application/x-www-form-urlencoded"})
+        res = conn.getresponse()
+        res.read()
+        conn.close()
+        self.assertEqual(res.status, 200, "Client login failed")
+        return re.search(r"pyshare_session=([a-f0-9]+)", res.getheader("Set-Cookie")).group(1)
+
+    def _open_sse(self, extra_headers=""):
+        sock = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        sock.sendall(f"GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:{self.port}\r\n{extra_headers}\r\n".encode())
+        sock.settimeout(0.25)
+        return sock
+
+    @staticmethod
+    def _read_sse(sock, seconds):
+        """Read an SSE socket for up to `seconds`; returns (text, closed_by_server)."""
+        buf, end = b"", time.time() + seconds
+        while time.time() < end:
+            try:
+                chunk = sock.recv(65536)
+                if not chunk:
+                    return buf.decode("utf-8", "replace"), True
+                buf += chunk
+            except socket.timeout:
+                pass
+        return buf.decode("utf-8", "replace"), False
+
+    def test_sec_11_unsatisfiable_range_response_completes(self):
+        """SEC-11: A 416 response must declare an empty body so keep-alive clients don't hang."""
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+        conn.request("GET", "/view/legit.txt", headers={"Range": "bytes=999999-"})
+        res = conn.getresponse()
+        self.assertEqual(res.status, 416)
+        self.assertEqual(res.getheader("Content-Length"), "0")
+        self.assertEqual(res.read(), b"")
+        # The same keep-alive connection must still serve the next request.
+        conn.request("GET", "/view/legit.txt")
+        res2 = conn.getresponse()
+        self.assertEqual(res2.status, 200)
+        self.assertEqual(res2.read(), b"Legitimate shared content")
+        conn.close()
+        print("  [PASS] SEC-11: 416 Range Not Satisfiable completes cleanly on keep-alive connections")
+
+    def test_sec_12_client_event_stream_excludes_host_only_data(self):
+        """SEC-12: Clients must never receive the live PIN, peer IPs, join requests, tunnel URL or log."""
+        token = self._client_login("10.77.0.12")
+        client = self._open_sse(f"Cookie: pyshare_session={token}\r\nX-Forwarded-For: 10.77.0.12\r\n")
+        host = self._open_sse()
+        try:
+            client_text, _ = self._read_sse(client, 0.6)
+            host_text, _ = self._read_sse(host, 0.6)
+            main.broadcast_sse("pin", {"pin": "4242", "ttl": 20, "mode": "rotating"})
+            main.broadcast_sse("peers", [{"id": "x", "ip": "10.0.0.9"}])
+            main.broadcast_sse("join_request", {"id": "r", "nickname": "Guest", "ip": "10.0.0.8"})
+            main.broadcast_sse("tunnel", {"status": "active", "url": "https://secret.trycloudflare.com"})
+            main.broadcast_sse("log", {"time": "00:00", "msg": "secret activity"})
+            main.broadcast_sse("files", main.get_files_data())
+            more, _ = self._read_sse(client, 1.0)
+            client_text += more
+            more, _ = self._read_sse(host, 1.0)
+            host_text += more
+        finally:
+            client.close()
+            host.close()
+
+        self.assertIn("event: files", client_text, "Client should still get file list updates")
+        self.assertIn("event: clipboard", client_text, "Client should still get the chat snapshot")
+        for leaked in ("event: pin", "event: peers", "event: join_request", "event: tunnel", "event: log",
+                       "4242", "secret.trycloudflare.com", "secret activity"):
+            self.assertNotIn(leaked, client_text, f"Host-only data leaked to client stream: {leaked!r}")
+        for expected in ("event: pin", "event: peers", "event: join_request", "event: tunnel", "event: log"):
+            self.assertIn(expected, host_text, f"Host stream missing {expected!r}")
+        print("  [PASS] SEC-12: Host-only live events are never pushed to client devices")
+
+    def test_sec_13_revoked_session_event_stream_is_closed(self):
+        """SEC-13: Revoking a device must end its open event stream right away."""
+        token = self._client_login("10.77.0.13")
+        client = self._open_sse(f"Cookie: pyshare_session={token}\r\nX-Forwarded-For: 10.77.0.13\r\n")
+        try:
+            self._read_sse(client, 0.5)
+            with main.state_lock:
+                sid = main.SESSIONS[token]["id"]
+            req = urllib.request.Request(f"{self.base_url}/api/peers/disconnect",
+                                         data=json.dumps({"id": sid}).encode(),
+                                         headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=3) as res:
+                self.assertEqual(json.loads(res.read())["removed"], 1)
+            _, closed = self._read_sse(client, 3.0)
+        finally:
+            client.close()
+        self.assertTrue(closed, "Revoked device's event stream stayed open")
+        print("  [PASS] SEC-13: Revoked sessions lose their live event stream immediately")
+
+    def test_sec_14_dns_rebinding_host_header_rejected(self):
+        """SEC-14: Loopback requests carrying a foreign Host header (DNS rebinding) get no Host privileges."""
+        for bad_host in ("attacker.example", f"attacker.example:{self.port}", "127.0.0.1.attacker.example"):
+            conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+            conn.putrequest("GET", "/api/pin", skip_host=True)
+            conn.putheader("Host", bad_host)
+            conn.endheaders()
+            res = conn.getresponse()
+            res.read()
+            conn.close()
+            self.assertEqual(res.status, 401, f"Host privileges granted for Host: {bad_host}")
+
+        with urllib.request.urlopen(f"{self.base_url}/api/pin", timeout=3) as res:
+            self.assertEqual(res.status, 200, "Legitimate loopback Host must keep access")
+        print("  [PASS] SEC-14: DNS-rebinding Host header spoofing blocked")
+
+    def test_sec_15_lan_discovery_beacon_sanitized(self):
+        """SEC-15: Spoofed LAN beacons cannot inject links or junk into the room list."""
+        room = main.parse_discovery_beacon(
+            {"app": "PyShare", "ip": "192.168.1.50", "port": 8011,
+             "url": "javascript:alert(document.cookie)", "room": "Evil\nRoom" + "X" * 200}, "192.168.1.50", 1.0)
+        self.assertEqual(room["url"], "http://192.168.1.50:8011", "Room URL must be rebuilt from ip:port")
+        self.assertNotIn("\n", room["room"])
+        self.assertLessEqual(len(room["room"]), 64)
+
+        bad_beacons = [
+            {"app": "PyShare", "ip": "javascript:alert(1)", "port": 8011},
+            {"app": "PyShare", "ip": "192.168.1.50", "port": "8011\"><script>"},
+            {"app": "PyShare", "ip": "192.168.1.50", "port": 70000},
+            {"app": "NotPyShare", "ip": "192.168.1.50", "port": 8011},
+            "not-a-dict",
+        ]
+        for beacon in bad_beacons:
+            self.assertIsNone(main.parse_discovery_beacon(beacon, "192.168.1.50", 1.0), f"Accepted bad beacon {beacon!r}")
+        print("  [PASS] SEC-15: LAN discovery beacons validated and room URLs rebuilt server-side")
+
+    def test_sec_17_second_server_cannot_share_listening_port(self):
+        """SEC-17: A second PyShare server must not bind a port another instance is listening on.
+
+        With Windows SO_REUSEADDR both bind and the OS splits clients between them, so phones hit
+        the instance without their session (random 401s, chat messages silently not sent)."""
+        first = main.FastThreadingTCPServer(('127.0.0.1', 0), main.FinalFileHandler)
+        try:
+            port = first.server_address[1]
+            with self.assertRaises(OSError, msg="Second server bound an in-use port (port sharing)"):
+                second = main.FastThreadingTCPServer(('127.0.0.1', port), main.FinalFileHandler)
+                second.server_close()
+        finally:
+            first.server_close()
+        print("  [PASS] SEC-17: Second instance cannot hijack/share an in-use port")
+
+    def test_sec_18_host_qr_not_served_to_guests(self):
+        """SEC-18: The Host QR encodes ?pin=<live PIN>. It used to be public at /qrcode.png, so anyone on the
+        Wi-Fi (or the internet via the tunnel) could fetch it, decode it and join without being shown the PIN."""
+        token = self._client_login("10.77.0.18")
+        attempts = {
+            "logged-in phone": {"Cookie": f"pyshare_session={token}", "X-Forwarded-For": "10.77.0.18"},
+            "tunnel visitor": {"CF-Connecting-IP": "203.0.113.50", "CF-Ray": "abc123"},
+        }
+        for who, headers in attempts.items():
+            conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+            conn.request("GET", "/api/qr", headers=headers)
+            res = conn.getresponse()
+            body = res.read()
+            conn.close()
+            self.assertEqual(res.status, 403, f"{who} could fetch the Host QR")
+            self.assertNotIn(b"<svg", body)
+        # The old public path must not hand out a QR image any more
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+        conn.request("GET", "/qrcode.png", headers={"X-Forwarded-For": "10.77.0.18"})
+        res = conn.getresponse()
+        res.read()
+        conn.close()
+        self.assertNotEqual(res.getheader("Content-Type"), "image/png", "Legacy /qrcode.png still served")
+        print("  [PASS] SEC-18: Host QR (carries the PIN) is Host-only")
+
+    def test_sec_16_inline_handlers_never_splice_quoted_values(self):
+        """SEC-16: Frontend inline on*="..." handlers must pass values via jsArg(), never '${...}'.
+
+        escapeHtml() output is decoded back to raw quotes before an inline handler runs, so
+        '${escapeHtml(x)}' inside onclick lets a filename/nickname/message execute code."""
+        frontend = os.path.join(PROJECT_ROOT, "frontend")
+        unsafe = re.compile(r'''\bon[a-z]+="[^"]*'\$\{''')
+        offenders = []
+        for path in glob.glob(os.path.join(frontend, "*.js")) + glob.glob(os.path.join(frontend, "*.html")):
+            if path.endswith(".min.js"):
+                continue
+            with open(path, encoding="utf-8") as f:
+                for lineno, line in enumerate(f, 1):
+                    if unsafe.search(line):
+                        offenders.append(f"{os.path.basename(path)}:{lineno}")
+        self.assertEqual(offenders, [], "Inline handlers splice quoted template values: " + ", ".join(offenders))
+        print("  [PASS] SEC-16: Inline event handlers pass untrusted values safely via jsArg()")
 
 
 if __name__ == "__main__":

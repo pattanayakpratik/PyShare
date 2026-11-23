@@ -22,9 +22,7 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            background-color: var(--bg-color);
-            background-image: var(--bg-gradient);
-            background-attachment: fixed;
+            background-color: var(--bg-color);  /* aurora layer comes from styles.css body::before */
         }
         .app-container {
             width: 100%;
@@ -75,16 +73,16 @@
             }
         }
         .mode-select-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-top: 1px solid var(--border-specular);
+            background: var(--glass-sheen), var(--glass-bg);
+            border: 1px solid var(--glass-stroke);
+            border-top: 1px solid var(--glass-stroke-top);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             border-radius: 24px;
             padding: 36px 26px;
             text-align: center;
             cursor: pointer;
-            box-shadow: var(--shadow-card);
+            box-shadow: var(--glass-shadow);
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
             flex-direction: column;
@@ -116,10 +114,28 @@
         .mode-select-card:active {
             transform: scale(0.98);
         }
+        /* Icon tile (the old font-size:52px was sized for emoji and left a tiny SVG in empty space) */
         .mode-icon {
-            font-size: 52px;
-            filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.45));
-            animation: neonFloat 3.5s ease-in-out infinite alternate;
+            width: 60px;
+            height: 60px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-cyan);
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.22);
+            box-shadow: 0 0 24px rgba(0, 240, 255, 0.12);
+            margin-bottom: 4px;
+            transition: transform 0.25s ease;
+        }
+        .mode-icon svg { width: 28px; height: 28px; }
+        .mode-select-card:hover .mode-icon { transform: translateY(-3px); }
+        [data-theme="light"] .mode-icon {
+            color: #2563eb;
+            background: rgba(37, 99, 235, 0.08);
+            border-color: rgba(37, 99, 235, 0.2);
+            box-shadow: none;
         }
         @keyframes neonFloat {
             0% { transform: translateY(0px); }
@@ -218,18 +234,12 @@
         }
 
         /* Light Theme Overrides */
-        [data-theme="light"] .mode-select-card {
-            background: rgba(255, 255, 255, 0.85);
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            border-top: 1px solid #ffffff;
-            box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
-        }
         [data-theme="light"] .mode-select-card::before {
             background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.4), transparent);
         }
         [data-theme="light"] .mode-select-card:hover {
             border-color: rgba(37, 99, 235, 0.5);
-            background: #ffffff;
+            background: var(--glass-sheen), rgba(255, 255, 255, 0.82);
             box-shadow: 0 20px 45px -8px rgba(37, 99, 235, 0.18), 0 0 0 1px rgba(37, 99, 235, 0.2), inset 0 1px 0 #ffffff;
         }
         [data-theme="light"] .pin-dot-display {
@@ -380,7 +390,7 @@
                 </div>
                 <div style="display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 6px;">
                     <span style="display:inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
-                    <span><strong>Zero-Install Web Mode?</strong> Open <a href="/p2p" style="color:var(--accent-blue); text-decoration: underline; font-weight: 600;">Instant Web Transfer</a> for peer-to-peer browser sharing.</span>
+                    <span><strong>Zero-Install Web Mode?</strong> Open <a href="/p2p" style="color:var(--link-color); text-decoration: underline; font-weight: 600;">Instant Web Transfer</a> for peer-to-peer browser sharing.</span>
                 </div>
             </div>
         </div>
@@ -407,9 +417,9 @@
                 <button class="keypad-btn" onclick="add('7')">7</button>
                 <button class="keypad-btn" onclick="add('8')">8</button>
                 <button class="keypad-btn" onclick="add('9')">9</button>
-                <button class="keypad-btn" onclick="clearPin()" style="font-size: 16px; color: #8292ab;">C</button>
+                <button class="keypad-btn" onclick="clearPin()" style="font-size: 16px; color: var(--text-sub);" aria-label="Clear PIN" title="Clear">C</button>
                 <button class="keypad-btn" onclick="add('0')">0</button>
-                <button class="keypad-btn" onclick="back()" style="font-size: 18px; color: #8292ab;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>
+                <button class="keypad-btn" onclick="back()" style="font-size: 18px; color: var(--text-sub);" aria-label="Delete last digit" title="Delete last digit"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>
                 <button class="key-btn-submit" onclick="submitPin()">Connect</button>
             </div>
 

@@ -21,11 +21,13 @@ import random
 import string
 import zipfile
 import io
+import base64
 import datetime
 import queue
 import pyperclip
 import re
 import secrets
+import ipaddress
 try:
     import ifaddr
 except ImportError:
@@ -136,7 +138,8 @@ def get_default_directories():
         "window_y": None,
         "minimize_to_tray": True,
         "pin_mode": "rotating",
-        "static_pin": "1234"
+        "static_pin": "1234",
+        "auto_clipboard": True
     }
 
 def load_app_config():
@@ -272,6 +275,7 @@ CURRENT_PIN = "0000"
 PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
 NEXT_CHANGE = 0    # Track timestamp when PIN rotates
 SESSIONS = {}      # Stores authenticated client session tokens (token -> created_timestamp)
+AUTO_CLIPBOARD = True  # Host setting: copy chat messages from devices to this PC's clipboard
 SHARED_TEXT = ""   # In-memory shared clipboard / quick link
 TEXT_TIMESTAMP = 0 # Timestamp of last clipboard change
 MAX_CHAT_HISTORY = 30
@@ -296,8 +300,13 @@ def make_chat_message(text, sender, sender_id, is_host=False, device_type="devic
         "time_str": time_str
     }
 state_lock = threading.RLock()
-events_queue = [] 
-upload_status = {}
+events_queue = []
+# Incoming uploads. Phones send up to 2 files at once, so progress is tracked per file and per batch
+# and the Host gets one combined status (it used to be one slot per IP that concurrent files overwrote).
+upload_status = {}    # transfer id -> {"filename", "current", "total", "batch", "started"}
+upload_batches = {}   # "ip|batch id" -> {"files", "bytes"} the phone announced + {"done_files", "done_bytes"}
+UPLOAD_BATCH_GRACE = 5  # seconds a batch outlives its last file, so the next queued file continues its count
+_last_upload_broadcast = 0.0
 
 # --- JOIN REQUESTS QUEUE (Host Approval / Knock-to-Enter) ---
 PENDING_JOIN_REQUESTS = {}  # request_id -> dict
@@ -312,28 +321,56 @@ LOCKOUT_DURATION = 30     # seconds lockout after repeated failures
 zip_semaphore = threading.BoundedSemaphore(1)  # Strict maximum 1 active ZIP generation at a time
 
 # --- SERVER-SENT EVENTS (SSE) REAL-TIME PUSH ENGINE ---
-sse_subscribers = set()
+sse_subscribers = {}  # queue -> {"host": bool, "token": session token or None}
 sse_lock = threading.Lock()
 
-def add_sse_subscriber(q):
+# Events a client device may receive. Everything else (live PIN, peer list with IPs,
+# join requests, tunnel URL, activity log, incoming-upload monitor) is host-only.
+CLIENT_SSE_EVENTS = frozenset({"files", "clipboard"})
+SSE_CLOSE = "__close__"  # Sentinel telling a stream handler to end the connection
+
+def add_sse_subscriber(q, is_host=False, token=None):
     with sse_lock:
-        sse_subscribers.add(q)
+        sse_subscribers[q] = {"host": bool(is_host), "token": token}
 
 def remove_sse_subscriber(q):
     with sse_lock:
-        sse_subscribers.discard(q)
+        sse_subscribers.pop(q, None)
 
 def broadcast_sse(event_type, data):
-    """Pushes a typed event packet down to all active SSE subscribers."""
+    """Pushes a typed event packet to every SSE subscriber allowed to see it."""
     with sse_lock:
         dead = []
-        for q in sse_subscribers:
+        for q, meta in sse_subscribers.items():
+            if not meta["host"] and event_type not in CLIENT_SSE_EVENTS:
+                continue
             try:
                 q.put_nowait((event_type, data))
             except queue.Full:
                 dead.append(q)
         for q in dead:
-            sse_subscribers.discard(q)
+            sse_subscribers.pop(q, None)
+
+def close_sse_streams(tokens):
+    """End the open event streams of revoked sessions so they stop receiving updates."""
+    with sse_lock:
+        for q, meta in sse_subscribers.items():
+            if meta["token"] and meta["token"] in tokens:
+                try:
+                    q.put_nowait((SSE_CLOSE, None))
+                except queue.Full:
+                    pass  # Stream handler also re-checks the session on every keep-alive
+
+def is_session_valid(token):
+    """True if the session token exists and is younger than 24 hours."""
+    if not token:
+        return False
+    with state_lock:
+        sess = SESSIONS.get(token)
+        if sess is None:
+            return False
+        created_at = sess.get("created_at", 0) if isinstance(sess, dict) else sess
+        return (time.time() - created_at) < 86400
 
 # --- CLOUDFLARE TUNNEL (PUBLIC INTERNET MODE) ---
 TUNNEL_PROC = None
@@ -452,7 +489,6 @@ def tunnel_worker():
                 with TUNNEL_LOCK:
                     TUNNEL_URL = found_url
                     TUNNEL_STATUS = "active"
-                generate_qr(TUNNEL_URL)
                 broadcast_sse("tunnel", {"status": "active", "url": TUNNEL_URL})
                 add_event(f"Public Internet Mode Active: {TUNNEL_URL}")
                 break
@@ -480,7 +516,6 @@ def tunnel_worker():
                 TUNNEL_STATUS = "idle"
                 TUNNEL_URL = None
                 TUNNEL_PROC = None
-                generate_qr()
                 broadcast_sse("tunnel", {"status": "idle", "url": None})
 
 def start_tunnel():
@@ -507,7 +542,6 @@ def stop_tunnel():
                 except Exception:
                     pass
             TUNNEL_PROC = None
-    generate_qr()
     broadcast_sse("tunnel", {"status": "idle", "url": None})
     add_event("Reverted to Local Wi-Fi Mode")
 
@@ -532,10 +566,8 @@ mimetypes.add_type("application/manifest+json", ".json")
 def pin_rotator():
     """Manages 4-digit PIN: rotates every 30 seconds or stays fixed in static mode."""
     global CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, PIN_MODE, STATIC_PIN
-    last_qr_pin = None
     while True:
         now = time.time()
-        pin_changed = False
         with state_lock:
             if PIN_MODE == "static":
                 CURRENT_PIN = STATIC_PIN if (STATIC_PIN and len(STATIC_PIN) == 4 and STATIC_PIN.isdigit()) else "1234"
@@ -547,12 +579,7 @@ def pin_rotator():
                     CURRENT_PIN = f"{random.randint(1000, 9999)}"
                     NEXT_CHANGE = now + 30
                 ttl = max(0, int(NEXT_CHANGE - now))
-            if CURRENT_PIN != last_qr_pin:
-                last_qr_pin = CURRENT_PIN
-                pin_changed = True
             pin_data = {"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE}
-        if pin_changed:
-            generate_qr()
         broadcast_sse("pin", pin_data)
         time.sleep(1)
 
@@ -566,6 +593,34 @@ DISCOVERED_ROOMS = {}
 discovered_lock = threading.Lock()
 lan_discovery_running = True
 _discovery_thread_started = False
+
+def parse_discovery_beacon(info, src_ip, now):
+    """Validate a LAN discovery beacon and return a room entry, or None.
+
+    Beacons are unauthenticated UDP broadcasts, so every field is validated and the
+    room URL is always rebuilt from the IP and port: a spoofed beacon must not be able
+    to plant e.g. a javascript: link in the login page's room list."""
+    if not isinstance(info, dict) or info.get("app") != "PyShare":
+        return None
+    try:
+        peer_ip = str(ipaddress.IPv4Address(str(info.get("ip") or src_ip)))
+        peer_port = int(info.get("port"))
+    except (ValueError, TypeError):
+        return None
+    if not 0 < peer_port < 65536:
+        return None
+
+    def clean(value, default):
+        return re.sub(r'[\x00-\x1f\x7f]', '', str(value or default))[:64]
+
+    return {
+        "room": clean(info.get("room"), f"PyShare ({peer_ip})"),
+        "ip": peer_ip,
+        "port": peer_port,
+        "device": clean(info.get("device"), "Unknown Device"),
+        "url": f"http://{peer_ip}:{peer_port}",
+        "last_seen": now
+    }
 
 def lan_discovery_worker():
     """Background UDP beacon & listener for zero-conf PyShare room discovery on local subnet."""
@@ -629,21 +684,10 @@ def lan_discovery_worker():
             else:
                 try:
                     info = json.loads(data.decode('utf-8', errors='ignore'))
-                    if isinstance(info, dict) and info.get("app") == "PyShare":
-                        peer_ip = info.get("ip") or addr[0]
-                        peer_port = info.get("port")
-                        my_ip = get_ip()
-                        if not (peer_ip == my_ip and peer_port == ACTUAL_PORT):
-                            room_key = f"{peer_ip}:{peer_port}"
-                            with discovered_lock:
-                                DISCOVERED_ROOMS[room_key] = {
-                                    "room": info.get("room", f"PyShare ({peer_ip})"),
-                                    "ip": peer_ip,
-                                    "port": peer_port,
-                                    "device": info.get("device", "Unknown Device"),
-                                    "url": info.get("url", f"http://{peer_ip}:{peer_port}"),
-                                    "last_seen": now
-                                }
+                    room = parse_discovery_beacon(info, addr[0], now)
+                    if room and not (room["ip"] == get_ip() and room["port"] == ACTUAL_PORT):
+                        with discovered_lock:
+                            DISCOVERED_ROOMS[f"{room['ip']}:{room['port']}"] = room
                 except Exception:
                     pass
         except socket.timeout:
@@ -681,20 +725,82 @@ def add_event(msg):
             events_queue.pop(0)
     broadcast_sse("log", ev)
 
-def set_upload_status(client_ip, filename, current, total):
+def _prune_upload_batches(now):
+    """Forget batches with no file in flight for longer than the grace period. Call with state_lock held."""
+    in_flight = {t["batch"] for t in upload_status.values()}
+    for key in [k for k, b in upload_batches.items() if k not in in_flight and now - b["updated"] > UPLOAD_BATCH_GRACE]:
+        upload_batches.pop(key, None)
+
+def start_upload(client_ip, filename, total, batch_id="", batch_files=0, batch_bytes=0):
+    """Register an incoming file and return its transfer id. batch_* is the sender's current view of its
+    whole queue (it shrinks when the sender cancels a file), so the Host can show progress for all of it."""
+    transfer_id = secrets.token_hex(8)
+    key = f"{client_ip}|{batch_id or transfer_id}"
+    now = time.time()
     with state_lock:
-        upload_status[client_ip] = {
-            "filename": filename, 
-            "current": current, 
-            "total": total
+        _prune_upload_batches(now)
+        batch = upload_batches.setdefault(key, {"files": 0, "bytes": 0, "done_files": 0, "done_bytes": 0, "updated": now})
+        if batch_id:
+            batch["files"], batch["bytes"] = batch_files, batch_bytes
+        batch["updated"] = now
+        upload_status[transfer_id] = {"filename": filename, "current": 0, "total": total, "batch": key, "started": now}
+    return transfer_id
+
+def update_upload(transfer_id, current):
+    with state_lock:
+        transfer = upload_status.get(transfer_id)
+        if transfer:
+            transfer["current"] = current
+            batch = upload_batches.get(transfer["batch"])
+            if batch:
+                batch["updated"] = time.time()
+
+def finish_upload(transfer_id, ok):
+    """Stop tracking a file; a completed one counts towards its batch. Safe to call twice."""
+    with state_lock:
+        transfer = upload_status.pop(transfer_id, None) if transfer_id else None
+        batch = upload_batches.get(transfer["batch"]) if transfer else None
+        if batch:
+            batch["updated"] = time.time()
+            if ok:
+                batch["done_files"] += 1
+                batch["done_bytes"] += transfer["total"]
+
+def upload_snapshot():
+    """Everything being received right now, combined into one status for the Host's progress bar.
+    None when nothing has been received recently; active == 0 means the batch just finished."""
+    with state_lock:
+        _prune_upload_batches(time.time())
+        if not upload_batches:
+            return None
+        in_flight = sorted(upload_status.values(), key=lambda t: t["started"])
+        files = done = received = total = 0
+        for key, batch in upload_batches.items():
+            mine = [t for t in in_flight if t["batch"] == key]
+            # Trust the sender's totals, but never show less than what has actually arrived
+            files += max(batch["files"], batch["done_files"] + len(mine))
+            total += max(batch["bytes"], batch["done_bytes"] + sum(t["total"] for t in mine))
+            done += batch["done_files"]
+            received += batch["done_bytes"] + sum(t["current"] for t in mine)
+        return {
+            "active": len(in_flight),
+            "filename": in_flight[0]["filename"] if in_flight else "",
+            "done": done,
+            "files": files,
+            "received": received,
+            "total": total,
         }
 
-def clear_upload_status(client_ip=None):
+def publish_upload_progress(force=False):
+    """Push the combined receive status to Host screens: at most ~5 times a second while bytes flow
+    (every upload thread calls this), and always when a file starts or ends."""
+    global _last_upload_broadcast
+    now = time.time()
     with state_lock:
-        if client_ip:
-            upload_status.pop(client_ip, None)
-        else:
-            upload_status.clear()
+        if not force and now - _last_upload_broadcast < 0.2:
+            return
+        _last_upload_broadcast = now
+    broadcast_sse("upload", upload_snapshot())
 
 def pop_events():
     with state_lock:
@@ -770,7 +876,7 @@ def open_folder(path):
 
 def get_category(ext):
     ext = ext.lower().lstrip('.')
-    if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif']:
+    if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'heic', 'heif']:
         return 'image'
     if ext in ['mp4', 'mkv', 'mov', 'webm', 'avi', 'wmv', 'm4v']:
         return 'video'
@@ -808,38 +914,95 @@ def get_unique_filepath(directory, filename):
         counter += 1
     return candidate
 
-def get_qr_path():
-    """Returns the dynamic QR code image path, creating parent directory or falling back to temp dir."""
-    target_dir = BASE_DIR if (BASE_DIR and os.path.isdir(BASE_DIR)) else tempfile.gettempdir()
-    if BASE_DIR and not os.path.exists(BASE_DIR):
+# --- HOST QR CODE: built in memory on every request, never written to disk ---
+# PyShare brand gradient (sky -> blue -> violet), darkened so every stop is >= 5.9:1 against white
+QR_GRADIENT = ("#0369a1", "#1d4ed8", "#6d28d9")
+_qr_logo_cache = None
+
+def get_connect_url():
+    """The address the Host QR sends phones to: the public tunnel or the LAN, plus the live PIN for instant login."""
+    base = TUNNEL_URL or f"http://{get_ip()}:{ACTUAL_PORT}"
+    pin = CURRENT_PIN
+    return f"{base}/?pin={pin}" if pin and pin != "0000" else base
+
+def _qr_logo_data_uri():
+    """The app icon shrunk to 96px for the QR centre. Built once and kept in memory ("" if unavailable)."""
+    global _qr_logo_cache
+    if _qr_logo_cache is None:
+        _qr_logo_cache = ""
         try:
-            os.makedirs(BASE_DIR, exist_ok=True)
-            target_dir = BASE_DIR
-        except Exception:
-            target_dir = tempfile.gettempdir()
-    return os.path.join(target_dir, "qrcode.png")
+            from PIL import Image
+            with Image.open(os.path.join(get_asset_dir(), "app_icon.png")) as im:
+                icon = im.convert("RGBA")
+                icon.thumbnail((96, 96), Image.LANCZOS)
+                buf = io.BytesIO()
+                icon.save(buf, "PNG", optimize=True)
+            _qr_logo_cache = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        except Exception as e:
+            print(f"[!] QR logo unavailable, using a plain centre: {e}")
+    return _qr_logo_cache
 
-def generate_qr(url=None):
-    """Generates a dynamic QR Code pointing to current server URL with auto-login pin."""
-    try:
-        if url is None:
-            if TUNNEL_URL:
-                base = TUNNEL_URL
-            else:
-                ip = get_ip()
-                base = f"http://{ip}:{ACTUAL_PORT}"
-            url = f"{base}/?pin={CURRENT_PIN}" if CURRENT_PIN and CURRENT_PIN != "0000" else base
-        elif "pin=" not in url and CURRENT_PIN and CURRENT_PIN != "0000":
-            sep = "&" if "?" in url else "/?"
-            url = f"{url}{sep}pin={CURRENT_PIN}"
-        qr_path = get_qr_path()
+def _rounded_rect_path(x, y, w, h, r):
+    """SVG path data for a rounded rectangle, drawn clockwise."""
+    return (f"M{x + r:g} {y:g}h{w - 2 * r:g}a{r:g} {r:g} 0 0 1 {r:g} {r:g}v{h - 2 * r:g}"
+            f"a{r:g} {r:g} 0 0 1 {-r:g} {r:g}h{-(w - 2 * r):g}a{r:g} {r:g} 0 0 1 {-r:g} {-r:g}"
+            f"v{-(h - 2 * r):g}a{r:g} {r:g} 0 0 1 {r:g} {-r:g}z")
 
-        qr = pyqrcode.create(url)
-        qr.png(qr_path, scale=6)
-        return qr_path
-    except Exception as e:
-        print(f"[!] QR generation failed: {e}")
-        return None
+def build_qr_svg(data):
+    """Render `data` as a PyShare-styled QR code (SVG): rounded modules and finder eyes in the brand
+    gradient, with the app icon in the centre. Error correction H keeps it readable with the centre covered."""
+    qr = pyqrcode.create(data, error='H')
+    matrix = qr.code
+    n = len(matrix)
+    quiet = 2          # modules of white margin inside the image; the white host card adds more
+    size = n + 2 * quiet
+    # From version 7 an alignment pattern sits in the middle of the code, so leave the centre alone
+    logo = _qr_logo_data_uri() if qr.version <= 6 else ""
+    plate = (max(5, round(n * 0.24)) | 1) if logo else 0   # odd, so it centres on the module grid
+    p0 = (n - plate) // 2
+
+    def in_eye(r, c):
+        return (r < 7 or r >= n - 7) and (c < 7 or c >= n - 7) and not (r >= n - 7 and c >= n - 7)
+
+    def under_logo(r, c):
+        return plate and p0 <= r < p0 + plate and p0 <= c < p0 + plate
+
+    # Each data module: a 0.3 square stroked 0.6 wide with round joins = a 0.9 rounded square, radius 0.3
+    dots = "".join(
+        f"M{c + quiet + .35:g} {r + quiet + .35:g}h.3v.3h-.3z"
+        for r, row in enumerate(matrix) for c, dark in enumerate(row)
+        if dark and not in_eye(r, c) and not under_logo(r, c)
+    )
+    # Finder eyes, one even-odd path: a frame with only slightly softened corners (scanners locate the code
+    # by the frame's square outline; rounder frames made OpenCV miss most codes) around a rounded centre
+    eyes = "".join(
+        _rounded_rect_path(x, y, 7, 7, .5) + _rounded_rect_path(x + 1, y + 1, 5, 5, .3) + _rounded_rect_path(x + 2, y + 2, 3, 3, .8)
+        for x, y in ((quiet, quiet), (quiet + n - 7, quiet), (quiet, quiet + n - 7))
+    )
+    logo_svg = ""
+    if logo:
+        lx = p0 + quiet + .5
+        logo_svg = f'<image href="{logo}" x="{lx:g}" y="{lx:g}" width="{plate - 1:g}" height="{plate - 1:g}"/>'
+    g0, g1, g2 = QR_GRADIENT
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}">'
+        f'<defs><linearGradient id="pg" x1="0" y1="0" x2="{size}" y2="{size}" gradientUnits="userSpaceOnUse">'
+        f'<stop offset="0" stop-color="{g0}"/><stop offset=".5" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/>'
+        f'</linearGradient></defs>'
+        f'<rect width="{size}" height="{size}" fill="#fff"/>'
+        f'<path fill="url(#pg)" stroke="url(#pg)" stroke-width=".6" stroke-linejoin="round" d="{dots}"/>'
+        f'<path fill="url(#pg)" fill-rule="evenodd" d="{eyes}"/>'
+        f'{logo_svg}</svg>'
+    )
+
+def remove_legacy_qr_file():
+    """Older builds kept qrcode.png beside Received_Files/Shared_Files. The QR lives in memory now, so tidy it
+    away, but only inside PyShare's own folder: a user-chosen shared folder's parent may hold their own files."""
+    if BASE_DIR and os.path.basename(os.path.normpath(BASE_DIR)) == "PyShare_Files":
+        try:
+            os.remove(os.path.join(BASE_DIR, "qrcode.png"))
+        except OSError:
+            pass
 
 def parse_range_header(range_header, file_size):
     """Parse HTTP Range header for 206 Partial Content video/audio streaming."""
@@ -1260,6 +1423,13 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 return item.split("pyshare_session=")[1].strip()
         return None
 
+    def build_session_cookie(self, token):
+        """Set-Cookie value for a new client session (adds Secure when served over the HTTPS tunnel)."""
+        flags = "Path=/; Max-Age=86400; SameSite=Lax; HttpOnly"
+        if self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-Proto") == "https":
+            flags += "; Secure"
+        return f"pyshare_session={token}; {flags}"
+
     def get_client_ip(self):
         # Only trust reverse-proxy headers if the incoming socket connection is from local loopback
         if self.client_address[0] in ("127.0.0.1", "localhost", "::1"):
@@ -1302,13 +1472,24 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         if self.client_address[0] not in ("127.0.0.1", "localhost", "::1", get_ip()):
             return False
 
+        allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip(), socket.gethostname().lower(), f"{socket.gethostname().lower()}.local")
+
+        # DNS-rebinding defense: a malicious site that re-resolves its domain to 127.0.0.1 still
+        # sends its own name in the Host header (and can suppress Origin/Referer), so require Host
+        # to name this machine before granting Host privileges.
+        try:
+            host_name = urllib.parse.urlsplit("//" + self.headers.get("Host", "")).hostname
+        except ValueError:
+            host_name = None
+        if not host_name or host_name.lower() not in allowed_hosts:
+            return False
+
         # Allow top-level browser page navigation (GET /) so the Host is never locked out of host.html
         is_top_nav = (self.command == "GET" and self.path in ("/", "/index.html") and self.headers.get("Sec-Fetch-Mode") == "navigate")
         if not is_top_nav:
             sec_fetch = self.headers.get("Sec-Fetch-Site")
             if sec_fetch == "cross-site":
                 return False
-            allowed_hosts = ("127.0.0.1", "localhost", "::1", get_ip(), socket.gethostname().lower(), f"{socket.gethostname().lower()}.local")
             for hdr in ("Origin", "Referer"):
                 val = self.headers.get(hdr)
                 if val:
@@ -1324,26 +1505,28 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         global SHARED_TEXT, TEXT_TIMESTAMP
         ASSET_DIR = get_asset_dir()
 
-        # 1. SERVE QR CODE (Must precede static assets)
-        if self.path == '/qrcode.png' or self.path.startswith('/qrcode.png?'):
-            qr_path = get_qr_path()
-
-            if not os.path.exists(qr_path):
-                generate_qr()
-            if os.path.exists(qr_path):
-                with open(qr_path, "rb") as f:
-                    content = f.read()
-                try:
-                    self.send_response(200) 
-                    self.send_header("Content-Type", "image/png")
-                    self.send_header("Content-Length", str(len(content)))
-                    self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-                    self.end_headers()
-                    self.wfile.write(content)
-                except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
-                    pass
-            else:
-                self.send_error(404, "QR Code not ready")
+        # 1. HOST QR CODE: rendered in memory for the Host screen only. It carries the live PIN,
+        #    so a guest on the Wi-Fi or behind the tunnel must not be able to fetch and decode it.
+        if self.path == '/api/qr' or self.path.startswith('/api/qr?'):
+            if not self.is_host_client():
+                self.send_error(403, "Forbidden")
+                return
+            try:
+                content = build_qr_svg(get_connect_url()).encode("utf-8")
+            except Exception as e:
+                print(f"[!] QR generation failed: {e}")
+                self.send_error(503, "QR Code not ready")
+                return
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/svg+xml")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "no-store")
+                self.send_security_headers()
+                self.end_headers()
+                self.wfile.write(content)
+            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                pass
             return
 
         # Check for PyShare Application Updates (Public endpoint)
@@ -1398,7 +1581,43 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(info_data)
             return
 
-        asset_exts = ('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
+        # 3b. KNOCK-TO-JOIN STATUS (No Auth Required: the guest has no session until the Host approves.
+        #     The unguessable 128-bit request_id returned by /api/join/request is the credential.)
+        if self.path.startswith('/api/join/status'):
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            req_id = params.get('request_id', [''])[0].strip() or params.get('id', [''])[0].strip()
+
+            now = time.time()
+            with state_lock:
+                req = PENDING_JOIN_REQUESTS.get(req_id) if req_id else None
+                status = req.get("status", "pending") if req else "expired"
+                if status == "pending" and now > req.get("expires_at", 0):
+                    req["status"] = status = "expired"
+                token = req.get("token") if (req and status == "approved") else None
+                if token:
+                    req["delivered"] = True   # the guest now holds the session; a late cancel won't revoke it
+                expires_in = max(0, int(req.get("expires_at", 0) - now)) if req else 0
+
+            if status == "approved" and token:
+                body_bytes = json.dumps({"status": "approved"}).encode('utf-8')
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body_bytes)))
+                self.send_header("Set-Cookie", self.build_session_cookie(token))
+                self.send_header("Cache-Control", "no-store")
+                self.send_security_headers()
+                self.end_headers()
+                self.wfile.write(body_bytes)
+            elif status == "declined":
+                self.send_json({"status": "declined", "message": "Host declined the request"})
+            elif status == "pending":
+                self.send_json({"status": "pending", "expires_in": expires_in})
+            else:
+                self.send_json({"status": "expired", "message": "Request expired or not found"})
+            return
+
+        asset_exts =('.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.json')
         raw_clean = urllib.parse.unquote(self.path.split('?')[0]).lstrip('/')
         # Strictly reject directory traversal sequences
         if '..' in raw_clean or '\\' in raw_clean:
@@ -1504,14 +1723,16 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
 
+            is_host = self.is_host_client()
+            sse_token = None if is_host else self.get_session_token()
             q = queue.Queue(maxsize=50)
-            add_sse_subscriber(q)
+            add_sse_subscriber(q, is_host=is_host, token=sse_token)
 
             # Send initial state snapshot immediately
             try:
                 # 0. Server info snapshot
                 ip = get_ip()
-                srv_json = json.dumps({"ip": ip, "port": ACTUAL_PORT, "url": f"http://{ip}:{ACTUAL_PORT}", "is_host": self.is_host_client()})
+                srv_json = json.dumps({"ip": ip, "port": ACTUAL_PORT, "url": f"http://{ip}:{ACTUAL_PORT}", "is_host": is_host})
                 self.wfile.write(f"event: server_info\ndata: {srv_json}\n\n".encode('utf-8'))
 
                 # 1. File list snapshot
@@ -1527,21 +1748,19 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     })
                 self.wfile.write(f"event: clipboard\ndata: {clip_json}\n\n".encode('utf-8'))
                 
-                # 3. PIN snapshot (Host only)
-                if self.is_host_client():
+                if is_host:
+                    # 3. PIN snapshot (Host only)
                     with state_lock:
                         ttl = -1 if PIN_MODE == "static" else max(0, int(NEXT_CHANGE - time.time()))
                         pin_json = json.dumps({"pin": CURRENT_PIN, "ttl": ttl, "mode": PIN_MODE})
                     self.wfile.write(f"event: pin\ndata: {pin_json}\n\n".encode('utf-8'))
 
-                # 4. Tunnel snapshot (Host only)
-                if self.is_host_client():
+                    # 4. Tunnel snapshot (Host only)
                     with TUNNEL_LOCK:
                         tun_json = json.dumps({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
                     self.wfile.write(f"event: tunnel\ndata: {tun_json}\n\n".encode('utf-8'))
 
-                # 5. Connected peers snapshot (Host only)
-                if self.is_host_client():
+                    # 5. Connected peers snapshot (Host only)
                     peers_json = json.dumps(get_connected_peers())
                     self.wfile.write(f"event: peers\ndata: {peers_json}\n\n".encode('utf-8'))
                 self.wfile.flush()
@@ -1553,12 +1772,17 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 while True:
                     try:
                         event_type, event_data = q.get(timeout=10)
+                    except queue.Empty:
+                        event_type, event_data = None, None
+                    # Revoked or expired client sessions lose their stream immediately
+                    if event_type == SSE_CLOSE or (not is_host and not is_session_valid(sse_token)):
+                        break
+                    if event_type is None:
+                        self.wfile.write(b": keep-alive\n\n")
+                    else:
                         msg = f"event: {event_type}\ndata: {json.dumps(event_data)}\n\n".encode('utf-8')
                         self.wfile.write(msg)
-                        self.wfile.flush()
-                    except queue.Empty:
-                        self.wfile.write(b": keep-alive\n\n")
-                        self.wfile.flush()
+                    self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError, Exception):
                 pass
             finally:
@@ -1621,6 +1845,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(403, "Forbidden")
             return
 
+        # Host Settings (Host Only)
+        if self.path == '/api/settings':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            self.send_json({"auto_clipboard": AUTO_CLIPBOARD})
+            return
+
         # Connected Peers Endpoint (Host Only)
         if self.path == '/api/peers':
             if not self.is_host_client():
@@ -1637,45 +1869,6 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 active_rooms = [v for v in DISCOVERED_ROOMS.values() if now - v.get("last_seen", 0) <= 10.0]
             self.send_json({"rooms": active_rooms, "count": len(active_rooms)})
             return
-
-        # Check Join Request Status (/api/join/status?request_id=...)
-        if self.path.startswith('/api/join/status'):
-            query = urllib.parse.urlparse(self.path).query
-            params = urllib.parse.parse_qs(query)
-            req_id = params.get('request_id', [''])[0].strip() or params.get('id', [''])[0].strip()
-            
-            with state_lock:
-                req = PENDING_JOIN_REQUESTS.get(req_id)
-                if not req:
-                    self.send_json({"status": "expired", "message": "Request expired or not found"})
-                    return
-                
-                now = time.time()
-                if now > req.get("expires_at", 0):
-                    req["status"] = "expired"
-                    self.send_json({"status": "expired", "message": "Request expired"})
-                    return
-
-                status = req.get("status", "pending")
-                if status == "declined":
-                    self.send_json({"status": "declined", "message": "Host declined the request"})
-                    return
-
-                if status == "approved":
-                    token = req.get("token")
-                    cookie_header = f"pyshare_session={token}; Path=/; HttpOnly; SameSite=Lax"
-                    body_bytes = json.dumps({"status": "approved", "token": token}).encode('utf-8')
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(body_bytes)))
-                    self.send_header('Set-Cookie', cookie_header)
-                    self.end_headers()
-                    self.wfile.write(body_bytes)
-                    return
-
-                expires_in = max(0, int(req.get("expires_at", 0) - now))
-                self.send_json({"status": "pending", "expires_in": expires_in})
-                return
 
         # List Pending Join Requests (/api/join/pending - Host Only)
         if self.path == '/api/join/pending':
@@ -1706,9 +1899,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
         # F. API: Updates / Poll (Fallback)
         if self.path == '/api/updates':
+            current_upload = upload_snapshot()
             with state_lock:
-                active_uploads = list(upload_status.values()) if upload_status else None
-                current_upload = active_uploads[0] if active_uploads else None
                 data = {
                     "events": list(events_queue), 
                     "upload": current_upload,
@@ -1857,6 +2049,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if byte_range == -1:
                 self.send_response(416, "Range Not Satisfiable")
                 self.send_header("Content-Range", f"bytes */{file_size}")
+                self.send_header("Content-Length", "0")  # Empty body; without this keep-alive clients hang
                 self.send_security_headers()
                 self.end_headers()
                 return
@@ -1936,7 +2129,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return
 
     def do_POST(self):
-        global PIN_MODE, STATIC_PIN, CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE
+        global PIN_MODE, STATIC_PIN, CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, AUTO_CLIPBOARD
 
         # Handle Server Shutdown via POST
         if self.path in ('/shutdown', '/api/stop', '/api/shutdown'):
@@ -2044,10 +2237,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain; charset=utf-8")
                 self.send_header("Content-Length", str(len(body_bytes)))
-                cookie_flags = "Path=/; Max-Age=86400; SameSite=Lax; HttpOnly"
-                if self.headers.get("CF-Ray") or self.headers.get("X-Forwarded-Proto") == "https":
-                    cookie_flags += "; Secure"
-                self.send_header("Set-Cookie", f"pyshare_session={token}; {cookie_flags}")
+                self.send_header("Set-Cookie", self.build_session_cookie(token))
                 self.send_security_headers()
                 self.end_headers()
                 self.wfile.write(body_bytes)
@@ -2130,19 +2320,46 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"status": "pending", "request_id": req_id, "expires_in": JOIN_REQUEST_TTL})
             return
 
-        # HANDLE JOIN CANCEL (/api/join/cancel - Client Cancel)
+        # HANDLE JOIN CANCEL (/api/join/cancel - the guest withdraws a knock: Cancel button, leaving the
+        # page, or its countdown running out). The unguessable request_id is the credential.
         if self.path == '/api/join/cancel':
             length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(length).decode('utf-8', errors='ignore') if length else "{}"
+            if length > 2048:
+                self.send_error(400, "Bad Request")
+                return
+            body = self.rfile.read(length).decode('utf-8', errors='ignore') if length else ""
             try:
                 data = json.loads(body) if body else {}
-                req_id = data.get("id", data.get("request_id", ""))
-                with state_lock:
-                    if req_id in PENDING_JOIN_REQUESTS:
-                        PENDING_JOIN_REQUESTS[req_id]["status"] = "cancelled"
-                self.send_json({"status": "ok"})
-            except Exception as e:
-                self.send_error(500, str(e))
+            except ValueError:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            req_id = str(data.get("id", data.get("request_id", ""))).strip()
+            reason = "expired" if data.get("reason") == "timeout" else "cancelled"
+
+            withdrawn_nickname = None
+            revoked_session = False
+            with state_lock:
+                req = PENDING_JOIN_REQUESTS.get(req_id) if req_id else None
+                if req and req.get("status") == "pending":
+                    req["status"] = reason
+                    withdrawn_nickname = req.get("nickname", "Device")
+                elif req and req.get("status") == "approved" and not req.get("delivered"):
+                    # The Host clicked Allow just as the guest gave up: the guest never received the
+                    # session, so drop it rather than leave a phantom device in the Host's list
+                    SESSIONS.pop(req.get("token"), None)
+                    req["status"], req["token"] = reason, None
+                    withdrawn_nickname = req.get("nickname", "Device")
+                    revoked_session = True
+
+            if withdrawn_nickname is not None:
+                if reason == "cancelled":
+                    add_event(f"Join request cancelled by guest: {withdrawn_nickname}")
+                # Close the request on every open Host screen right away
+                broadcast_sse("join_request_closed", {"id": req_id, "nickname": withdrawn_nickname, "reason": reason})
+                if revoked_session:
+                    broadcast_sse("peers", get_connected_peers())
+            self.send_json({"status": "ok"})
             return
 
         # HANDLE JOIN RESPOND (/api/join/respond - Host Only)
@@ -2190,6 +2407,11 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     else:
                         req["status"] = "declined"
 
+                # Any other open Host window (desktop app + a browser tab) closes its copy of the dialog
+                broadcast_sse("join_request_closed", {
+                    "id": req_id, "nickname": req_nickname,
+                    "reason": "approved" if action == "accept" else "declined"
+                })
                 if action == "accept":
                     add_event(f"Device joined (Host approved): {req_nickname}")
                     trigger_desktop_notification("PyShare — Device Connected", f"{req_nickname} connected")
@@ -2223,6 +2445,29 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({"status": TUNNEL_STATUS, "url": TUNNEL_URL})
             return
 
+        # Update Host Settings (/api/settings - Host Only)
+        if self.path == '/api/settings':
+            if not self.is_host_client():
+                self.send_error(403, "Host Only")
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 1024:
+                self.send_error(400, "Bad Request")
+                return
+            try:
+                data = json.loads(self.rfile.read(length).decode('utf-8', errors='ignore') or "{}")
+            except Exception:
+                self.send_error(400, "Invalid JSON")
+                return
+            if "auto_clipboard" in data:
+                AUTO_CLIPBOARD = bool(data["auto_clipboard"])
+                cfg = load_app_config()
+                cfg["auto_clipboard"] = AUTO_CLIPBOARD
+                save_app_config(cfg)
+                add_event(f"Auto-copy chat to PC clipboard: {'on' if AUTO_CLIPBOARD else 'off'}")
+            self.send_json({"status": "ok", "auto_clipboard": AUTO_CLIPBOARD})
+            return
+
         # Handle PIN Mode Switch (/api/pin/mode - Host Only)
         if self.path == '/api/pin/mode':
             if not self.is_host_client():
@@ -2251,7 +2496,6 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 cfg["static_pin"] = STATIC_PIN
                 save_app_config(cfg)
 
-                generate_qr()
                 add_event(f"PIN Security Mode: {PIN_MODE.capitalize()} ({CURRENT_PIN})")
 
                 self.send_json({"status": "ok", "mode": PIN_MODE, "pin": CURRENT_PIN})
@@ -2318,11 +2562,14 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     "new_message": msg
                 }
 
-            # Direct sync to Windows OS clipboard
-            try:
-                pyperclip.copy(new_text)
-            except Exception:
-                pass
+            # Auto-copy incoming messages to the host PC's clipboard (host setting). Done server-side
+            # only: a browser-side navigator.clipboard.writeText() without a click makes Chromium /
+            # WebView2 show a "wants to see text and images copied to the clipboard" permission prompt.
+            if AUTO_CLIPBOARD and not is_host:
+                try:
+                    pyperclip.copy(new_text)
+                except Exception:
+                    pass
 
             snippet = (new_text[:35] + "...") if len(new_text) > 35 else new_text
             add_event(f"Chat from {sender_name}: {snippet}")
@@ -2438,6 +2685,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     for t in to_remove:
                         SESSIONS.pop(t, None)
                         removed += 1
+                if to_remove:
+                    close_sse_streams(set(to_remove))
                 if removed > 0:
                     add_event(f"Revoked device access ({target_id or target_ip})")
                     broadcast_sse("peers", get_connected_peers())
@@ -2496,6 +2745,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
 
         # 5. HANDLE FILE UPLOAD (High-speed 256KB buffer + throttled progress lock)
         client_ip = self.get_client_ip()
+        transfer_id = None
         try:
             is_chat_upload = ("dest=chat" in self.path) or self.path.startswith("/api/chat/upload")
             is_host_upload = (("dest=host" in self.path) and self.is_host_client()) or is_chat_upload
@@ -2548,9 +2798,20 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             remain = length
             total_size = length
             
-            if not is_host_upload: 
+            if not is_host_upload:
                 add_event(f"Receiving: {actual_fn}")
-            
+
+                def header_int(name, cap):
+                    try:
+                        return min(max(int(self.headers.get(name, 0)), 0), cap)
+                    except (TypeError, ValueError):
+                        return 0
+                # Optional batch hints from the phone's upload queue (UploadQueueManager in scripts.js)
+                batch_id = re.sub(r'[^A-Za-z0-9_-]', '', self.headers.get('X-Upload-Batch', ''))[:32]
+                transfer_id = start_upload(client_ip, actual_fn, total_size, batch_id,
+                                           header_int('X-Batch-Files', 100000), header_int('X-Batch-Bytes', 1 << 50))
+                publish_upload_progress(force=True)
+
             last_status_time = 0
             read_fn = self.rfile.read1 if hasattr(self.rfile, 'read1') else self.rfile.read
             try:
@@ -2562,16 +2823,12 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         f.write(chunk)
                         remain -= len(chunk)
                         
-                        if not is_host_upload:
+                        if transfer_id:
                             now = time.time()
-                            if now - last_status_time >= 0.25 or remain == 0:
+                            if now - last_status_time >= 0.25:
                                 last_status_time = now
-                                set_upload_status(client_ip, actual_fn, total_size - remain, total_size)
-                                broadcast_sse("upload", {
-                                    "filename": actual_fn,
-                                    "current": total_size - remain,
-                                    "total": total_size
-                                })
+                                update_upload(transfer_id, total_size - remain)
+                                publish_upload_progress()
                 if remain == 0:
                     # Atomic commit: Rename completed .part file to final path
                     if os.path.exists(out_path):
@@ -2591,9 +2848,10 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         pass
                 raise e
             
-            clear_upload_status(client_ip)
-            broadcast_sse("upload", None)
-            
+            if transfer_id:
+                finish_upload(transfer_id, ok=True)
+                publish_upload_progress(force=True)
+
             if is_chat_upload:
                 client_token = self.get_session_token()
                 if client_token and client_token in SESSIONS:
@@ -2661,8 +2919,9 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"status": "ok", "filename": actual_fn})
             
         except Exception as e:
-            clear_upload_status(client_ip)
-            broadcast_sse("upload", None)
+            if transfer_id:
+                finish_upload(transfer_id, ok=False)
+                publish_upload_progress(force=True)
             self.send_error(500, str(e))
 
 # --- SERVER CONTROLLER ---
@@ -2682,7 +2941,12 @@ def launch_desktop_app(url):
 
 
 class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
+    # On Windows, SO_REUSEADDR lets a SECOND process bind a port that is already listening.
+    # Two PyShare instances then silently share 8010 and the OS splits clients between them:
+    # phones land on the server that doesn't have their session (random 401s, chat "won't send",
+    # missing files). Claim the port exclusively there so the port loop moves on to 8011.
+    # On Linux/macOS SO_REUSEADDR only allows quick restarts (TIME_WAIT), so keep it.
+    allow_reuse_address = (os.name != 'nt')
     daemon_threads = True
 
     def handle_error(self, request, client_address):
@@ -2692,6 +2956,8 @@ class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
         super().handle_error(request, client_address)
 
     def server_bind(self):
+        if os.name == 'nt' and hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         try:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4194304)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4194304)
@@ -2707,15 +2973,26 @@ class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
             pass
         return conn, addr
 
+def apply_saved_settings(cfg):
+    """Apply persisted host settings (PIN mode, fixed PIN, auto-copy) from the config dict."""
+    global PIN_MODE, STATIC_PIN, AUTO_CLIPBOARD
+    with state_lock:
+        PIN_MODE = cfg.get("pin_mode") if cfg.get("pin_mode") in ("static", "rotating") else "rotating"
+        saved_pin = str(cfg.get("static_pin", "1234")).strip()
+        STATIC_PIN = saved_pin if (len(saved_pin) == 4 and saved_pin.isdigit()) else "1234"
+        AUTO_CLIPBOARD = bool(cfg.get("auto_clipboard", True))
+
 def start_server():
     global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, httpd, ACTUAL_PORT, zc
-    
+
     print("\n" + "="*45)
     print("[*] Starting PyShare...")
 
     try:
         cfg = load_app_config()
         defaults = get_default_directories()
+        # Saved settings used to be ignored at startup (a fixed PIN reverted to rotating on restart)
+        apply_saved_settings(cfg)
         DOWNLOAD_DIR = os.path.abspath(cfg.get("shared_dir", defaults["shared_dir"]))
         UPLOAD_DIR = os.path.abspath(cfg.get("received_dir", defaults["received_dir"]))
         try:
@@ -2753,9 +3030,7 @@ def start_server():
 
     ip = get_ip()
     url = f'http://{ip}:{ACTUAL_PORT}'
-    
-    # Generate Dynamic QR code on startup
-    generate_qr(url)
+    remove_legacy_qr_file()
 
     # mDNS Service Broadcast
     try:

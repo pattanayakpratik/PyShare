@@ -2,7 +2,9 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <!-- interactive-widget=resizes-content: on Android the on-screen keyboard shrinks the layout,
+         so the bottom chat sheet sits above the keyboard instead of underneath it -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
     <title>PyShare Client</title>
     <link rel="icon" type="image/x-icon" href="app_icon.ico">
     <link rel="apple-touch-icon" href="app_icon.png">
@@ -93,7 +95,7 @@
         </nav>
 
         <!-- Connected Status Indicator & Device Badge -->
-        <div class="status-bar" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+        <div class="status-bar client-status-row" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
             <div class="client-status-pill" style="flex: 1; width: auto;">
                 <span class="status-dot"></span>
                 <span>Connected to Host</span>
@@ -146,7 +148,7 @@
                     </div>
                 </div>
 
-                <input type="text" id="searchPC" class="search-input-box" placeholder="Search host files..." onkeyup="renderPCFiles()">
+                <input type="search" id="searchPC" class="search-input-box" placeholder="Search host files" aria-label="Search host files" oninput="renderPCFiles()">
 
                 <ul id="file-list" class="file-list" style="max-height: 48vh; overflow-y: auto;">
                     <li class="empty-state">Loading files...</li>
@@ -157,31 +159,37 @@
     </div>
 
     <!-- Shared Clipboard & Quick Chat Modal -->
-    <div id="clipboardModal" class="modal-backdrop" onclick="if(event.target===this) toggleClipboardModal()">
-        <div class="modal-box" style="max-width: 480px; max-height: 85vh; display: flex; flex-direction: column;">
+    <div id="clipboardModal" class="modal-backdrop chat-sheet" onclick="if(event.target===this) toggleClipboardModal()">
+        <div class="modal-box chat-modal-box" role="dialog" aria-label="Quick Chat">
             <div class="modal-header">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="modal-title-text"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Quick Chat &amp; Clipboard</span>
-                    <span id="chatMessageCount" style="font-size: 11px; background: rgba(0, 240, 255, 0.12); color: var(--accent-cyan); padding: 2px 8px; border-radius: 9999px; font-weight: 700; border: 1px solid rgba(0, 240, 255, 0.3);">0/30</span>
+                <div class="chat-modal-header-left">
+                    <span class="modal-title-text"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Quick Chat</span>
+                    <span id="chatMessageCount" class="count-badge" title="Messages kept (max 30)">0/30</span>
                 </div>
-                <button class="icon-btn" onclick="toggleClipboardModal()" style="width:34px; height:34px;" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                <button class="btn-icon" onclick="toggleClipboardModal()" title="Close" aria-label="Close chat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
-            
-            <div style="padding: 14px 16px; display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 10px;">
+
+            <div class="chat-modal-body">
                 <!-- Chat Stream / Message Feed (Up to 30 messages) -->
-                <div id="clipboardChatList" class="chat-stream-list" style="max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px; box-sizing: border-box;">
-                    <div class="empty-state" style="padding: 24px 0; font-size: 13px; color: var(--text-sub);">Loading messages...</div>
+                <div id="clipboardChatList" class="chat-stream-list">
+                    <div class="empty-state">Loading messages...</div>
                 </div>
 
                 <!-- Chat Input Controls -->
-                <div style="display: flex; gap: 8px; margin-top: 4px; align-items: center;">
-                    <input type="file" id="chatFileInput" style="display:none;" onchange="if(this.files[0]) uploadChatAttachment(this.files[0])">
-                    <button type="button" class="icon-btn" onclick="document.getElementById('chatFileInput').click()" style="width:38px; height:38px; flex-shrink:0; border-radius:10px; display:inline-flex; align-items:center; justify-content:center;" title="Attach file or screenshot">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                <!-- A real <form>: the phone keyboard's Send/Go key submits it reliably (a bare input
+                     can get a "Next"/"Done" key on Android that never fires Enter). -->
+                <form class="chat-composer" onsubmit="event.preventDefault(); sendClipboard();" autocomplete="off">
+                    <input type="file" id="chatFileInput" hidden onchange="if(this.files[0]) uploadChatAttachment(this.files[0])">
+                    <button type="button" class="btn-icon" onclick="document.getElementById('chatFileInput').click()" title="Attach a file or screenshot" aria-label="Attach file">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                     </button>
-                    <input type="text" id="clipboardInput" placeholder="Type message or paste image (Ctrl+V)..." class="search-input-box" style="margin-bottom: 0; flex: 1; min-width: 0;" onkeydown="if(event.key==='Enter') sendClipboard()">
-                    <button class="btn-primary" onclick="sendClipboard()" style="padding: 10px 18px; font-size: 13px; border-radius: 10px; flex-shrink: 0;">Send</button>
-                </div>
+                    <input type="text" id="clipboardInput" class="chat-input" placeholder="Message, link, or paste an image" aria-label="Chat message" enterkeyhint="send" autocomplete="off" autocapitalize="sentences">
+                    <!-- pointerdown preventDefault keeps focus (and the keyboard) on the input so tapping Send
+                         doesn't collapse the keyboard and shift the layout mid-tap -->
+                    <button type="submit" class="btn-primary btn-send" title="Send" aria-label="Send message" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -195,9 +203,10 @@
             </span>
             <div style="display:flex; align-items:center; gap:8px;">
                 <span id="queueSpeed" class="floating-queue-speed">0 KB/s</span>
-                <button type="button" onclick="document.getElementById('floatingQueue').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); cursor:pointer; font-size:14px; padding:2px 6px; display:inline-flex; align-items:center;" title="Minimize Queue"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                <button type="button" class="floating-queue-toggle" onclick="toggleUploadQueue(event)" aria-expanded="true" aria-controls="queueItemsList" title="Minimize" aria-label="Minimize upload queue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
             </div>
         </div>
+        <div class="floating-queue-progress" aria-hidden="true"><div id="queueOverallBar"></div></div>
         <div id="queueItemsList" class="queue-items-container"></div>
     </div>
 

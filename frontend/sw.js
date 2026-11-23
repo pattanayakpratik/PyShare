@@ -43,7 +43,6 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/view/') ||
     url.pathname.startsWith('/download/') ||
     url.pathname.startsWith('/login') ||
-    url.pathname === '/qrcode.png' ||
     event.request.method !== 'GET'
   ) {
     return;

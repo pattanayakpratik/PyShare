@@ -160,9 +160,17 @@ function showToast(message, icon = 'info') {
 
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>"']/g, (m) => ({
+    return String(str).replace(/[&<>"']/g, (m) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[m]));
+}
+
+// Embed any value as a JavaScript string argument inside an inline on*="..." attribute.
+// File ids/names arrive from the remote peer, so they must never be spliced into JS source
+// directly (the browser decodes &#39; back to ' before the handler runs).
+// Usage: onclick="fn(${jsArg(value)})"  (no surrounding quotes)
+function jsArg(value) {
+    return escapeHtml(JSON.stringify(value == null ? '' : String(value)));
 }
 
 function formatSize(bytes) {
@@ -175,7 +183,7 @@ function formatSize(bytes) {
 
 function getCategory(ext) {
     ext = (ext || '').toLowerCase().replace(/^\./, '');
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(ext)) return 'image';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'heic', 'heif'].includes(ext)) return 'image';
     if (['mp4', 'mkv', 'mov', 'webm', 'avi', 'wmv', 'm4v'].includes(ext)) return 'video';
     if (['mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a', 'wma'].includes(ext)) return 'audio';
     if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'csv'].includes(ext)) return 'document';
@@ -299,6 +307,47 @@ function startHostMode() {
     }
 }
 
+// PyShare-styled QR as inline SVG, the same look as the Host screen QR the server draws
+// (backend/main.py build_qr_svg): rounded modules and finder eyes in the brand gradient, app icon in the centre.
+function buildBrandQrSvg(model, logoSrc) {
+    const n = model.getModuleCount();
+    const quiet = 2;
+    const size = n + 2 * quiet;
+    const fmt = (v) => +v.toFixed(3);
+    // From version 7 an alignment pattern sits in the middle of the code, so leave the centre alone
+    const version = (n - 17) / 4;
+    const plate = (logoSrc && version <= 6) ? (Math.max(5, Math.round(n * 0.24)) | 1) : 0;
+    const p0 = (n - plate) / 2;
+    const inEye = (r, c) => (r < 7 || r >= n - 7) && (c < 7 || c >= n - 7) && !(r >= n - 7 && c >= n - 7);
+    const underLogo = (r, c) => plate && r >= p0 && r < p0 + plate && c >= p0 && c < p0 + plate;
+    const rrect = (x, y, w, h, rad) => `M${fmt(x + rad)} ${y}h${fmt(w - 2 * rad)}a${rad} ${rad} 0 0 1 ${rad} ${rad}v${fmt(h - 2 * rad)}`
+        + `a${rad} ${rad} 0 0 1 ${-rad} ${rad}h${fmt(2 * rad - w)}a${rad} ${rad} 0 0 1 ${-rad} ${-rad}`
+        + `v${fmt(2 * rad - h)}a${rad} ${rad} 0 0 1 ${rad} ${-rad}z`;
+
+    let dots = '';
+    for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+            if (model.isDark(r, c) && !inEye(r, c) && !underLogo(r, c)) {
+                dots += `M${fmt(c + quiet + 0.35)} ${fmt(r + quiet + 0.35)}h.3v.3h-.3z`;
+            }
+        }
+    }
+    const eyes = [[quiet, quiet], [quiet + n - 7, quiet], [quiet, quiet + n - 7]]
+        // Keep the frame corners nearly square (scanners find the code by them); round only the centre
+        .map(([x, y]) => rrect(x, y, 7, 7, 0.5) + rrect(x + 1, y + 1, 5, 5, 0.3) + rrect(x + 2, y + 2, 3, 3, 0.8))
+        .join('');
+    const logo = plate
+        ? `<image href="${logoSrc}" x="${fmt(p0 + quiet + 0.5)}" y="${fmt(p0 + quiet + 0.5)}" width="${plate - 1}" height="${plate - 1}"/>`
+        : '';
+    return `<svg class="brand-qr" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="170" height="170" role="img" aria-label="QR code to join this room">`
+        + `<defs><linearGradient id="pyshareQrGradient" x1="0" y1="0" x2="${size}" y2="${size}" gradientUnits="userSpaceOnUse">`
+        + `<stop offset="0" stop-color="#0369a1"/><stop offset=".5" stop-color="#1d4ed8"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs>`
+        + `<rect width="${size}" height="${size}" fill="#fff"/>`
+        + `<path fill="url(#pyshareQrGradient)" stroke="url(#pyshareQrGradient)" stroke-width=".6" stroke-linejoin="round" d="${dots}"/>`
+        + `<path fill="url(#pyshareQrGradient)" fill-rule="evenodd" d="${eyes}"/>`
+        + `${logo}</svg>`;
+}
+
 // Generate QR Code on Screen
 function generateHostQR(pin) {
     const qrContainer = document.getElementById('qrcodeContainer');
@@ -309,14 +358,21 @@ function generateHostQR(pin) {
     
     // Check if QRCode library loaded
     if (window.QRCode) {
-        new QRCode(qrContainer, {
+        const scratch = document.createElement('div');
+        const qr = new QRCode(scratch, {
             text: shareUrl,
             width: 170,
             height: 170,
             colorDark: "#000000",
             colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.M
+            correctLevel: QRCode.CorrectLevel.H
         });
+        const model = qr && qr._oQRCode;
+        if (model && typeof model.isDark === 'function' && typeof model.getModuleCount === 'function') {
+            qrContainer.innerHTML = buildBrandQrSvg(model, 'app_icon.png');
+        } else {
+            qrContainer.append(...scratch.childNodes);   // plain QR if the library internals ever change
+        }
     } else {
         qrContainer.innerHTML = `<a href="${shareUrl}" target="_blank" style="font-size:12px;color:var(--accent-blue);word-break:break-all;">${shareUrl}</a>`;
     }
@@ -332,10 +388,14 @@ function generateHostQR(pin) {
 function copyShareLink() {
     const linkEl = document.getElementById('hostShareLink');
     const url = linkEl ? linkEl.dataset.url : (window.location.origin + window.location.pathname + '?room=' + currentPin);
-    if (navigator.clipboard && url) {
+    if (!url) return;
+    // navigator.clipboard only exists on secure origins; on http://192.168.x.x use the fallback
+    if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(url).then(() => {
             showToast('Share link copied to clipboard!', 'copy');
-        });
+        }, () => legacyCopy(url));
+    } else {
+        legacyCopy(url);
     }
 }
 
@@ -378,29 +438,96 @@ function connectToHost(pin) {
     }
 }
 
-// Setup DataChannel Event Handlers
-function setupConnectionHandlers(conn) {
-    conn.on('open', () => {
-        activeConnections.push(conn);
-        
-        if (isHost) {
+// --- ROOM ACCESS APPROVAL ---
+// Room codes are only 4 digits on a public signalling broker, so anyone can guess one.
+// The host therefore approves every incoming device before it may send or receive anything.
+function describeThisDevice() {
+    const ua = navigator.userAgent || '';
+    const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android device'
+             : /Windows/.test(ua) ? 'Windows PC' : /Macintosh|Mac OS X/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux PC' : 'Device';
+    const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox'
+                  : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+    return `${os} (${browser})`;
+}
+
+let hostApprovalChain = Promise.resolve();  // One approval dialog at a time
+
+function askHostToApprove(conn, deviceLabel) {
+    if (conn._approvalAsked) return;
+    conn._approvalAsked = true;
+    clearTimeout(conn._approvalTimer);
+
+    hostApprovalChain = hostApprovalChain.then(async () => {
+        if (!conn.open) return;  // Device left while an earlier request was on screen
+        const label = String(deviceLabel || 'A device').slice(0, 60);
+        const message = `${label} wants to join your room. Allow it to send and receive files?`;
+        if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+        const allowed = (typeof showPyShareConfirm === 'function')
+            ? await showPyShareConfirm({ title: 'Device Wants to Join', message, confirmText: 'Allow', cancelText: 'Decline' })
+            : window.confirm(message);
+        if (!conn.open) return;
+
+        if (allowed) {
+            conn._approved = true;
+            if (!activeConnections.includes(conn)) activeConnections.push(conn);
+            try { conn.send({ type: 'join_accepted' }); } catch (e) {}
             updateConnectionStatus('Connected to Client Peer!', 'green');
             document.getElementById('hostConnectedBadge').style.display = 'flex';
             showToast('Peer connected! Ready to transfer.', 'success');
-            
-            // Sync current shared files list with newly connected client
-            syncSharedFilesToPeer(conn);
+            syncSharedFilesToPeer(conn);  // Send the current shared-files catalog
         } else {
-            updateClientStatus('Connected to Host!', 'green');
-            showToast('Connected! Ready to transfer.', 'success');
+            try { conn.send({ type: 'join_declined' }); } catch (e) {}
+            setTimeout(() => { try { conn.close(); } catch (e) {} }, 400);
+            showToast(`Declined ${label}`, 'error');
+        }
+    });
+}
+
+function markJoinedHost(conn) {
+    conn._approved = true;
+    if (!activeConnections.includes(conn)) activeConnections.push(conn);
+    updateClientStatus('Connected to Host!', 'green');
+    showToast('Connected! Ready to transfer.', 'success');
+}
+
+// Setup DataChannel Event Handlers
+function setupConnectionHandlers(conn) {
+    conn._approved = false;
+
+    conn.on('open', () => {
+        if (isHost) {
+            updateConnectionStatus('Device asking to join...', 'yellow');
+            // Guests introduce themselves right away; if one never does (older version), ask anyway.
+            conn._approvalTimer = setTimeout(() => askHostToApprove(conn, null), 2500);
+        } else {
+            updateClientStatus('Waiting for Host to accept...', 'yellow');
+            try { conn.send({ type: 'join_request', device: describeThisDevice() }); } catch (e) {}
         }
     });
 
     conn.on('data', (data) => {
+        if (isHost && !conn._approved) {
+            // Until approved, the only thing a device may send is its introduction.
+            if (data && data.type === 'join_request') askHostToApprove(conn, data.device);
+            return;
+        }
+        if (!isHost && !conn._approved) {
+            if (data && data.type === 'join_declined') {
+                conn._declined = true;
+                updateClientStatus('Host declined the connection', 'red');
+                showToast('The host declined your request', 'error');
+                return;
+            }
+            // 'join_accepted', or any data from a host on an older version, means we're in.
+            markJoinedHost(conn);
+            if (data && data.type === 'join_accepted') return;
+        }
         handleIncomingData(data, conn);
     });
 
     conn.on('close', () => {
+        clearTimeout(conn._approvalTimer);
+        const wasApproved = conn._approved;
         activeConnections = activeConnections.filter(c => c !== conn);
         if (conn._sendQueue) conn._sendQueue = [];
         conn._isSending = false;
@@ -411,10 +538,12 @@ function setupConnectionHandlers(conn) {
                 updateConnectionStatus('Ready! Waiting for device to scan...', 'blue');
                 document.getElementById('hostConnectedBadge').style.display = 'none';
             }
-            showToast('Peer disconnected', 'warning');
+            if (wasApproved) showToast('Peer disconnected', 'warning');
         } else {
-            updateClientStatus('Disconnected from Host', 'red');
-            showToast('Disconnected from Host', 'warning');
+            if (!conn._declined) {
+                updateClientStatus('Disconnected from Host', 'red');
+                showToast('Disconnected from Host', 'warning');
+            }
             pendingFileRequests.clear();
         }
     });
@@ -917,13 +1046,14 @@ function renderQueueItem(id, filename, totalSize, direction) {
         el.style.cssText = "background:var(--input-bg); border:1px solid var(--border-color); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; gap:6px;";
         list.appendChild(el);
     }
+    const safeId = escapeHtml(id);  // id may come from the remote peer
     el.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
             <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;" title="${escapeHtml(filename)}">${direction === 'upload' ? '↑' : '↓'} ${escapeHtml(filename)}</span>
-            <span id="q_status_${id}" style="color:var(--accent-cyan); font-family:monospace; font-size:11px;">0% • ${formatSize(totalSize)}</span>
+            <span id="q_status_${safeId}" style="color:var(--accent-cyan); font-family:monospace; font-size:11px;">0% • ${formatSize(totalSize)}</span>
         </div>
         <div style="height:6px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden;">
-            <div id="q_bar_${id}" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition:width 0.15s ease; border-radius:99px;"></div>
+            <div id="q_bar_${safeId}" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition:width 0.15s ease; border-radius:99px;"></div>
         </div>
     `;
 }
@@ -1017,13 +1147,13 @@ function renderReceivedFilesUI() {
             <li class="file-row">
                 <div class="file-icon">${getSmartIcon(f.category, f.ext)}</div>
                 <div class="file-details">
-                    <a href="javascript:void(0)" onclick="openPreviewBlobById('${encodeURIComponent(f.id)}')" class="file-name" title="${escapeHtml(f.name)}">
+                    <a href="javascript:void(0)" onclick="openPreviewBlobById(${jsArg(f.id)})" class="file-name" title="${escapeHtml(f.name)}">
                         ${escapeHtml(f.name)}
                     </a>
                     <div class="file-size">${formatSize(f.size)}</div>
                 </div>
                 <div class="file-actions">
-                    <button class="action-circle-btn" onclick="openPreviewBlobById('${encodeURIComponent(f.id)}')" title="Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                    <button class="action-circle-btn" onclick="openPreviewBlobById(${jsArg(f.id)})" title="Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                     <a href="${f.url}" download="${escapeHtml(f.name)}" class="action-circle-btn" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
                 </div>
             </li>
@@ -1077,7 +1207,7 @@ function renderPeerCatalog(files) {
                     <div class="file-size">${formatSize(f.size)}</div>
                 </div>
                 <div class="file-actions">
-                    <button id="btn_dl_${f.id}" class="${btnClass}" ${btnDisabled} onclick="requestFileFromHost('${f.id}')" style="${btnStyle}">${btnContent}</button>
+                    <button id="btn_dl_${escapeHtml(f.id)}" class="${btnClass}" ${btnDisabled} onclick="requestFileFromHost(${jsArg(f.id)})" style="${btnStyle}">${btnContent}</button>
                 </div>
             </li>
         `;
@@ -1122,8 +1252,7 @@ function updateCatalogButtonState(fileId, state, pct = 0) {
 
 // --- LIGHTBOX PREVIEW MODAL ---
 function openPreviewBlobById(fileId) {
-    const id = decodeURIComponent(fileId);
-    const f = receivedFilesList.find(item => item.id === id);
+    const f = receivedFilesList.find(item => item.id === fileId);
     if (f) {
         openPreviewBlob(f.name, f.category, f.url, f.size);
     }

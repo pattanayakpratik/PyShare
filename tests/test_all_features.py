@@ -44,6 +44,9 @@ class TestPyShareAllFeatures(unittest.TestCase):
 
         # Start live in-process server on ephemeral loopback port for HTTP API tests
         cls.test_dir = tempfile.mkdtemp()
+        # Never touch the developer's real ~/.pyshare_config.json (PIN-mode tests save settings)
+        cls._real_config_file = main.CONFIG_FILE
+        main.CONFIG_FILE = os.path.join(cls.test_dir, "pyshare_test_config.json")
         main.BASE_DIR = cls.test_dir
         main.DOWNLOAD_DIR = os.path.join(cls.test_dir, "Shared")
         main.UPLOAD_DIR = os.path.join(cls.test_dir, "Received")
@@ -67,6 +70,7 @@ class TestPyShareAllFeatures(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server.server_close()
+        main.CONFIG_FILE = cls._real_config_file
         try:
             shutil.rmtree(cls.test_dir, ignore_errors=True)
         except Exception:
@@ -224,22 +228,48 @@ class TestPyShareAllFeatures(unittest.TestCase):
         print("  [PASS] Step 2.1: Speedometer & ETA calculation algorithm verified")
 
     def test_07_upload_progress_tracker(self):
-        """Step 2.2: Verify upload progress tracking dictionary and reset."""
-        test_ip = "192.168.1.105"
-        test_file = "payload_video.mp4"
-        main.set_upload_status(test_ip, test_file, 25000000, 100000000)
+        """Step 2.2: Uploads are tracked per file and per batch, and combined into one Host status."""
+        saved = (dict(main.upload_status), dict(main.upload_batches))
+        main.upload_status.clear()
+        main.upload_batches.clear()
+        try:
+            ip = "192.168.1.105"
+            # A phone announces a 3-file / 300 MB batch and sends 2 files at once (same IP)
+            a = main.start_upload(ip, "a.mp4", 100_000_000, "batch1", 3, 300_000_000)
+            b = main.start_upload(ip, "b.mp4", 100_000_000, "batch1", 3, 300_000_000)
+            main.update_upload(a, 25_000_000)
+            main.update_upload(b, 50_000_000)
+            snap = main.upload_snapshot()
+            self.assertEqual((snap["active"], snap["done"], snap["files"]), (2, 0, 3))
+            self.assertEqual((snap["received"], snap["total"]), (75_000_000, 300_000_000))
+            self.assertEqual(snap["filename"], "a.mp4", "Oldest file in flight should be shown")
 
-        with main.state_lock:
-            self.assertIn(test_ip, main.upload_status)
-            entry = main.upload_status[test_ip]
-            self.assertEqual(entry["filename"], test_file)
-            self.assertEqual(entry["current"], 25000000)
-            self.assertEqual(entry["total"], 100000000)
+            # One finishing must not wipe the other (it used to clear the whole IP's slot)
+            main.finish_upload(b, ok=True)
+            snap = main.upload_snapshot()
+            self.assertEqual((snap["active"], snap["done"], snap["received"]), (1, 1, 125_000_000))
 
-        main.clear_upload_status(test_ip)
-        with main.state_lock:
-            self.assertNotIn(test_ip, main.upload_status)
-        print("  [PASS] Step 2.2: Live upload progress tracker verified")
+            # Everything finished: the batch is remembered briefly so the next queued file keeps the count
+            main.finish_upload(a, ok=True)
+            main.finish_upload(a, ok=True)   # idempotent
+            snap = main.upload_snapshot()
+            self.assertEqual((snap["active"], snap["done"]), (0, 2))
+            c = main.start_upload(ip, "c.mp4", 100_000_000, "batch1", 3, 300_000_000)
+            main.finish_upload(c, ok=True)
+            snap = main.upload_snapshot()
+            self.assertEqual((snap["done"], snap["files"], snap["received"], snap["total"]), (3, 3, 300_000_000, 300_000_000))
+
+            # ...and forgotten after the grace period
+            with main.state_lock:
+                for batch in main.upload_batches.values():
+                    batch["updated"] -= main.UPLOAD_BATCH_GRACE + 1
+            self.assertIsNone(main.upload_snapshot())
+        finally:
+            main.upload_status.clear()
+            main.upload_batches.clear()
+            main.upload_status.update(saved[0])
+            main.upload_batches.update(saved[1])
+        print("  [PASS] Step 2.2: Per-file upload tracking combined into one Host status")
 
     def test_08_unique_filepath_and_sanitization(self):
         """Step 2.3: Verify filename conflict resolution and sanitization."""
@@ -320,29 +350,47 @@ class TestPyShareAllFeatures(unittest.TestCase):
         print("  [PASS] Step 3.1: Static vs Rotating PIN toggle API verified")
 
     def test_10_qr_code_instant_login_payload(self):
-        """Step 3.2: Verify QR code payload embeds current PIN parameter and regenerates on rotation."""
-        with main.state_lock:
-            main.CURRENT_PIN = "5678"
-        main.generate_qr()
-        # Ensure qrcode.png exists and is accessible
-        qr_file = main.get_qr_path()
-        self.assertTrue(os.path.isfile(qr_file), f"QR code image was not found at {qr_file}")
-        self.assertGreater(os.path.getsize(qr_file), 0, "QR code image is empty")
+        """Step 3.2: Host QR is built in memory (no file on disk), carries the live PIN and is Host-only."""
+        saved_pin = main.CURRENT_PIN
+        try:
+            with main.state_lock:
+                main.CURRENT_PIN = "5678"
+            self.assertTrue(main.get_connect_url().endswith("/?pin=5678"), main.get_connect_url())
 
-        # Verify QR request endpoint
-        req = urllib.request.Request(f"{self.base_url}/qrcode.png")
-        with urllib.request.urlopen(req, timeout=3) as res:
-            self.assertEqual(res.status, 200)
-            self.assertEqual(res.headers.get("Content-Type"), "image/png")
+            svg = main.build_qr_svg(main.get_connect_url())
+            self.assertTrue(svg.startswith("<svg") and svg.endswith("</svg>"), "QR is not an SVG document")
+            for color in main.QR_GRADIENT:
+                self.assertIn(color, svg, "QR is missing the PyShare gradient")
+
+            req = urllib.request.Request(f"{self.base_url}/api/qr")
+            with urllib.request.urlopen(req, timeout=3) as res:
+                self.assertEqual(res.status, 200)
+                self.assertEqual(res.headers.get("Content-Type"), "image/svg+xml")
+                self.assertIn("no-store", res.headers.get("Cache-Control", ""))
+                self.assertIn(b"<svg", res.read())
+
+            # Nothing lands in the user's PyShare folder (it used to hold qrcode.png)
+            self.assertEqual(
+                [f for f in os.listdir(main.BASE_DIR) if f.lower().endswith((".png", ".svg"))], [],
+                "QR image was written to disk")
+
+            # The QR reveals the PIN, so guests (LAN or tunnel) must not be able to fetch it
+            guest = urllib.request.Request(f"{self.base_url}/api/qr", headers={"X-Forwarded-For": "203.0.113.9"})
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(guest, timeout=3)
+            self.assertEqual(cm.exception.code, 403)
+        finally:
+            with main.state_lock:
+                main.CURRENT_PIN = saved_pin
 
         # Verify host_scripts.js refreshes QR code on PIN rotation
         host_js_path = os.path.join(main.ASSET_DIR, "host_scripts.js")
         with open(host_js_path, "r", encoding="utf-8") as f:
             hjs = f.read()
         self.assertIn("lastDisplayedPin", hjs, "Missing lastDisplayedPin in host_scripts.js")
-        self.assertIn("qrImg.src = '/qrcode.png?t='", hjs, "Missing dynamic QR image refresh in host_scripts.js")
+        self.assertIn("qrImg.src = '/api/qr?t='", hjs, "Missing dynamic QR image refresh in host_scripts.js")
 
-        print("  [PASS] Step 3.2: QR code generation, rotation regeneration, and instant-login embedding verified")
+        print("  [PASS] Step 3.2: QR built in memory with live PIN, Host-only, nothing written to disk")
 
     def test_11_login_template_camera_scanner_elements(self):
         """Step 3.3: Verify login.html contains QR scanner modal and haptic triggers."""
@@ -732,8 +780,10 @@ class TestPyShareAllFeatures(unittest.TestCase):
             self.assertEqual(len(matched), 1)
             self.assertEqual(matched[0]["nickname"], "Visitor Pixel")
 
-        # 3. Client checks status while pending
-        req_status = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id}")
+        # 3. Client checks status while pending. The guest polls as a remote device with no
+        #    session (X-Forwarded-For makes the loopback request non-host), exactly like a phone.
+        guest_headers = {"X-Forwarded-For": "192.168.1.150"}
+        req_status = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id}", headers=guest_headers)
         with urllib.request.urlopen(req_status, timeout=3) as res:
             self.assertEqual(res.status, 200)
             sdata = json.loads(res.read().decode('utf-8'))
@@ -771,14 +821,17 @@ class TestPyShareAllFeatures(unittest.TestCase):
             self.assertEqual(res.status, 200)
             sdata = json.loads(res.read().decode('utf-8'))
             self.assertEqual(sdata.get("status"), "approved")
+            self.assertNotIn("token", sdata, "Session token must only travel in the HttpOnly cookie")
             set_cookie = res.headers.get("Set-Cookie", "")
             self.assertIn("pyshare_session=", set_cookie)
+            self.assertIn("HttpOnly", set_cookie)
+            self.assertIn("Max-Age=86400", set_cookie)
             token = re.search(r'pyshare_session=([a-f0-9]+)', set_cookie).group(1)
 
-        # 7. Client uses the session cookie to access files
+        # 7. Client uses the session cookie to access files (still as the remote guest)
         req_files = urllib.request.Request(
             f"{self.base_url}/api/files",
-            headers={"Cookie": f"pyshare_session={token}"}
+            headers={"Cookie": f"pyshare_session={token}", **guest_headers}
         )
         with urllib.request.urlopen(req_files, timeout=3) as res:
             self.assertEqual(res.status, 200)
@@ -804,7 +857,7 @@ class TestPyShareAllFeatures(unittest.TestCase):
         with urllib.request.urlopen(req_decline, timeout=3) as res:
             self.assertEqual(res.status, 200)
 
-        req_status2 = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id2}")
+        req_status2 = urllib.request.Request(f"{self.base_url}/api/join/status?request_id={request_id2}", headers=guest_headers)
         with urllib.request.urlopen(req_status2, timeout=3) as res:
             sdata2 = json.loads(res.read().decode('utf-8'))
             self.assertEqual(sdata2.get("status"), "declined")
@@ -1032,10 +1085,20 @@ class TestPyShareAllFeatures(unittest.TestCase):
         fn_linux_arm, _ = main.get_cloudflared_target(sys_plat="linux", sys_arch="armv7l")
         self.assertEqual(fn_linux_arm, "cloudflared-linux-arm")
 
-        # 4. Verify single-instance lock resilience across platforms
+        # 4. Verify single-instance lock resilience across platforms. Use a test-only mutex name so a
+        #    PyShare instance running on the developer's machine doesn't make this call sys.exit().
         if app_gui is not None:
-            instance_lock = app_gui.ensure_single_instance()
+            from unittest import mock
+            with mock.patch.object(app_gui, "MUTEX_NAME", f"Global\\PyShare_Test_Instance_{os.getpid()}"):
+                instance_lock = app_gui.ensure_single_instance()
             self.assertIsNotNone(instance_lock, "Single instance locking mechanism should return a valid handle or lock")
+            if sys.platform == "win32" and instance_lock:
+                ctypes.windll.kernel32.CloseHandle(instance_lock)
+            elif instance_lock:
+                try:
+                    os.close(instance_lock)
+                except Exception:
+                    pass
 
         # 5. Verify run.py launcher imports and main_launcher callable
         import run
@@ -1125,6 +1188,269 @@ class TestPyShareAllFeatures(unittest.TestCase):
         self.assertIn("display: flex;", css_content)
 
         print("  [PASS] Step 4.13: Host tab visibility and hubClipPane inline style isolation verified")
+
+
+    def test_25_fullscreen_overlays_fit_visible_mobile_screen(self):
+        """Full-screen overlays must use inset:0, never height:100vh.
+
+        On Android Chrome 100vh is the height with the address bar hidden, so a 100vh overlay
+        extends below the visible screen and bottom-pinned content (the chat sheet's message box)
+        is cut off while the address bar is showing."""
+        frontend = os.path.join(os.path.dirname(__file__), "..", "frontend")
+        checks = {"styles.css": ".modal-backdrop {", "client_styles.css": ".disconnect-overlay {"}
+        for css_file, selector in checks.items():
+            with open(os.path.join(frontend, css_file), "r", encoding="utf-8") as f:
+                css = f.read()
+            start = css.index(selector)
+            block = css[start:css.index("}", start)]
+            block = re.sub(r"/\*.*?\*/", "", block, flags=re.S)  # ignore explanatory comments
+            self.assertIn("inset: 0", block, f"{selector} in {css_file} must be pinned with inset: 0")
+            self.assertNotRegex(block, r"(?<![-\w])height:\s*100vh", f"{selector} in {css_file} must not use height: 100vh")
+        print("  [PASS] Step 4.14: Full-screen overlays fit the visible mobile screen (no 100vh)")
+
+
+    def test_26_auto_clipboard_setting_is_server_side(self):
+        """Auto-copy to the host PC clipboard is a host setting applied by the server.
+
+        The browser must never write the clipboard on its own: an unprompted
+        navigator.clipboard.writeText() makes Chromium/WebView2 show a clipboard permission prompt."""
+        from unittest import mock
+
+        class RecordingClipboard:
+            def __init__(self): self.copied = []
+            def copy(self, text): self.copied.append(text)
+            def paste(self): return self.copied[-1] if self.copied else ""
+
+        fake = RecordingClipboard()
+        saved_setting = main.AUTO_CLIPBOARD
+        remote = {"X-Forwarded-For": "192.168.1.61", "Content-Type": "application/json"}
+        try:
+            with mock.patch.object(main, "pyperclip", fake):
+                # Remote client session
+                req = urllib.request.Request(f"{self.base_url}/login", data=f"pin={main.CURRENT_PIN}".encode(),
+                                             headers={"X-Forwarded-For": "192.168.1.61"}, method="POST")
+                with urllib.request.urlopen(req, timeout=3) as res:
+                    cookie = res.headers.get("Set-Cookie").split(";")[0]
+
+                def post_settings(value, headers=None):
+                    r = urllib.request.Request(f"{self.base_url}/api/settings", data=json.dumps({"auto_clipboard": value}).encode(),
+                                               headers=headers or {"Content-Type": "application/json"}, method="POST")
+                    with urllib.request.urlopen(r, timeout=3) as res:
+                        return json.loads(res.read())
+
+                def send(text, from_phone=True):
+                    h = {**remote, "Cookie": cookie} if from_phone else {"Content-Type": "application/json"}
+                    r = urllib.request.Request(f"{self.base_url}/api/text", data=json.dumps({"text": text}).encode(), headers=h, method="POST")
+                    with urllib.request.urlopen(r, timeout=3) as res:
+                        self.assertEqual(res.status, 200)
+
+                self.assertTrue(post_settings(True)["auto_clipboard"])
+                with urllib.request.urlopen(f"{self.base_url}/api/settings", timeout=3) as res:
+                    self.assertTrue(json.loads(res.read())["auto_clipboard"])
+                send("from phone, auto-copy on")
+                send("typed on the host", from_phone=False)
+                self.assertEqual(fake.copied, ["from phone, auto-copy on"], "Only incoming device messages are copied")
+
+                self.assertFalse(post_settings(False)["auto_clipboard"])
+                send("from phone, auto-copy off")
+                self.assertEqual(fake.copied, ["from phone, auto-copy on"], "Nothing copied while the setting is off")
+
+                # Devices can't read or change host settings
+                for method in ("GET", "POST"):
+                    r = urllib.request.Request(f"{self.base_url}/api/settings", method=method,
+                                               data=b'{"auto_clipboard": true}' if method == "POST" else None,
+                                               headers={**remote, "Cookie": cookie})
+                    with self.assertRaises(urllib.error.HTTPError) as ctx:
+                        urllib.request.urlopen(r, timeout=3)
+                    self.assertEqual(ctx.exception.code, 403)
+        finally:
+            main.AUTO_CLIPBOARD = saved_setting
+
+        # The browser-side auto-copy is gone (it triggered the permission prompt)
+        with open(os.path.join(os.path.dirname(__file__), "..", "frontend", "scripts.js"), encoding="utf-8") as f:
+            self.assertNotIn("navigator.clipboard.writeText(msg.text)", f.read())
+        print("  [PASS] Step 4.15: Auto-copy is a server-side host setting; no unprompted browser clipboard writes")
+
+    def test_27_saved_settings_applied_at_startup(self):
+        """A fixed PIN (and auto-copy choice) saved in config must survive a restart."""
+        saved = (main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD)
+        try:
+            main.apply_saved_settings({"pin_mode": "static", "static_pin": "2580", "auto_clipboard": False})
+            self.assertEqual((main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD), ("static", "2580", False))
+            main.apply_saved_settings({"pin_mode": "bogus", "static_pin": "12ab"})
+            self.assertEqual((main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD), ("rotating", "1234", True))
+        finally:
+            main.PIN_MODE, main.STATIC_PIN, main.AUTO_CLIPBOARD = saved
+        print("  [PASS] Step 4.16: Saved PIN mode, fixed PIN and auto-copy are applied at startup")
+
+    def test_28_legacy_qr_file_removed_only_from_pyshare_folder(self):
+        """Old builds left qrcode.png in the PyShare folder; clean it up there but never elsewhere."""
+        saved_base = main.BASE_DIR
+        root = tempfile.mkdtemp()
+        try:
+            own = os.path.join(root, "PyShare_Files")
+            other = os.path.join(root, "Movies")   # parent of a user-chosen shared folder
+            for folder in (own, other):
+                os.makedirs(folder)
+                with open(os.path.join(folder, "qrcode.png"), "wb") as f:
+                    f.write(b"x")
+            main.BASE_DIR = own
+            main.remove_legacy_qr_file()
+            self.assertFalse(os.path.exists(os.path.join(own, "qrcode.png")), "Legacy QR left in PyShare_Files")
+            main.BASE_DIR = other
+            main.remove_legacy_qr_file()
+            self.assertTrue(os.path.exists(os.path.join(other, "qrcode.png")), "Deleted a user's own qrcode.png")
+        finally:
+            main.BASE_DIR = saved_base
+            shutil.rmtree(root, ignore_errors=True)
+        print("  [PASS] Step 3.6: Legacy qrcode.png tidied from PyShare_Files only")
+
+    def test_29_cancelled_knock_closes_on_host(self):
+        """A guest cancelling a knock (button, leaving the page, timeout) must clear it from every Host screen at
+        once, and a cancel that races the Host's Allow must not leave a phantom device behind."""
+        sent = []
+        real_broadcast = main.broadcast_sse
+        main.broadcast_sse = lambda ev, data: (sent.append((ev, data)), real_broadcast(ev, data))
+        guest = {"X-Forwarded-For": "10.88.0.29"}
+        created_tokens = []
+
+        def post(path, payload, headers=None):
+            req = urllib.request.Request(f"{self.base_url}{path}", data=json.dumps(payload).encode(),
+                                         headers={"Content-Type": "application/json", **(headers or {})})
+            with urllib.request.urlopen(req, timeout=3) as res:
+                return json.loads(res.read() or b"{}")
+
+        def knock(name):
+            return post("/api/join/request", {"nickname": name}, guest)["request_id"]
+
+        def last_closed():
+            closed = [d for ev, d in sent if ev == "join_request_closed"]
+            return closed[-1] if closed else None
+
+        try:
+            # 1. Cancel while waiting: Host screens are told at once, the request can no longer be accepted
+            rid = knock("Cancel Phone")
+            post("/api/join/cancel", {"id": rid}, guest)
+            self.assertEqual(last_closed(), {"id": rid, "nickname": "Cancel Phone", "reason": "cancelled"})
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                post("/api/join/respond", {"id": rid, "action": "accept"})
+            self.assertEqual(cm.exception.code, 404)
+            with urllib.request.urlopen(f"{self.base_url}/api/join/pending", timeout=3) as res:
+                self.assertNotIn(rid, [r["id"] for r in json.loads(res.read())["requests"]])
+
+            # 2. The guest's countdown ran out: reported as expired, not cancelled
+            rid = knock("Slow Phone")
+            post("/api/join/cancel", {"id": rid, "reason": "timeout"}, guest)
+            self.assertEqual(last_closed()["reason"], "expired")
+
+            # 3. Host answers: other Host windows close their copy of the dialog
+            rid = knock("Racing Phone")
+            post("/api/join/respond", {"id": rid, "action": "accept"})
+            self.assertEqual(last_closed(), {"id": rid, "nickname": "Racing Phone", "reason": "approved"})
+            # ...and the guest cancels before collecting the session: no phantom device is left behind
+            token = main.PENDING_JOIN_REQUESTS[rid]["token"]
+            created_tokens.append(token)
+            self.assertIn(token, main.SESSIONS)
+            post("/api/join/cancel", {"id": rid}, guest)
+            self.assertNotIn(token, main.SESSIONS, "Session kept after the guest cancelled before receiving it")
+
+            # 4. Guest already collected the session: a late cancel (e.g. pagehide while navigating in) is a no-op
+            rid = knock("Joined Phone")
+            post("/api/join/respond", {"id": rid, "action": "accept"})
+            token = main.PENDING_JOIN_REQUESTS[rid]["token"]
+            created_tokens.append(token)
+            with urllib.request.urlopen(f"{self.base_url}/api/join/status?request_id={rid}", timeout=3) as res:
+                self.assertEqual(json.loads(res.read())["status"], "approved")
+            before = len(sent)
+            post("/api/join/cancel", {"id": rid}, guest)
+            self.assertIn(token, main.SESSIONS, "A late cancel logged out a guest who had already joined")
+            self.assertEqual(len(sent), before, "A no-op cancel still notified the Host")
+
+            # 5. Oversized / malformed cancel bodies are rejected or ignored without errors
+            big = urllib.request.Request(f"{self.base_url}/api/join/cancel", data=b"{" + b" " * 5000 + b"}",
+                                         headers={"Content-Type": "application/json", **guest})
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(big, timeout=3)
+            self.assertEqual(cm.exception.code, 400)
+            bad = urllib.request.Request(f"{self.base_url}/api/join/cancel", data=b"not json", headers=guest)
+            with urllib.request.urlopen(bad, timeout=3) as res:
+                self.assertEqual(res.status, 200)
+        finally:
+            main.broadcast_sse = real_broadcast
+            with main.state_lock:
+                for t in created_tokens:
+                    main.SESSIONS.pop(t, None)
+
+        # Host page reacts to the event; the guest page withdraws the knock when it is left
+        with open(os.path.join(main.ASSET_DIR, "host_scripts.js"), encoding="utf-8") as f:
+            self.assertIn("addEventListener('join_request_closed'", f.read())
+        with open(os.path.join(main.ASSET_DIR, "login.html"), encoding="utf-8") as f:
+            login = f.read()
+        self.assertIn("addEventListener('pagehide'", login)
+        self.assertIn("sendBeacon('/api/join/cancel'", login)
+        print("  [PASS] Step 4.17: Cancelled knock closes on the Host at once; no phantom device on a racing Allow")
+
+    def test_30_concurrent_uploads_one_steady_host_bar(self):
+        """Two files from one phone in flight together: the Host's bar must never be hidden (or reset)
+        while either is still arriving, and must cover both files."""
+        import http.client
+        events = []
+        real_broadcast = main.broadcast_sse
+        main.broadcast_sse = lambda ev, data: (events.append((ev, data)) if ev == "upload" else None, real_broadcast(ev, data))
+        main.upload_status.clear()
+        main.upload_batches.clear()
+        size = 2 * 1024 * 1024
+        batch = {"X-Upload-Batch": "t30batch", "X-Batch-Files": "2", "X-Batch-Bytes": str(2 * size)}
+        try:
+            cookie = {}   # loopback = Host session; a plain "/" upload still goes through the receive path
+            # Slow file: send half, pause while the second file is sent in full, then finish
+            slow = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+            slow.putrequest("POST", "/")
+            for k, v in {**batch, **cookie, "X-File-Name": "slow_video.mp4", "Content-Length": str(size),
+                         "Content-Type": "application/octet-stream"}.items():
+                slow.putheader(k, v)
+            slow.endheaders()
+            slow.send(b"\0" * (size // 2))
+            time.sleep(0.4)
+
+            fast = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+            fast.request("POST", "/", body=b"\1" * size, headers={**batch, **cookie, "X-File-Name": "fast_photo.jpg",
+                                                                  "Content-Type": "application/octet-stream"})
+            self.assertEqual(fast.getresponse().status, 200)
+            fast.close()
+            time.sleep(0.3)
+            mid = list(events)
+
+            slow.send(b"\0" * (size - size // 2))
+            self.assertEqual(slow.getresponse().status, 200)
+            slow.close()
+
+            snaps = [d for _, d in mid]
+            self.assertTrue(snaps, "No progress was published")
+            self.assertNotIn(None, snaps, "Bar was hidden while a file was still arriving")
+            self.assertTrue(all(d["active"] >= 1 for d in snaps), "Bar showed 'finished' while slow_video.mp4 was in flight")
+            self.assertTrue(all(d["files"] == 2 and d["total"] == 2 * size for d in snaps), "Bar did not cover both files")
+            received = [d["received"] for d in snaps]
+            self.assertEqual(received, sorted(received), "Combined progress went backwards")
+
+            final = events[-1][1]
+            self.assertEqual((final["active"], final["done"], final["received"]), (0, 2, 2 * size))
+        finally:
+            main.broadcast_sse = real_broadcast
+            main.upload_status.clear()
+            main.upload_batches.clear()
+            for name in ("slow_video.mp4", "fast_photo.jpg"):
+                try:
+                    os.remove(os.path.join(main.UPLOAD_DIR, name))
+                except OSError:
+                    pass
+
+        with open(os.path.join(main.ASSET_DIR, "client.html"), encoding="utf-8") as f:
+            client = f.read()
+        self.assertNotIn("getElementById('floatingQueue').style.display='none'", client,
+                         "Queue 'minimize' still hides it with no way back")
+        self.assertIn('onclick="toggleUploadQueue(event)"', client)
+        print("  [PASS] Step 2.6: Concurrent uploads show one steady Host bar; queue minimizes instead of vanishing")
 
 
 if __name__ == "__main__":

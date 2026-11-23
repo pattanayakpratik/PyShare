@@ -43,11 +43,13 @@ def ensure_single_instance():
             return None
 
     try:
-        kernel32 = ctypes.windll.kernel32
+        # use_last_error makes ctypes capture the error code right after the call;
+        # a separate GetLastError() call can see a stale value left by the interpreter.
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         user32 = ctypes.windll.user32
-        
+
         mutex = kernel32.CreateMutexW(None, False, MUTEX_NAME)
-        last_error = kernel32.GetLastError()
+        last_error = ctypes.get_last_error()
         
         if last_error == ERROR_ALREADY_EXISTS:
             hwnd = user32.FindWindowW(None, WINDOW_TITLE)

@@ -19,26 +19,22 @@
             justify-content: center;
             min-height: 100vh;
             padding: 20px;
-            background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 18% 18%, rgba(0, 240, 255, 0.14) 0%, transparent 45%),
-                radial-gradient(circle at 82% 82%, rgba(168, 85, 247, 0.16) 0%, transparent 50%);
-            background-attachment: fixed;
+            background-color: var(--bg-color);  /* aurora layer comes from styles.css body::before */
             box-sizing: border-box;
         }
 
         .login-card {
-            background: var(--card-bg);
+            background: var(--glass-sheen), var(--glass-bg);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
-            border: 1px solid var(--border-color);
-            border-top: 1px solid var(--border-specular);
+            border: 1px solid var(--glass-stroke);
+            border-top: 1px solid var(--glass-stroke-top);
             border-radius: 24px;
             padding: 36px 28px;
             text-align: center;
             width: 100%;
             max-width: 320px;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(0, 240, 255, 0.12);
+            box-shadow: var(--glass-shadow);
             animation: scaleIn 0.25s ease-out;
             box-sizing: border-box;
         }
@@ -150,18 +146,6 @@
         }
 
         /* Light Mode Overrides for Login */
-        [data-theme="light"] body {
-            background-color: var(--bg-color);
-            background-image: var(--bg-gradient);
-        }
-
-        [data-theme="light"] .login-card {
-            background: rgba(255, 255, 255, 0.85);
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            border-top: 1px solid #ffffff;
-            box-shadow: 0 24px 60px -8px rgba(15, 23, 42, 0.12), 0 0 30px rgba(37, 99, 235, 0.08), inset 0 1px 0 #ffffff;
-        }
-
         [data-theme="light"] .pin-dot-display {
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.85) 100%);
             border: 1px solid rgba(203, 213, 225, 0.85);
@@ -214,6 +198,28 @@
             50% { top: 92%; opacity: 1; }
             100% { top: 6%; opacity: 0.3; }
         }
+
+        /* Help links: theme-aware colours with enough contrast, and a comfortable tap height */
+        .login-help-link {
+            color: #60a5fa;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 32px;
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+        .login-help-link:hover { text-decoration: underline; }
+        .login-help-link.login-help-muted { color: #94a3b8; gap: 4px; }
+        .key-btn.key-btn-muted { color: #94a3b8; }
+        [data-theme="light"] .login-help-link { color: #1d4ed8; }
+        [data-theme="light"] .login-help-link.login-help-muted { color: #475569; }
+        [data-theme="light"] .key-btn.key-btn-muted { color: #475569; }
+        /* Cyan accent text is too light on light backgrounds; use a deeper blue there */
+        [data-theme="light"] #btnScanQR,
+        [data-theme="light"] #btnKnockHost { color: #0369a1 !important; }
 
         @media (max-width: 400px) {
             body {
@@ -298,7 +304,7 @@
                 <span style="opacity:0.7; display:flex; align-items:center;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
                 </span>
-                <input id="deviceNicknameInput" type="text" maxlength="32" placeholder="Device Nickname (Optional)" 
+                <input id="deviceNicknameInput" type="text" maxlength="32" placeholder="Device Nickname (Optional)" aria-label="Device nickname (optional)" autocomplete="off"
                     style="width:100%; padding:10px 0; background:transparent; border:none; color:var(--text-main); font-size:13px; font-weight:500; outline:none; font-family:inherit;">
             </div>
         </div>
@@ -315,9 +321,9 @@
             <button class="key-btn" onclick="add('7')">7</button>
             <button class="key-btn" onclick="add('8')">8</button>
             <button class="key-btn" onclick="add('9')">9</button>
-            <button class="key-btn" onclick="clearPin()" style="color:#8292ab;">C</button>
+            <button class="key-btn key-btn-muted" onclick="clearPin()" aria-label="Clear PIN" title="Clear">C</button>
             <button class="key-btn" onclick="add('0')">0</button>
-            <button class="key-btn" onclick="back()" style="color:#8292ab;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>
+            <button class="key-btn key-btn-muted" onclick="back()" aria-label="Delete last digit" title="Delete last digit"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg></button>
             <button class="key-btn-submit" onclick="submitPin()">Connect</button>
         </div>
 
@@ -351,10 +357,10 @@
         </div>
 
         <div style="margin-top: 18px; text-align: center; display: flex; flex-direction: column; gap: 8px;">
-            <a href="/guide.html" style="color: #60a5fa; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 500;">
+            <a href="/guide.html" class="login-help-link" style="font-size: 13px; font-weight: 500;">
                 <span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> How to connect &amp; use PyShare
             </a>
-            <a href="javascript:void(0)" onclick="openFeedbackModal()" style="color: #8292ab; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+            <a href="javascript:void(0)" onclick="openFeedbackModal()" class="login-help-link login-help-muted" style="font-size: 12px;">
                 <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Having trouble? Report issue or get help
             </a>
         </div>
@@ -548,6 +554,13 @@
             } catch(e) {}
         }
 
+        // Where to go after login: only same-origin paths, so ?next=https://evil.example
+        // (or //evil.example) can't turn the login page into an open redirect.
+        function safeNextUrl() {
+            const next = new URLSearchParams(window.location.search).get('next') || '';
+            return /^\/(?![\/\\])/.test(next) ? next : '/client';
+        }
+
         async function submitPin() {
             if (!pin || pin.length < 4) return;
 
@@ -574,7 +587,7 @@
 
                 if (res.ok) {
                     if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
-                    const nextUrl = new URLSearchParams(window.location.search).get('next') || '/client'; window.location.href = nextUrl;
+                    window.location.href = safeNextUrl();
                 } else {
                     if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
                     pinBox.classList.add('error');
@@ -710,7 +723,7 @@
                 updateKnockCountdownDisplay();
                 if (knockSecondsRemaining <= 0) {
                     clearInterval(knockCountdownTimer);
-                    cancelJoinRequest();
+                    cancelJoinRequest('timeout');
                     if (typeof showPyShareAlert === 'function') {
                         showPyShareAlert('Host approval timed out.', 'Join Request');
                     } else {
@@ -737,14 +750,15 @@
                     if (res.ok) {
                         const data = await res.json();
                         if (data.status === 'approved') {
+                            activeJoinRequestId = null;   // joined: navigating away must not withdraw it
                             clearInterval(joinPollTimer);
                             clearInterval(knockCountdownTimer);
                             const nameEl = document.getElementById('knockDeviceName');
                             if (nameEl) nameEl.innerText = 'Approved! Connecting...';
                             if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
-                            const nextUrl = new URLSearchParams(window.location.search).get('next') || '/client';
-                            window.location.href = nextUrl;
+                            window.location.href = safeNextUrl();
                         } else if (data.status === 'declined') {
+                            activeJoinRequestId = null;
                             clearInterval(joinPollTimer);
                             clearInterval(knockCountdownTimer);
                             hideKnockWaitModal();
@@ -754,6 +768,7 @@
                                 alert('The Host declined your join request.');
                             }
                         } else if (data.status === 'expired') {
+                            activeJoinRequestId = null;
                             clearInterval(joinPollTimer);
                             clearInterval(knockCountdownTimer);
                             hideKnockWaitModal();
@@ -775,19 +790,39 @@
             if (joinPollTimer) clearInterval(joinPollTimer);
         }
 
-        async function cancelJoinRequest() {
-            if (activeJoinRequestId) {
-                try {
-                    await fetch('/api/join/cancel', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: activeJoinRequestId })
-                    });
-                } catch(e) {}
-                activeJoinRequestId = null;
-            }
+        // Withdraw the knock so it disappears from the Host's screen at once.
+        // reason 'timeout' (countdown ran out) shows there as expired rather than cancelled.
+        async function cancelJoinRequest(reason) {
+            const id = activeJoinRequestId;
+            activeJoinRequestId = null;
             hideKnockWaitModal();
+            if (!id) return;
+            try {
+                await fetch('/api/join/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id, reason: reason === 'timeout' ? 'timeout' : 'cancel' }),
+                    keepalive: true
+                });
+            } catch(e) {}
         }
+
+        // Leaving while waiting (Back, closing the tab, opening another page) also withdraws the knock.
+        // pagehide, not visibilitychange: switching apps for a moment must keep the request alive.
+        window.addEventListener('pagehide', () => {
+            const id = activeJoinRequestId;
+            if (!id) return;
+            activeJoinRequestId = null;
+            hideKnockWaitModal();   // if the page is restored from the back/forward cache, start clean
+            const payload = JSON.stringify({ id: id, reason: 'cancel' });
+            try {
+                const queued = navigator.sendBeacon &&
+                    navigator.sendBeacon('/api/join/cancel', new Blob([payload], { type: 'application/json' }));
+                if (!queued) {
+                    fetch('/api/join/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+                }
+            } catch(e) {}
+        });
 
         // Auto-fill and submit PIN if passed in URL query param (?pin=1234)
         const urlPin = new URLSearchParams(window.location.search).get('pin');
@@ -826,8 +861,10 @@
                 container.style.display = 'block';
                 if (badge) badge.innerText = rooms.length;
 
+                // Rooms come from unauthenticated LAN beacons: only ever link to http(s) URLs.
+                const roomHref = (u) => /^https?:\/\//i.test(String(u || '')) ? escapeHtml(u) : '#';
                 list.innerHTML = rooms.map(r => `
-                    <a href="${escapeHtml(r.url)}" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--input-bg); border:1px solid var(--border-color); border-radius:12px; text-decoration:none; color:var(--text-main); font-size:12px; transition:border-color 0.2s;">
+                    <a href="${roomHref(r.url)}" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--input-bg); border:1px solid var(--border-color); border-radius:12px; text-decoration:none; color:var(--text-main); font-size:12px; transition:border-color 0.2s;">
                         <div style="display:flex; flex-direction:column; min-width:0;">
                             <span style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(r.room || r.device || 'PyShare Host')}</span>
                             <span style="font-size:10px; color:var(--text-sub); font-family:monospace;">${escapeHtml(r.ip)}:${escapeHtml(String(r.port))}</span>

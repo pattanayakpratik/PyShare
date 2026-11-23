@@ -305,6 +305,12 @@
             border-top: 1px solid #ffffff;
             box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04), inset 0 1px 0 #ffffff;
         }
+        /* Phone header: the right side (feedback + Open App) is wider than the space next to
+           a centred "PyShare Guide" title, so show just the logo mark and keep the button on one line */
+        .guide-open-app { white-space: nowrap; }
+        @media (max-width: 480px) {
+            .navbar .logo-text { display: none; }
+        }
         </style>
 </head>
 <body>
@@ -337,10 +343,10 @@
                 </div>
             </div>
             <div class="nav-right">
-                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback" style="margin-right: 4px;">
+                <button class="icon-btn" onclick="openFeedbackModal()" title="Help & Feedback" aria-label="Help and feedback" style="margin-right: 4px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 </button>
-                <a href="/" class="btn-primary" style="padding: 6px 14px; font-size: 12px; text-decoration: none;">
+                <a href="/" class="btn-primary guide-open-app" style="padding: 6px 14px; font-size: 12px; text-decoration: none;">
                     Open App <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 </a>
             </div>

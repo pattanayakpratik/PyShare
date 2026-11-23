@@ -103,188 +103,112 @@
             </div>
         </div>
 
-        <!-- 3-Column Studio Layout -->
+        <!-- 3-Column Studio Layout: Connect | Files | Live Hub -->
 
-        <!-- Column 1: Add to Shared -->
-        <div class="col-send">
+        <!-- Column 1: Connect Device + Add to Shared -->
+        <div class="col-connect">
+            <div class="connect-hub-card card-panel">
+                <div class="hub-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Connect Device</div>
+
+                <!-- Network Mode Switcher: Local Wi-Fi vs Public Internet -->
+                <div class="network-mode-pill">
+                    <div class="network-mode-text">
+                        <span id="tunnel-mode-title" class="network-mode-title">
+                            <span id="tunnel-mode-icon" class="network-mode-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                            <span id="tunnel-mode-text">Local Wi-Fi</span>
+                        </span>
+                        <span id="tunnel-mode-sub" class="network-mode-sub">Same network only</span>
+                    </div>
+                    <button id="btnToggleTunnel" class="btn-secondary btn-compact" onclick="toggleTunnel()" title="Share over 4G/5G mobile data or a different Wi-Fi">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        <span id="btnTunnelText">Go online</span>
+                    </button>
+                </div>
+
+                <!-- LAN Discovery Notification Pill -->
+                <div id="lanHostsNotification" class="lan-hosts-pill" style="display: none;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                    <span id="lanHostsText">1 other PyShare instance active on LAN</span>
+                </div>
+
+                <div class="qr-white-card">
+                    <img src="/api/qr" class="qr-code-img" alt="QR code: scan with a phone to connect" onerror="if ((this.dataset.retries = (+this.dataset.retries || 0) + 1) <= 5) setTimeout(() => { this.src = '/api/qr?t=' + Date.now(); }, 1000);">
+                </div>
+                <div class="qr-caption">Scan with a phone camera to connect</div>
+                <div id="tunnel-url-badge" class="tunnel-url-badge" style="display: none;" onclick="copyTunnelUrl()" title="Click to copy public link">
+                    <span id="tunnel-url-text">https://...</span> <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                </div>
+
+                <!-- Live Rotating or Static PIN Code -->
+                <div class="pin-display-box">
+                    <div class="pin-meta-row">
+                        <span id="pin-mode-label" class="pin-mode-label">
+                            <span>PIN code</span>
+                            <button id="btnPinModeToggle" class="pin-mode-btn" onclick="togglePinMode()" title="Toggle between rotating and static PIN" aria-label="PIN settings"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+                        </span>
+                        <span id="pin-timer-text" class="pin-ttl-countdown" onclick="togglePinMode()" title="Click to toggle rotating vs static PIN">30s</span>
+                    </div>
+                    <div id="live-pin" class="pin-number-text">----</div>
+                    <div id="pin-timer-bar" class="pin-timer-line"></div>
+                </div>
+
+                <!-- Receiving Progress (Active only when a client uploads) -->
+                <div id="rx-container" class="rx-card" style="display:none;">
+                    <div class="rx-head">
+                        <span class="rx-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <span id="rx-label-text">Receiving</span></span>
+                        <span id="rx-filename" class="rx-filename">file.ext</span>
+                    </div>
+                    <div class="rx-track"><div id="rx-bar" class="rx-bar"></div></div>
+                    <div class="rx-stats-row">
+                        <span id="rx-stats">0% &bull; calculating...</span>
+                        <span id="rx-eta">--:-- left</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add to Shared (drop zone) -->
             <div class="upload-dropzone-card card-panel" id="dropZone" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-main-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                <div class="upload-main-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                 <h2 class="upload-heading">Add to Shared</h2>
-                <p class="upload-subheading">Drag &amp; drop files, folders, or select below</p>
-                <div style="display: flex; gap: 8px; justify-content: center; margin-top: 6px; flex-wrap: wrap;">
-                    <button class="btn-primary" type="button" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
-                        Select Files
-                    </button>
-                    <button class="btn-secondary" type="button" onclick="event.stopPropagation(); document.getElementById('folderInput').click()" title="Select Folder">
-                        Select Folder
-                    </button>
+                <p class="upload-subheading" title="Files are shared from where they are; nothing is copied">Drop files or folders anywhere</p>
+                <div class="upload-actions">
+                    <button class="btn-primary" type="button" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">Select Files</button>
+                    <button class="btn-secondary" type="button" onclick="event.stopPropagation(); document.getElementById('folderInput').click()" title="Select a folder">Folder</button>
                 </div>
                 <input type="file" id="fileInput" multiple hidden onchange="handleFilesHost(this.files)">
                 <input type="file" id="folderInput" webkitdirectory directory multiple hidden onchange="handleFilesHost(this.files)">
             </div>
         </div>
 
-        <!-- Column 2: Connect Device & Live Hub -->
-        <div class="col-connect">
-            <div class="connect-hub-card card-panel">
-                <div class="hub-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Connect Device</div>
-                
-                <!-- Network Mode Switcher: Local Wi-Fi vs Public Internet -->
-                <div class="network-mode-pill" style="margin-bottom: 12px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                    <div style="display: flex; flex-direction: column; text-align: left; min-width: 0;">
-                        <span id="tunnel-mode-title" style="font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px;">
-                            <span id="tunnel-mode-icon" style="display:inline-flex;vertical-align:middle;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span> <span id="tunnel-mode-text">Local Wi-Fi</span>
-                        </span>
-                        <span id="tunnel-mode-sub" style="font-size: 10px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Same Wi-Fi / Hotspot</span>
-                    </div>
-                    <button id="btnToggleTunnel" class="btn-secondary" onclick="toggleTunnel()" style="font-size: 11px; padding: 5px 10px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; gap: 4px;" title="Share over 4G/5G mobile data or different Wi-Fi">
-                        <span style="display:inline-flex;vertical-align:middle;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span> <span id="btnTunnelText">Enable Internet</span>
-                    </button>
-                </div>
-
-                <!-- LAN Discovery Notification Pill -->
-                <div id="lanHostsNotification" style="display: none; margin-bottom: 10px; background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 10px; padding: 6px 10px; align-items: center; justify-content: space-between; font-size: 11px;">
-                    <div style="display: flex; align-items: center; gap: 6px; color: var(--accent-cyan);">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-                        <span id="lanHostsText" style="font-weight: 600;">1 other PyShare instance active on LAN</span>
-                    </div>
-                </div>
-
-                <div class="qr-white-card">
-                    <img src="/qrcode.png" class="qr-code-img" alt="Scan QR Code to Connect" onerror="setTimeout(() => { this.src = '/qrcode.png?t=' + Date.now(); }, 1000);">
-                </div>
-                <div class="qr-caption">Scan to connect</div>
-                <div id="tunnel-url-badge" style="display: none; margin-top: 6px; font-size: 11px; font-family: monospace; color: var(--accent-cyan); background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 5px 8px; cursor: pointer; word-break: break-all;" onclick="copyTunnelUrl()" title="Click to copy public link">
-                    <span id="tunnel-url-text">https://...</span> <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-                </div>
-
-                <!-- Live Rotating or Static PIN Code -->
-                <div class="pin-display-box" style="position:relative;">
-                    <div class="pin-meta-row">
-                        <span id="pin-mode-label" style="display:inline-flex; align-items:center; gap:4px;">
-                            <span>PIN CODE</span>
-                            <button id="btnPinModeToggle" onclick="togglePinMode()" style="background:none; border:none; color:var(--accent-cyan); cursor:pointer; padding:0 4px; font-size:12px; display:inline-flex; align-items:center;" title="Toggle between Rotating and Static PIN" aria-label="PIN Settings"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-                        </span>
-                        <span id="pin-timer-text" class="pin-ttl-countdown" onclick="togglePinMode()" style="cursor:pointer;" title="Click to toggle Rotating vs Static PIN">30s</span>
-                    </div>
-                    <div id="live-pin" class="pin-number-text">----</div>
-                    <div id="pin-timer-bar" class="pin-timer-line"></div>
-                </div>
-
-                <!-- Receiving Progress (Active only when client uploads) -->
-                <div id="rx-container" style="display:none; width:100%; background:rgba(16,185,129,0.1); border:1px solid var(--accent-green); border-radius:10px; padding:10px; text-align:left;">
-                    <div style="font-size:11px; margin-bottom:5px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
-                        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Receiving from Client...</span>
-                        <span id="rx-filename" style="opacity:0.8; max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">file.ext</span>
-                    </div>
-                    <div style="height:5px; background:rgba(255,255,255,0.1); border-radius:99px; overflow:hidden; margin-bottom:5px;">
-                        <div id="rx-bar" style="height:100%; width:0%; background:var(--accent-green); transition:width 0.15s ease;"></div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-sub); font-family:monospace;">
-                        <span id="rx-stats">0% &bull; calculating...</span>
-                        <span id="rx-eta">--:-- left</span>
-                    </div>
-                </div>
-
-                <!-- Tabbed Live Hub (Activity Log / Clipboard) -->
-                <div class="hub-bottom-card">
-                    <div class="hub-tabs">
-                        <button id="tabBtnLog" class="hub-tab active" onclick="switchHubTab('log')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Live Log</button>
-                        <button id="tabBtnClip" class="hub-tab" onclick="switchHubTab('clip')" style="position:relative;">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 
-                            <span>Quick Chat</span>
-                            <span id="hostChatUnreadBadge" style="display:none; margin-left:6px; background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:9999px; box-shadow:0 0 8px rgba(239,68,68,0.5);">0</span>
-                        </button>
-                        <button id="tabBtnPeers" class="hub-tab" onclick="switchHubTab('peers')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Devices (<span id="peerCount">0</span>)</button>
-                    </div>
-
-                    <!-- Pane 1: Activity Log -->
-                    <div id="hubLogPane" class="hub-tab-pane active">
-                        <div class="log-entry-row">
-                            <span class="log-timestamp">--:--</span>
-                            <span class="log-message">Server started. Ready for connections.</span>
-                        </div>
-                    </div>
-
-                    <!-- Pane 2: Quick Chat & Clipboard Stream -->
-                    <div id="hubClipPane" class="hub-tab-pane" style="font-family:inherit; flex-direction:column; gap:8px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding:0 2px;">
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <span style="font-size:11px; color:var(--text-sub); font-weight:600;">Chat Stream</span>
-                                <span id="chatMessageCount" style="font-size:10px; background:rgba(0,240,255,0.12); color:var(--accent-cyan); padding:1px 6px; border-radius:9999px; font-weight:700; border:1px solid rgba(0,240,255,0.25);">0/30</span>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--text-sub); cursor:pointer; user-select:none;" title="Automatically copy incoming chat messages directly to Windows OS clipboard">
-                                    <input type="checkbox" id="toggleHostAutoClipboard" onchange="toggleHostAutoClipboardSync(this.checked)" style="cursor:pointer; accent-color:var(--accent-cyan);">
-                                    <span>OS Auto-Sync</span>
-                                </label>
-                                <button type="button" class="btn-secondary" onclick="clearChatStream()" style="padding:2px 8px; font-size:11px; border-radius:6px;" title="Clear all messages">Clear</button>
-                                <button type="button" class="btn-secondary" onclick="syncPCClipboard()" style="padding:2px 8px; font-size:11px; border-radius:6px;" title="Push current Host clipboard to all devices">Push OS Clipboard</button>
-                            </div>
-                        </div>
-
-                        <!-- Chat Messages List -->
-                        <div id="clipboardChatList" class="chat-stream-list" style="max-height:165px; min-height:95px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; padding:6px; background:var(--input-bg); border:1px solid var(--border-color); border-radius:10px;">
-                            <div class="empty-state" style="padding:16px 0; font-size:12px; color:var(--text-sub);">No messages yet.</div>
-                        </div>
-
-                        <!-- Chat Input Box -->
-                        <div style="display:flex; gap:6px; align-items:center;">
-                            <input type="file" id="chatFileInput" style="display:none;" onchange="if(this.files[0]) uploadChatAttachment(this.files[0])">
-                            <button type="button" class="btn-secondary" onclick="document.getElementById('chatFileInput').click()" style="padding:6px 9px; display:inline-flex; align-items:center;" title="Attach file or screenshot">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                            </button>
-                            <input type="text" id="clipboardInput" placeholder="Type message or paste image (Ctrl+V)..." style="flex:1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:6px 10px; color:var(--text-main); font-size:12px; outline:none;" onkeydown="if(event.key==='Enter') sendClipboard()">
-                            <button class="btn-primary" onclick="sendClipboard()" style="padding:6px 14px; font-size:12px; border-radius:8px;">Send</button>
-                        </div>
-                    </div>
-
-                    <!-- Pane 3: Connected Devices -->
-                    <div id="hubPeersPane" class="hub-tab-pane" style="font-family:inherit;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; padding:0 2px;">
-                            <span style="font-size:11px; color:var(--text-sub); font-weight:600;">Active Peers</span>
-                            <button type="button" class="privacy-toggle-btn" id="btnTogglePeersPrivacy" onclick="togglePeersIpMask()" title="Hide or show IP addresses for all devices">
-                                <span id="peersPrivacyIcon"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></span>
-                                <span id="peersPrivacyLabel">IPs Hidden</span>
-                            </button>
-                        </div>
-                        <div id="peersEmptyState" style="text-align:center; padding:18px 8px; color:var(--text-sub); font-size:12px;">
-                            No client devices connected. Devices that enter the PIN will appear here.
-                        </div>
-                        <div id="peersList" style="display:flex; flex-direction:column; gap:6px;"></div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Column 3: Dual File Managers -->
+        <!-- Column 2: File Managers -->
         <div class="col-files">
             <!-- Received Files (From Clients) -->
             <div class="file-panel-card card-panel">
                 <div class="panel-header">
-                    <div class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> Received Files</div>
+                    <div class="panel-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                        <span>Received</span>
+                        <span id="receivedCount" class="count-badge">0</span>
+                    </div>
                     <div class="panel-actions">
-                        <button class="btn-secondary refresh-btn" onclick="loadFiles()" title="Refresh file list">
-                            <svg class="btn-svg-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                            <span>Refresh</span>
+                        <button class="btn-icon refresh-btn" onclick="loadFiles()" title="Refresh" aria-label="Refresh received files">
+                            <svg class="btn-svg-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                         </button>
-                        <a href="/api/zip?folder=received" class="btn-secondary" title="Download all as ZIP">
-                            <svg class="btn-svg-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-                            <span>ZIP All</span>
+                        <button class="btn-icon" onclick="fetch('/api/open?folder=received')" title="Open folder in File Explorer" aria-label="Open received folder">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        </button>
+                        <a href="/api/zip?folder=received" class="btn-secondary btn-compact" title="Download all received files as one ZIP">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+                            <span>ZIP all</span>
                         </a>
-                        <button class="btn-secondary" onclick="fetch('/api/open?folder=received')" title="Open Folder in File Explorer">
-                            <svg class="btn-svg-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                            <span>Open Folder</span>
-                        </button>
                     </div>
                 </div>
 
-                <input type="text" id="searchMobile" class="search-input-box" placeholder="Search received..." onkeyup="renderMobileFiles()">
+                <input type="search" id="searchMobile" class="search-input-box search-compact" placeholder="Search received files" aria-label="Search received files" oninput="renderMobileFiles()">
 
                 <div class="file-scroll-area">
                     <ul id="mobile-list" class="file-list">
-                        <li class="empty-state">No client uploads yet</li>
+                        <li class="empty-state">No files received yet</li>
                     </ul>
                 </div>
             </div>
@@ -292,24 +216,26 @@
             <!-- Shared Files (From Host) -->
             <div class="file-panel-card card-panel">
                 <div class="panel-header">
-                    <div class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Shared Files</div>
+                    <div class="panel-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span>Shared</span>
+                        <span id="sharedCount" class="count-badge">0</span>
+                    </div>
                     <div class="panel-actions">
-                        <button class="btn-secondary refresh-btn" onclick="loadFiles()" title="Refresh file list">
-                            <svg class="btn-svg-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                            <span>Refresh</span>
+                        <button class="btn-icon refresh-btn" onclick="loadFiles()" title="Refresh" aria-label="Refresh shared files">
+                            <svg class="btn-svg-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                         </button>
-                        <a href="/api/zip?folder=shared" class="btn-secondary" title="Download all as ZIP">
-                            <svg class="btn-svg-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-                            <span>ZIP All</span>
+                        <button class="btn-icon" onclick="fetch('/api/open?folder=shared')" title="Open folder in File Explorer" aria-label="Open shared folder">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        </button>
+                        <a href="/api/zip?folder=shared" class="btn-secondary btn-compact" title="Download all shared files as one ZIP">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+                            <span>ZIP all</span>
                         </a>
-                        <button class="btn-secondary" onclick="fetch('/api/open?folder=shared')" title="Open Folder in File Explorer">
-                            <svg class="btn-svg-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                            <span>Open Folder</span>
-                        </button>
                     </div>
                 </div>
 
-                <input type="text" id="searchPC" class="search-input-box" placeholder="Search shared..." onkeyup="renderPCFiles()">
+                <input type="search" id="searchPC" class="search-input-box search-compact" placeholder="Search shared files" aria-label="Search shared files" oninput="renderPCFiles()">
 
                 <div class="file-scroll-area">
                     <ul id="file-list" class="file-list">
@@ -319,18 +245,95 @@
             </div>
         </div>
 
+        <!-- Column 3: Live Hub (Activity / Chat / Devices) -->
+        <div class="col-hub">
+            <div class="hub-bottom-card card-panel">
+                <div class="hub-tabs" role="tablist">
+                    <button id="tabBtnLog" class="hub-tab active" onclick="switchHubTab('log')" role="tab">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span>Activity</span>
+                    </button>
+                    <button id="tabBtnClip" class="hub-tab" onclick="switchHubTab('clip')" role="tab">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <span>Chat</span>
+                        <span id="hostChatUnreadBadge" class="tab-badge tab-badge-alert" style="display:none;">0</span>
+                    </button>
+                    <button id="tabBtnPeers" class="hub-tab" onclick="switchHubTab('peers')" role="tab">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        <span>Devices</span>
+                        <span id="peerCount" class="tab-badge">0</span>
+                    </button>
+                </div>
+
+                <!-- Pane 1: Activity Log (history loaded on open, live updates via SSE) -->
+                <div id="hubLogPane" class="hub-tab-pane active">
+                    <div class="hub-empty" id="hubLogEmpty">No activity yet</div>
+                </div>
+
+                <!-- Pane 2: Quick Chat & Clipboard Stream -->
+                <div id="hubClipPane" class="hub-tab-pane chat-pane">
+                    <div class="chat-toolbar">
+                        <span id="chatMessageCount" class="count-badge" title="Messages kept (max 30)">0/30</span>
+                        <label class="switch-label" title="Copy incoming messages to this PC's clipboard automatically">
+                            <input type="checkbox" id="toggleHostAutoClipboard" onchange="toggleHostAutoClipboardSync(this.checked)">
+                            <span>Auto-copy to PC</span>
+                        </label>
+                        <div class="chat-toolbar-actions">
+                            <button type="button" class="btn-icon" onclick="syncPCClipboard()" title="Send this PC's clipboard to all devices" aria-label="Push PC clipboard">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><polyline points="9 14 12 11 15 14"/><line x1="12" y1="11" x2="12" y2="18"/></svg>
+                            </button>
+                            <button type="button" class="btn-icon btn-icon-danger" onclick="clearChatStream()" title="Clear all messages" aria-label="Clear chat">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="clipboardChatList" class="chat-stream-list">
+                        <div class="hub-empty">No messages yet</div>
+                    </div>
+
+                    <form class="chat-composer" onsubmit="event.preventDefault(); sendClipboard();" autocomplete="off">
+                        <input type="file" id="chatFileInput" hidden onchange="if(this.files[0]) uploadChatAttachment(this.files[0])">
+                        <button type="button" class="btn-icon" onclick="document.getElementById('chatFileInput').click()" title="Attach a file or screenshot" aria-label="Attach file">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                        </button>
+                        <input type="text" id="clipboardInput" class="chat-input" placeholder="Message, link, or paste an image" aria-label="Chat message" enterkeyhint="send" autocomplete="off">
+                        <button type="submit" class="btn-primary btn-send" title="Send" aria-label="Send message" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Pane 3: Connected Devices -->
+                <div id="hubPeersPane" class="hub-tab-pane">
+                    <div class="peers-toolbar">
+                        <span class="peers-toolbar-title">Connected devices</span>
+                        <button type="button" class="privacy-toggle-btn" id="btnTogglePeersPrivacy" onclick="togglePeersIpMask()" title="Hide or show IP addresses for all devices">
+                            <span id="peersPrivacyIcon"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></span>
+                            <span id="peersPrivacyLabel">IPs Hidden</span>
+                        </button>
+                    </div>
+                    <div id="peersEmptyState" class="hub-empty">
+                        No devices yet. Phones that scan the QR code or enter the PIN show up here.
+                    </div>
+                    <div id="peersList" class="peers-list"></div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Floating Upload Queue Drawer -->
     <div id="floatingQueue" class="floating-queue">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700;">
+        <div class="floating-queue-header">
             <span id="queueOverallStatus">Uploading Files...</span>
             <div style="display:flex; align-items:center; gap:8px;">
-                <span id="queueSpeed" style="color:var(--accent-cyan); font-family:monospace; font-size:12px;">0 KB/s</span>
-                <button type="button" onclick="document.getElementById('floatingQueue').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); cursor:pointer; font-size:14px; padding:2px 6px; display:inline-flex; align-items:center;" title="Minimize Queue"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                <span id="queueSpeed" class="floating-queue-speed">0 KB/s</span>
+                <button type="button" class="floating-queue-toggle" onclick="toggleUploadQueue(event)" aria-expanded="true" aria-controls="queueItemsList" title="Minimize" aria-label="Minimize upload queue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
             </div>
         </div>
-        <div id="queueItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
+        <div class="floating-queue-progress" aria-hidden="true"><div id="queueOverallBar"></div></div>
+        <div id="queueItemsList" class="queue-items-container"></div>
     </div>
 
     <!-- In-App Lightbox Media Preview Modal -->

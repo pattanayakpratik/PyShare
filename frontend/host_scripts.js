@@ -71,15 +71,9 @@ function copyHostIp() {
         }
     }
     const fullUrl = `http://${addr}/`;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(fullUrl).then(() => {
-            showToast(`Server URL copied: ${fullUrl}`, 'copy');
-        }).catch(() => {
-            showToast(`Server URL: ${fullUrl}`, 'info');
-        });
-    } else {
-        showToast(`Server URL: ${fullUrl}`, 'info');
-    }
+    copyToClipboard(fullUrl).then((ok) => {
+        showToast(ok ? `Server URL copied: ${fullUrl}` : `Server URL: ${fullUrl}`, ok ? 'copy' : 'info');
+    });
 }
 window.copyHostIp = copyHostIp;
 
@@ -92,21 +86,37 @@ function handleFilesHost(files) {
     uploadManager.addFiles(files, '/?dest=host');
 }
 
-// Host Clipboard Direct Sync & Auto-Sync Switch
-function toggleHostAutoClipboardSync(checked) {
+// Auto-copy incoming chat to this PC's clipboard. This is a server setting: the server writes the
+// Windows clipboard itself, so the browser never calls the clipboard API without a click (which
+// made Chromium/WebView2 show a "wants to see text and images copied to the clipboard" prompt).
+async function toggleHostAutoClipboardSync(checked) {
+    const cb = document.getElementById('toggleHostAutoClipboard');
     try {
-        localStorage.setItem('pyshare_host_auto_clipboard', checked ? 'true' : 'false');
-        showToast(checked ? 'OS Clipboard Auto-Sync enabled' : 'OS Clipboard Auto-Sync disabled', checked ? 'check' : 'info');
-    } catch(e) {}
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ auto_clipboard: !!checked })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (cb) cb.checked = !!data.auto_clipboard;
+        showToast(data.auto_clipboard ? 'Incoming messages will be copied to this PC' : 'Auto-copy to this PC is off', data.auto_clipboard ? 'check' : 'info');
+    } catch (e) {
+        if (cb) cb.checked = !checked;  // revert: the setting didn't change
+        showToast('Could not change the auto-copy setting', 'error');
+    }
 }
 window.toggleHostAutoClipboardSync = toggleHostAutoClipboardSync;
 
-(function initHostAutoClipboard() {
+(async function initHostAutoClipboard() {
     const cb = document.getElementById('toggleHostAutoClipboard');
-    if (cb) {
-        const val = localStorage.getItem('pyshare_host_auto_clipboard');
-        cb.checked = (val !== 'false'); // Default to true
-    }
+    if (!cb) return;
+    cb.checked = true;  // server default
+    try {
+        const res = await fetch('/api/settings');
+        if (res.ok) cb.checked = !!(await res.json()).auto_clipboard;
+    } catch (e) {}
+    try { localStorage.removeItem('pyshare_host_auto_clipboard'); } catch (e) {}  // old browser-side flag
 })();
 
 async function syncPCClipboard() {
@@ -170,12 +180,13 @@ async function togglePinMode() {
     if (newMode === 'static') {
         const input = (typeof showPySharePrompt === 'function')
             ? await showPySharePrompt({
-                title: 'Static PIN Mode',
-                message: 'Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):',
-                defaultValue: '1234',
-                placeholder: '4-digit PIN (e.g. 1234)',
-                confirmText: 'Enable Static PIN',
-                maxLength: 4
+                title: 'Use a fixed PIN',
+                message: 'Pick a 4-digit PIN that stays the same, handy on your own home network. Leave it empty to use 1234.',
+                defaultValue: '',
+                placeholder: '4 digits, e.g. 2580',
+                confirmText: 'Use this PIN',
+                maxLength: 4,
+                inputMode: 'numeric'
             })
             : prompt("Set a static 4-digit PIN for your personal/home network (leave blank for default 1234):", "");
         if (input === null) return; // User cancelled
@@ -198,7 +209,7 @@ async function togglePinMode() {
             showToast(label, 'success');
             if (navigator.vibrate) navigator.vibrate(40);
             const qrImg = document.querySelector('.qr-code-img');
-            if (qrImg) qrImg.src = '/qrcode.png?t=' + Date.now();
+            if (qrImg) qrImg.src = '/api/qr?t=' + Date.now();
         }
     } catch (e) {
         showToast("Error updating PIN mode", "error");
@@ -235,7 +246,7 @@ function setupHostSSE(es) {
             if (data.pin && data.pin !== lastDisplayedPin) {
                 lastDisplayedPin = data.pin;
                 const qrImg = document.querySelector('.qr-code-img');
-                if (qrImg) qrImg.src = '/qrcode.png?t=' + Date.now();
+                if (qrImg) qrImg.src = '/api/qr?t=' + Date.now();
             }
             if (timerTextEl) {
                 if (data.ttl < 0 || data.mode === 'static') {
@@ -267,69 +278,14 @@ function setupHostSSE(es) {
     // 2. Real-time Activity Log (Pushed instantly on events)
     es.addEventListener('log', (e) => {
         try {
-            const entryData = JSON.parse(e.data);
-            const logBox = document.getElementById('hubLogPane');
-            if (logBox) {
-                const entry = document.createElement('div');
-                entry.className = 'log-entry-row';
-                entry.innerHTML = `<span class="log-timestamp">${escapeHtml(entryData.time)}</span><span class="log-message">${escapeHtml(entryData.msg)}</span>`;
-                logBox.prepend(entry);
-            }
+            addActivityEntry(JSON.parse(e.data));
         } catch (err) {}
     });
 
-    // 3. Incoming Mobile Upload Monitor (High-frequency throttled push with Speed & ETA)
-    let lastRxLoaded = 0;
-    let lastRxTime = Date.now();
-    let rxSmoothedSpeed = 0;
-    let currentRxFile = '';
-
+    // 3. Incoming uploads: one combined status for everything phones are sending
     es.addEventListener('upload', (e) => {
         try {
-            const upload = JSON.parse(e.data);
-            const rxBox = document.getElementById('rx-container');
-            const rxBar = document.getElementById('rx-bar');
-            const rxName = document.getElementById('rx-filename');
-            const rxStats = document.getElementById('rx-stats');
-            const rxEta = document.getElementById('rx-eta');
-
-            if (rxBox && rxBar && rxName) {
-                if (upload) {
-                    rxBox.style.display = 'block';
-                    rxName.innerText = upload.filename;
-
-                    if (currentRxFile !== upload.filename) {
-                        currentRxFile = upload.filename;
-                        lastRxLoaded = upload.current;
-                        lastRxTime = Date.now();
-                        rxSmoothedSpeed = 0;
-                    }
-
-                    const pct = Math.round((upload.current / upload.total) * 100);
-                    rxBar.style.width = pct + "%";
-
-                    const now = Date.now();
-                    const timeDiff = (now - lastRxTime) / 1000;
-                    if (timeDiff >= 0.25) {
-                        const curSpeed = (upload.current - lastRxLoaded) / timeDiff;
-                        rxSmoothedSpeed = rxSmoothedSpeed === 0 ? curSpeed : (0.7 * rxSmoothedSpeed + 0.3 * curSpeed);
-                        lastRxLoaded = upload.current;
-                        lastRxTime = now;
-                    }
-
-                    const remBytes = Math.max(0, upload.total - upload.current);
-                    const etaSec = rxSmoothedSpeed > 0 ? Math.round(remBytes / rxSmoothedSpeed) : 0;
-                    const speedStr = rxSmoothedSpeed > 0 ? `${formatSize(rxSmoothedSpeed)}/s` : 'calculating...';
-                    const etaStr = etaSec > 0 ? `${formatEta(etaSec)} left` : '';
-
-                    if (rxStats) rxStats.innerText = `${pct}% • ${speedStr}`;
-                    if (rxEta) rxEta.innerText = etaStr;
-                } else {
-                    rxBox.style.display = 'none';
-                    currentRxFile = '';
-                    rxSmoothedSpeed = 0;
-                }
-            }
+            renderReceiveStatus(JSON.parse(e.data));
         } catch (err) {}
     });
 
@@ -358,26 +314,164 @@ function setupHostSSE(es) {
             }
         } catch (err) {}
     });
+
+    // 7. A knock ended elsewhere: the guest cancelled or left the page, it timed out, or another Host window answered
+    es.addEventListener('join_request_closed', (e) => {
+        try {
+            const d = JSON.parse(e.data);
+            if (!d || !d.id) return;
+            const name = d.nickname || 'The device';
+            const message = d.reason === 'cancelled' ? `${name} cancelled the join request`
+                : d.reason === 'expired' ? `Join request from ${name} expired`
+                : '';
+            closeHostJoinRequest(d.id, message);
+        } catch (err) {}
+    });
+}
+
+// --- RECEIVE PROGRESS ---
+// The server sends one snapshot covering every file in flight (phones upload 2 at a time):
+// {active, filename, done, files, received, total}. One bar, one speed, one ETA, so nothing flips
+// between files. active == 0 means the batch finished; null means nothing is being received.
+let rxLastBytes = 0;
+let rxLastTime = 0;
+let rxSpeed = 0;
+let rxLastFilename = '';
+let rxDoneTimer = null;
+
+function renderReceiveStatus(u) {
+    const box = document.getElementById('rx-container');
+    const bar = document.getElementById('rx-bar');
+    const label = document.getElementById('rx-label-text');
+    const name = document.getElementById('rx-filename');
+    const stats = document.getElementById('rx-stats');
+    const eta = document.getElementById('rx-eta');
+    if (!box || !bar) return;
+    clearTimeout(rxDoneTimer);
+
+    const reset = () => {
+        box.style.display = 'none';
+        box.classList.remove('rx-done');
+        rxSpeed = 0;
+        rxLastTime = 0;
+    };
+    if (!u) {
+        reset();
+        return;
+    }
+
+    if (u.active > 0) {
+        const pct = u.total > 0 ? Math.min(100, Math.round((u.received / u.total) * 100)) : 0;
+        const now = Date.now();
+        if (!rxLastTime || u.received < rxLastBytes) {
+            // New batch, or a failed file's bytes dropped out of the total: restart the speed sample
+            rxLastBytes = u.received;
+            rxLastTime = now;
+        } else if (now - rxLastTime >= 400) {
+            const cur = (u.received - rxLastBytes) / ((now - rxLastTime) / 1000);
+            rxSpeed = rxSpeed > 0 ? 0.7 * rxSpeed + 0.3 * cur : cur;
+            rxLastBytes = u.received;
+            rxLastTime = now;
+        }
+        rxLastFilename = u.filename || rxLastFilename;
+
+        box.style.display = 'block';
+        box.classList.remove('rx-done');
+        bar.style.width = pct + '%';
+        if (label) label.innerText = u.files > 1 ? `Receiving ${u.done}/${u.files}` : 'Receiving';
+        if (name) {
+            name.innerText = u.filename;
+            name.title = u.filename;
+        }
+        const speedStr = rxSpeed > 0 ? `${formatSize(rxSpeed)}/s` : 'starting…';
+        const etaSec = rxSpeed > 0 ? Math.round(Math.max(0, u.total - u.received) / rxSpeed) : 0;
+        if (stats) stats.innerText = `${pct}% • ${speedStr}`;
+        if (eta) eta.innerText = etaSec > 0 ? `${formatEta(etaSec)} left` : '';
+        return;
+    }
+
+    // Nothing in flight. The phone's next queued file usually starts within a moment, so wait before
+    // calling it done, otherwise the bar would blink off and on between files. Counts update right away.
+    if (u.total > 0) bar.style.width = Math.min(100, Math.round((u.received / u.total) * 100)) + '%';
+    if (label && u.files > 1) label.innerText = `Receiving ${u.done}/${u.files}`;
+    rxDoneTimer = setTimeout(() => {
+        if (u.done === 0) {
+            reset();   // everything was cancelled or failed
+            return;
+        }
+        box.style.display = 'block';
+        box.classList.add('rx-done');
+        bar.style.width = '100%';
+        if (label) label.innerText = 'Received';
+        if (name) name.innerText = u.done === 1 ? rxLastFilename : `${u.done} files`;
+        if (stats) stats.innerText = `Done • ${formatSize(u.received)}`;
+        if (eta) eta.innerText = '';
+        rxDoneTimer = setTimeout(reset, 3500);
+    }, 1200);
+}
+
+// --- ACTIVITY LOG (history on open + live entries, newest first) ---
+const MAX_ACTIVITY_ROWS = 60;
+const seenActivity = new Set();  // time|msg keys, so history + live SSE never double-render
+
+function addActivityEntry(entry) {
+    const logBox = document.getElementById('hubLogPane');
+    if (!logBox || !entry || !entry.msg) return;
+    const key = `${entry.time}|${entry.msg}`;
+    if (seenActivity.has(key)) return;
+    seenActivity.add(key);
+
+    document.getElementById('hubLogEmpty')?.remove();
+    const row = document.createElement('div');
+    row.className = 'log-entry-row';
+    row.innerHTML = `<span class="log-timestamp">${escapeHtml(entry.time)}</span><span class="log-message" title="${escapeHtml(entry.msg)}">${escapeHtml(entry.msg)}</span>`;
+    logBox.prepend(row);
+    while (logBox.children.length > MAX_ACTIVITY_ROWS) {
+        logBox.removeChild(logBox.lastChild);
+    }
+}
+
+async function loadActivityHistory() {
+    try {
+        const res = await fetch('/api/updates');
+        if (!res.ok) return;
+        const data = await res.json();
+        (data.events || []).forEach(addActivityEntry);  // oldest first => newest ends on top
+    } catch (e) {}
 }
 
 // --- Host Join Request Handling ---
+// One knock is on screen at a time; any others wait on the server and appear when it closes.
 let activeHostJoinRequest = null;
 let hostJoinReqCountdownTimer = null;
+const closedJoinRequestIds = new Set();     // answered, cancelled or expired: never show again
+const announcedJoinRequestIds = new Set();  // knocks waiting behind the current one, already toasted
 
 function displayHostJoinRequest(req) {
-    activeHostJoinRequest = req;
+    if (!req || !req.id || closedJoinRequestIds.has(req.id)) return;
     const modal = document.getElementById('hostJoinRequestModal');
+    if (!modal) return;
+    if (activeHostJoinRequest && activeHostJoinRequest.id !== req.id) {
+        if (!announcedJoinRequestIds.has(req.id)) {
+            announcedJoinRequestIds.add(req.id);
+            showToast(`${req.nickname || 'Another device'} is also waiting to join`, 'bell');
+        }
+        return;
+    }
+    const isNew = !activeHostJoinRequest;
+    activeHostJoinRequest = { ...req, shownAt: isNew ? Date.now() : activeHostJoinRequest.shownAt };
+
     const nameEl = document.getElementById('joinReqDeviceName');
     const infoEl = document.getElementById('joinReqDeviceInfo');
     const timerEl = document.getElementById('joinReqTimer');
-    if (!modal) return;
-
     if (nameEl) nameEl.innerText = req.nickname || 'Unknown Device';
     if (infoEl) infoEl.innerText = `${req.browser || 'Browser'} on ${req.device || 'Device'} • IP: ${req.ip || 'Unknown'}`;
 
     modal.style.display = 'flex';
-    showToast(`Device wants to join: ${req.nickname}`, 'bell');
-    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+    if (isNew) {
+        showToast(`Device wants to join: ${req.nickname}`, 'bell');
+        if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+    }
 
     let secondsLeft = req.expires_in || 60;
     if (timerEl) timerEl.innerText = `Auto-expires in ${secondsLeft}s`;
@@ -385,12 +479,19 @@ function displayHostJoinRequest(req) {
     if (hostJoinReqCountdownTimer) clearInterval(hostJoinReqCountdownTimer);
     hostJoinReqCountdownTimer = setInterval(() => {
         secondsLeft--;
-        if (timerEl) timerEl.innerText = `Auto-expires in ${secondsLeft}s`;
-        if (secondsLeft <= 0) {
-            clearInterval(hostJoinReqCountdownTimer);
-            hideHostJoinRequestModal();
-        }
+        if (timerEl) timerEl.innerText = `Auto-expires in ${Math.max(0, secondsLeft)}s`;
+        if (secondsLeft <= 0) closeHostJoinRequest(req.id);
     }, 1000);
+}
+
+// The knock is over: the guest cancelled or left, it expired, or it was answered (here or in another
+// Host window). Close it if it's on screen, then show the next device waiting, if any.
+function closeHostJoinRequest(id, message) {
+    closedJoinRequestIds.add(id);
+    if (!activeHostJoinRequest || activeHostJoinRequest.id !== id) return;
+    hideHostJoinRequestModal();
+    if (message) showToast(message, 'info');
+    checkPendingJoinRequests();
 }
 
 function hideHostJoinRequestModal() {
@@ -404,45 +505,53 @@ function hideHostJoinRequestModal() {
 }
 
 async function respondHostJoinRequest(action) {
-    if (!activeHostJoinRequest || !activeHostJoinRequest.id) {
+    const req = activeHostJoinRequest;
+    if (!req || !req.id) {
         hideHostJoinRequestModal();
         return;
     }
-    const reqId = activeHostJoinRequest.id;
-    const reqNickname = activeHostJoinRequest.nickname;
+    closedJoinRequestIds.add(req.id);
     hideHostJoinRequestModal();
 
     try {
         const res = await fetch('/api/join/respond', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: reqId, action: action })
+            body: JSON.stringify({ id: req.id, action: action })
         });
-        const data = await res.json();
-        if (data.status === 'ok') {
-            if (action === 'accept') {
-                showToast(`Allowed ${reqNickname} to connect`, 'success');
-                fetchPeers();
-            } else {
-                showToast(`Declined request from ${reqNickname}`, 'error');
-            }
+        if (!res.ok) {
+            // The guest cancelled (or it expired) in the moment before the click
+            showToast(`${req.nickname || 'That device'} is no longer waiting to join`, 'warning');
+        } else if (action === 'accept') {
+            showToast(`Allowed ${req.nickname} to connect`, 'success');
+            fetchPeers();
+        } else {
+            showToast(`Declined request from ${req.nickname}`, 'error');
         }
     } catch (e) {
         showToast('Error responding to join request', 'error');
     }
+    checkPendingJoinRequests();
 }
 window.respondHostJoinRequest = respondHostJoinRequest;
 
-// Check for any currently pending join requests on Host load
+// Show the oldest waiting knock: on load, after each one closes, and every 15s as a fallback
+// that also catches a cancel whose live event was missed (e.g. the event stream reconnecting).
 async function checkPendingJoinRequests() {
+    const startedAt = Date.now();
     try {
         const res = await fetch('/api/join/pending');
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.requests && data.requests.length > 0) {
-                displayHostJoinRequest(data.requests[0]);
-            }
+        if (!res.ok) return;
+        const data = await res.json();
+        const requests = (data && Array.isArray(data.requests)) ? data.requests : [];
+        const active = activeHostJoinRequest;
+        // Only trust this snapshot about a dialog that was already open when it was taken
+        if (active && active.shownAt < startedAt && !requests.some(r => r && r.id === active.id)) {
+            closeHostJoinRequest(active.id, `${active.nickname || 'The device'} is no longer waiting to join`);
+            return;
         }
+        const next = requests.find(r => r && r.id && !closedJoinRequestIds.has(r.id) && r.expires_in > 1);
+        if (next) displayHostJoinRequest(next);
     } catch (e) {}
 }
 
@@ -557,10 +666,13 @@ function renderPeers(peers) {
         const pDevice = escapeHtml(p.device);
         const pBrowser = escapeHtml(p.browser);
 
+        // Inline handlers get jsArg() values: nicknames come from client devices and must not
+        // be able to break out of the JS string (escapeHtml's &#39; is decoded before JS runs).
+        const idArg = jsArg(p.id);
         const isIpVisible = !peersIpMasked || revealedPeerIps.has(p.id);
-        const ipBadgeHtml = isIpVisible 
-            ? `<span class="peer-ip-badge" onclick="togglePeerIp('${pId}')" title="Click to hide IP">${pIp}</span>`
-            : `<span class="peer-ip-badge private" onclick="togglePeerIp('${pId}')" title="Click to reveal IP"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>IP Hidden</span>`;
+        const ipBadgeHtml = isIpVisible
+            ? `<span class="peer-ip-badge" onclick="togglePeerIp(${idArg})" title="Click to hide IP">${pIp}</span>`
+            : `<span class="peer-ip-badge private" onclick="togglePeerIp(${idArg})" title="Click to reveal IP"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>IP Hidden</span>`;
 
         return `
             <div class="peer-card" id="peer-${pId}">
@@ -571,24 +683,20 @@ function renderPeers(peers) {
                     </div>
                     <div class="peer-details">
                         <div class="peer-title">
-                            <span class="peer-nickname">${pNickname}</span>
-                            <button type="button" class="peer-rename-btn" onclick="renamePeer('${pId}', '${pNickname}')" title="Rename this device">
+                            <span class="peer-nickname" title="${pNickname}">${pNickname}</span>
+                            <button type="button" class="peer-rename-btn" onclick="renamePeer(${idArg}, ${jsArg(p.nickname || p.device || 'Device')})" title="Rename this device" aria-label="Rename device">
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                             </button>
-                            <span style="font-weight:400; font-size:11px; color:var(--text-sub); margin-left:2px;">(${pBrowser})</span>
                         </div>
                         <div class="peer-meta">
+                            <span>${pBrowser}</span>
                             ${ipBadgeHtml}
-                            <span>• ${timeAgo}</span>
+                            <span>${timeAgo}</span>
                         </div>
                     </div>
                 </div>
-                <button class="btn-peer-revoke" onclick="disconnectPeer('${pId}', '${pIp}')" title="Revoke device session">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                    Revoke
+                <button class="btn-icon btn-icon-danger btn-peer-revoke" onclick="disconnectPeer(${idArg}, ${jsArg(p.ip)})" title="Revoke access (disconnect this device)" aria-label="Revoke device access">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"></line></svg>
                 </button>
             </div>
         `;
@@ -661,35 +769,37 @@ function updateTunnelUI(data) {
     } else if (data.status === 'active' && data.url) {
         currentTunnelUrl = data.url;
         iconEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-        titleEl.innerText = 'Public Internet Mode';
+        titleEl.innerText = 'Internet Mode';
         titleEl.style.color = 'var(--accent-green)';
-        subEl.innerText = 'Accessible via 4G/5G mobile data worldwide';
+        subEl.innerText = 'Public HTTPS link';
         btnEl.disabled = false;
         btnEl.style.borderColor = 'rgba(239, 68, 68, 0.4)';
         btnEl.style.color = 'var(--accent-red)';
-        btnTextEl.innerText = 'Switch to Local';
+        btnTextEl.innerText = 'Turn off';
+        btnEl.title = 'Stop the public link and go back to local Wi-Fi only';
         if (badgeEl && urlTextEl) {
             badgeEl.style.display = 'inline-block';
             urlTextEl.innerText = data.url;
         }
         if (qrImg) {
-            qrImg.src = '/qrcode.png?t=' + Date.now();
+            qrImg.src = '/api/qr?t=' + Date.now();
         }
     } else {
         currentTunnelUrl = null;
         iconEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
-        titleEl.innerText = 'Local Wi-Fi Mode';
+        titleEl.innerText = 'Local Wi-Fi';
         titleEl.style.color = 'inherit';
-        subEl.innerText = 'Works on same Wi-Fi / Hotspot';
+        subEl.innerText = 'Same network only';
         btnEl.disabled = false;
         btnEl.style.borderColor = 'var(--border-color)';
         btnEl.style.color = 'var(--text-main)';
-        btnTextEl.innerText = 'Enable Internet';
+        btnTextEl.innerText = 'Go online';
+        btnEl.title = 'Share over 4G/5G mobile data or a different Wi-Fi';
         if (badgeEl) {
             badgeEl.style.display = 'none';
         }
         if (qrImg) {
-            qrImg.src = '/qrcode.png?t=' + Date.now();
+            qrImg.src = '/api/qr?t=' + Date.now();
         }
     }
 }
@@ -717,8 +827,8 @@ async function toggleTunnel() {
 
 function copyTunnelUrl() {
     if (currentTunnelUrl) {
-        navigator.clipboard.writeText(currentTunnelUrl).then(() => {
-            showToast('Copied Public URL to clipboard!', 'copy');
+        copyToClipboard(currentTunnelUrl).then((ok) => {
+            showToast(ok ? 'Copied Public URL to clipboard!' : 'Could not copy the link', ok ? 'copy' : 'error');
         });
     }
 }
@@ -756,7 +866,8 @@ async function checkLanRoomsHost() {
     } catch (e) {}
 }
 
-// Initial Connected Peers & Pending Join Requests Check
+// Initial Activity History, Connected Peers & Pending Join Requests Check
+loadActivityHistory();
 fetchPeers();
 checkPendingJoinRequests();
 checkLanRoomsHost();
