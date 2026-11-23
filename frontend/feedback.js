@@ -686,6 +686,57 @@ window.closeNavMenu = closeNavMenu;
 // In-App Update Checker & Release Modal
 // ==========================================================================
 
+const PYSHARE_RELEASES_URL = 'https://github.com/pattanayakpratik/PyShare/releases';
+const PYSHARE_LATEST_RELEASE_API = 'https://api.github.com/repos/pattanayakpratik/PyShare/releases/latest';
+const PYSHARE_DOWNLOAD_PREFIX = 'https://github.com/pattanayakpratik/PyShare/releases/download/';
+
+// "Get Desktop App" on the web version: download the Windows installer straight from the latest
+// release instead of sending people to GitHub. Its file name carries the version
+// (PyShare-Setup-v4.9.3.exe), so look it up rather than hard-coding a link.
+let desktopDownloadBusy = false;
+async function downloadDesktopApp(event) {
+    if (event) event.preventDefault();
+    if (typeof closeNavMenu === 'function') closeNavMenu();
+
+    const ua = navigator.userAgent || '';
+    if (!/Windows/i.test(ua) || /Windows Phone/i.test(ua)) {
+        pyshareNotify('PyShare Desktop is for Windows PCs. Open this page on your PC to download it.', 'info');
+        return;
+    }
+    if (desktopDownloadBusy) return;
+    desktopDownloadBusy = true;
+    try {
+        const res = await fetch(PYSHARE_LATEST_RELEASE_API, { headers: { Accept: 'application/vnd.github+json' } });
+        if (!res.ok) throw new Error('release lookup failed');
+        const release = await res.json();
+        const assets = Array.isArray(release.assets) ? release.assets : [];
+        const setup = assets.find(a => /^PyShare-Setup.*\.exe$/i.test(a.name)) || assets.find(a => /\.exe$/i.test(a.name));
+        const url = setup && String(setup.browser_download_url || '');
+        if (!url.startsWith(PYSHARE_DOWNLOAD_PREFIX)) throw new Error('no installer in the latest release');
+
+        const sizeMb = Math.max(1, Math.round((setup.size || 0) / 1048576));
+        pyshareNotify(`Downloading PyShare ${release.tag_name || ''} for Windows (${sizeMb} MB)`, 'success');
+        // GitHub serves release files as attachments, so this downloads without leaving the page
+        const link = document.createElement('a');
+        link.href = url;
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    } catch (e) {
+        // GitHub API unreachable or rate-limited: fall back to the release page
+        const win = window.open(`${PYSHARE_RELEASES_URL}/latest`, '_blank', 'noopener');
+        if (!win) pyshareNotify('Could not start the download. Get it from github.com/pattanayakpratik/PyShare/releases', 'warning');
+    } finally {
+        desktopDownloadBusy = false;
+    }
+}
+
+function escapeUpdateText(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function ensureUpdateModal(data) {
     let modal = document.getElementById('updateModal');
     if (!modal) {
@@ -698,14 +749,23 @@ function ensureUpdateModal(data) {
         document.body.appendChild(modal);
     }
 
-    const currentV = data.current_version || '';
-    const latestV = data.latest_version || currentV;
-    const releaseUrl = data.release_url || 'https://github.com/pattanayakpratik/PyShare/releases';
+    const currentV = escapeUpdateText(data.current_version || '');
+    const latestV = escapeUpdateText(data.latest_version || data.current_version || '');
+    // Only ever link to this project's GitHub releases
+    const releaseUrl = escapeUpdateText(/^https:\/\/github\.com\/pattanayakpratik\/PyShare\//.test(data.release_url || '') ? data.release_url : PYSHARE_RELEASES_URL);
     const rawNotes = data.release_notes || 'A new updated version of PyShare is available for download with new features and performance enhancements.';
-    const notes = String(rawNotes).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // GitHub release notes are Markdown: show them as plain readable text (no ##, ** or blank lead-in)
+    const notes = escapeUpdateText(String(rawNotes)
+        .replace(/\r\n/g, '\n')
+        .replace(/^\s*#{1,6}\s*/gm, '')
+        .replace(/\*\*(.+?)\*\*/g, '$1')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/^\s*[-*]\s+/gm, '• ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim());
 
     modal.innerHTML = `
-        <div class="modal-box" style="max-width: 480px; text-align: left;" onclick="event.stopPropagation()">
+        <div class="modal-box" style="max-width: 480px; text-align: left; padding: 22px;" onclick="event.stopPropagation()">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <div style="width:38px; height:38px; border-radius:12px; background:rgba(0,240,255,0.12); border:1px solid rgba(0,240,255,0.3); display:flex; align-items:center; justify-content:center; color:var(--accent-cyan);">
@@ -721,9 +781,7 @@ function ensureUpdateModal(data) {
                 </button>
             </div>
 
-            <div style="background:var(--card-bg-subtle, rgba(0,0,0,0.25)); border:1px solid var(--border-color); border-radius:12px; padding:12px 14px; font-size:13px; color:var(--text-muted); max-height:160px; overflow-y:auto; line-height:1.5; white-space:pre-wrap; margin-bottom:18px;">
-${notes}
-            </div>
+            <div style="background:var(--input-bg); border:1px solid var(--border-color); border-radius:12px; padding:12px 14px; font-size:13px; color:var(--text-sub); max-height:180px; overflow-y:auto; line-height:1.55; white-space:pre-wrap; margin-bottom:18px;">${notes}</div>
 
             <div style="display:flex; gap:10px; justify-content:flex-end;">
                 <button type="button" class="btn-secondary" onclick="closeUpdateModal()" style="padding:10px 16px; border-radius:12px; font-size:13px;">Later</button>
@@ -752,8 +810,9 @@ function pyshareNotify(message, kind) {
 
 async function checkForUpdates(manual = false) {
     try {
-        const resp = await fetch('/api/check_update');
-        if (!resp.ok) {
+        const resp = await fetch('/api/check_update', { cache: 'no-store' });
+        const isJson = (resp.headers.get('content-type') || '').includes('application/json');
+        if (!resp.ok || !isJson) {
             if (manual) pyshareNotify('Could not reach the update server', 'warning');
             return;
         }
@@ -830,10 +889,13 @@ if (typeof document !== 'undefined') {
 // Register globals & auto-check silently on startup
 if (typeof window !== 'undefined') {
     window.toggleUploadQueue = toggleUploadQueue;
+    window.downloadDesktopApp = downloadDesktopApp;
     window.checkForUpdates = checkForUpdates;
     window.closeUpdateModal = closeUpdateModal;
+    // Background check only where the menu offers updates (the app's own pages). The web version
+    // has no PyShare server, so it would just be a failing request on every page load.
     setTimeout(() => {
-        checkForUpdates(false);
+        if (document.getElementById('navUpdateBadge')) checkForUpdates(false);
     }, 3000);
 }
 

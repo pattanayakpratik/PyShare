@@ -359,6 +359,12 @@
                             <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                             <span>Help &amp; Feedback</span>
                         </button>
+                        <!-- The web version updates itself on every load, so it offers the desktop app instead of an update check.
+                             The click downloads the installer directly; the href is the fallback without JavaScript. -->
+                        <a class="nav-dropdown-item" href="https://github.com/pattanayakpratik/PyShare/releases/latest" target="_blank" rel="noopener noreferrer" onclick="downloadDesktopApp(event)" title="Download PyShare for Windows: offline sharing, no internet needed">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            <span>Get Desktop App</span>
+                        </a>
                     </div>
                 </div>
             </div>

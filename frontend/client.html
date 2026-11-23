@@ -84,11 +84,12 @@
                             <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                             <span>Help &amp; Feedback</span>
                         </button>
-                        <button class="nav-dropdown-item" onclick="checkForUpdates(true); closeNavMenu();">
-                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                            <span>Check for Updates</span>
-                            <span class="update-badge" id="navUpdateBadge" style="display:none; margin-left:auto; background:var(--accent-cyan); color:#000; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px;">NEW</span>
-                        </button>
+                        <!-- Guests can't update the Host's app, so they get the desktop app download instead of an
+                             update check (same as the web version). The href is the fallback without JavaScript. -->
+                        <a class="nav-dropdown-item" href="https://github.com/pattanayakpratik/PyShare/releases/latest" target="_blank" rel="noopener noreferrer" onclick="downloadDesktopApp(event)" title="Download PyShare for Windows: offline sharing, no internet needed">
+                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            <span>Get Desktop App</span>
+                        </a>
                     </div>
                 </div>
             </div>
