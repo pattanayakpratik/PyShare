@@ -139,7 +139,8 @@ def get_default_directories():
         "minimize_to_tray": True,
         "pin_mode": "rotating",
         "static_pin": "1234",
-        "auto_clipboard": True
+        "auto_clipboard": True,
+        "host_name": ""
     }
 
 def load_app_config():
@@ -276,6 +277,16 @@ PREVIOUS_PIN = ""  # 30-second grace window to prevent edge-case rejections
 NEXT_CHANGE = 0    # Track timestamp when PIN rotates
 SESSIONS = {}      # Stores authenticated client session tokens (token -> created_timestamp)
 AUTO_CLIPBOARD = True  # Host setting: copy chat messages from devices to this PC's clipboard
+DEFAULT_HOST_NAME = "Host (PC)"
+HOST_NAME = DEFAULT_HOST_NAME  # Host setting: how this PC appears in chat and on connected phones
+
+
+def clean_host_name(value):
+    """A display name for this PC: no control characters, single spaces, at most 32 characters.
+    Empty means the default ("Host (PC)")."""
+    name = re.sub(r'[\x00-\x1f\x7f]', '', str(value or ''))
+    name = re.sub(r'\s+', ' ', name).strip()[:32].strip()
+    return name or DEFAULT_HOST_NAME
 SHARED_TEXT = ""   # In-memory shared clipboard / quick link
 TEXT_TIMESTAMP = 0 # Timestamp of last clipboard change
 MAX_CHAT_HISTORY = 30
@@ -326,7 +337,7 @@ sse_lock = threading.Lock()
 
 # Events a client device may receive. Everything else (live PIN, peer list with IPs,
 # join requests, tunnel URL, activity log, incoming-upload monitor) is host-only.
-CLIENT_SSE_EVENTS = frozenset({"files", "clipboard"})
+CLIENT_SSE_EVENTS = frozenset({"files", "clipboard", "host_info"})
 SSE_CLOSE = "__close__"  # Sentinel telling a stream handler to end the connection
 
 def add_sse_subscriber(q, is_host=False, token=None):
@@ -1610,6 +1621,8 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                         info_data["nickname"] = sess.get("nickname", sess.get("device", "Device"))
                         info_data["device"] = sess.get("device", "Device")
                         info_data["peer_id"] = sess.get("id", client_token[:8])
+            if info_data["is_host"] or "peer_id" in info_data:
+                info_data["host_name"] = HOST_NAME
             self.send_json(info_data)
             return
 
@@ -1831,7 +1844,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 clip_val = pyperclip.paste().strip()
                 if clip_val:
                     with state_lock:
-                        msg = make_chat_message(clip_val, "Host (PC)", "host", is_host=True, device_type="desktop")
+                        msg = make_chat_message(clip_val, HOST_NAME, "host", is_host=True, device_type="desktop")
                         CHAT_MESSAGES.append(msg)
                         SHARED_TEXT = clip_val
                         TEXT_TIMESTAMP = int(time.time())
@@ -1882,7 +1895,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
             if not self.is_host_client():
                 self.send_error(403, "Host Only")
                 return
-            self.send_json({"auto_clipboard": AUTO_CLIPBOARD})
+            self.send_json({"auto_clipboard": AUTO_CLIPBOARD, "host_name": HOST_NAME})
             return
 
         # Connected Peers Endpoint (Host Only)
@@ -2161,7 +2174,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
         return
 
     def do_POST(self):
-        global PIN_MODE, STATIC_PIN, CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, AUTO_CLIPBOARD
+        global PIN_MODE, STATIC_PIN, CURRENT_PIN, PREVIOUS_PIN, NEXT_CHANGE, AUTO_CLIPBOARD, HOST_NAME
 
         # Handle Server Shutdown via POST
         if self.path in ('/shutdown', '/api/stop', '/api/shutdown'):
@@ -2497,7 +2510,16 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                 cfg["auto_clipboard"] = AUTO_CLIPBOARD
                 save_app_config(cfg)
                 add_event(f"Auto-copy chat to PC clipboard: {'on' if AUTO_CLIPBOARD else 'off'}")
-            self.send_json({"status": "ok", "auto_clipboard": AUTO_CLIPBOARD})
+            if "host_name" in data:
+                new_name = clean_host_name(data["host_name"])
+                if new_name != HOST_NAME:
+                    HOST_NAME = new_name
+                    cfg = load_app_config()
+                    cfg["host_name"] = "" if new_name == DEFAULT_HOST_NAME else new_name
+                    save_app_config(cfg)
+                    add_event(f"This PC is now called: {HOST_NAME}")
+                    broadcast_sse("host_info", {"host_name": HOST_NAME})
+            self.send_json({"status": "ok", "auto_clipboard": AUTO_CLIPBOARD, "host_name": HOST_NAME})
             return
 
         # Handle PIN Mode Switch (/api/pin/mode - Host Only)
@@ -2572,7 +2594,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     device_type = "device"
                 is_host = False
             elif self.is_host_client():
-                sender_name = "Host (PC)"
+                sender_name = HOST_NAME
                 sender_id = "host"
                 device_type = "desktop"
                 is_host = True
@@ -2893,7 +2915,7 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
                     device_type = sess.get("device", "device") if isinstance(sess, dict) else "device"
                     is_sender_host = False
                 elif self.is_host_client():
-                    sender_name = "Host (PC)"
+                    sender_name = HOST_NAME
                     sender_id = "host"
                     device_type = "desktop"
                     is_sender_host = True
@@ -3007,12 +3029,13 @@ class FastThreadingTCPServer(socketserver.ThreadingTCPServer):
 
 def apply_saved_settings(cfg):
     """Apply persisted host settings (PIN mode, fixed PIN, auto-copy) from the config dict."""
-    global PIN_MODE, STATIC_PIN, AUTO_CLIPBOARD
+    global PIN_MODE, STATIC_PIN, AUTO_CLIPBOARD, HOST_NAME
     with state_lock:
         PIN_MODE = cfg.get("pin_mode") if cfg.get("pin_mode") in ("static", "rotating") else "rotating"
         saved_pin = str(cfg.get("static_pin", "1234")).strip()
         STATIC_PIN = saved_pin if (len(saved_pin) == 4 and saved_pin.isdigit()) else "1234"
         AUTO_CLIPBOARD = bool(cfg.get("auto_clipboard", True))
+        HOST_NAME = clean_host_name(cfg.get("host_name", ""))
 
 def start_server():
     global BASE_DIR, UPLOAD_DIR, DOWNLOAD_DIR, httpd, ACTUAL_PORT, zc
