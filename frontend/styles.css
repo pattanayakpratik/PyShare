@@ -1515,6 +1515,12 @@ body::after {
     overflow-y: auto;
 }
 
+/* App vs web version (data-pyshare-mode is set by feedback.js). Until it's known, the web variant shows. */
+html:not([data-pyshare-mode="app"]) [data-pyshare-only="app"],
+html[data-pyshare-mode="app"] [data-pyshare-only="web"] {
+    display: none !important;
+}
+
 /* Whole-batch progress under the header; stays visible when the queue is minimized */
 .floating-queue-progress {
     height: 3px;

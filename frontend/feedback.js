@@ -686,6 +686,20 @@ window.closeNavMenu = closeNavMenu;
 // In-App Update Checker & Release Modal
 // ==========================================================================
 
+// --- ONE SWITCH: app or web ---
+// The desktop app's pages are served by the PyShare server on the PC; the hosted web version (P2P page +
+// guide) has no server behind it. Anything that differs between the two asks this, in one place.
+// Markup can use data-pyshare-only="app" / "web" to show an element in one mode only (see styles.css).
+const pyshareMode = (async () => {
+    let mode = 'web';
+    try {
+        const res = await fetch('/api/info', { cache: 'no-store' });
+        if (res.ok && (res.headers.get('content-type') || '').includes('application/json')) mode = 'app';
+    } catch (e) {}
+    document.documentElement.dataset.pyshareMode = mode;
+    return mode;
+})();
+
 const PYSHARE_RELEASES_URL = 'https://github.com/pattanayakpratik/PyShare/releases';
 const PYSHARE_LATEST_RELEASE_API = 'https://api.github.com/repos/pattanayakpratik/PyShare/releases/latest';
 const PYSHARE_DOWNLOAD_PREFIX = 'https://github.com/pattanayakpratik/PyShare/releases/download/';
@@ -892,10 +906,11 @@ if (typeof window !== 'undefined') {
     window.downloadDesktopApp = downloadDesktopApp;
     window.checkForUpdates = checkForUpdates;
     window.closeUpdateModal = closeUpdateModal;
-    // Background check only where the menu offers updates (the app's own pages). The web version
-    // has no PyShare server, so it would just be a failing request on every page load.
-    setTimeout(() => {
-        if (document.getElementById('navUpdateBadge')) checkForUpdates(false);
+    window.pyshareMode = pyshareMode;
+    // Background check only in the app, and only on pages whose menu offers updates
+    // (not on phone guests' pages, which can't update the Host's app)
+    setTimeout(async () => {
+        if ((await pyshareMode) === 'app' && document.getElementById('navUpdateBadge')) checkForUpdates(false);
     }, 3000);
 }
 
