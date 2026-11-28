@@ -121,7 +121,32 @@
     font-size: 13px;
     font-weight: 700;
     color: var(--text-main);
+    white-space: nowrap;   /* the title stays on one line; the name chip shrinks instead */
 }
+
+/* This PC's name chip in the Connect Device header (click to rename) */
+.host-name-chip {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    padding: 4px 9px;
+    border-radius: 99px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-sub);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+.host-name-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.host-name-chip svg { flex-shrink: 0; }
+.host-name-chip .host-name-edit { opacity: 0.6; }
+.host-name-chip:hover { color: var(--text-main); border-color: var(--accent-cyan); }
+.host-name-chip:hover .host-name-edit { opacity: 1; }
 
 .network-mode-pill {
     align-self: stretch;

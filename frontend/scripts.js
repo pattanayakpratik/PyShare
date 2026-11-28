@@ -79,6 +79,14 @@ function initSSE() {
             } catch (err) {}
         });
 
+        // The host renamed the PC: update "Connected to …" and the host's own name chip
+        es.addEventListener('host_info', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data && data.host_name && typeof setHostNameDisplays === 'function') setHostNameDisplays(data.host_name);
+            } catch (err) {}
+        });
+
         es.addEventListener('clipboard', (e) => {
             clearDisconnect();
             try {
@@ -1353,6 +1361,7 @@ async function initClientDevice() {
                 try { localStorage.setItem('pyshare_device_name', data.nickname); } catch(e) {}
             }
             if (data && data.peer_id) currentPeerId = data.peer_id;
+            if (data && data.host_name && typeof setHostNameDisplays === 'function') setHostNameDisplays(data.host_name);
             // Chat may have rendered before we knew who we are: re-render so own messages align right
             if (chatMessagesCache.length) renderClipboardChat(chatMessagesCache);
         }

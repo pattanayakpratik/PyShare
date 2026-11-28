@@ -878,6 +878,47 @@ if (typeof window.showToast !== 'function') {
     };
 }
 
+// --- THIS PC'S NAME (host pages) ---
+// Shown in chat and on connected phones instead of "Host (PC)". Elements with data-host-name show it.
+function setHostNameDisplays(name) {
+    if (!name) return;
+    document.querySelectorAll('[data-host-name]').forEach(el => {
+        el.textContent = name;
+        if (el.closest('button')) el.closest('button').title = `This PC is called "${name}". Click to rename.`;
+    });
+}
+
+async function promptRenameHost() {
+    if (typeof closeNavMenu === 'function') closeNavMenu();
+    let current = 'Host (PC)';
+    try {
+        const res = await fetch('/api/settings');
+        if (res.ok) current = (await res.json()).host_name || current;
+    } catch (e) {}
+    const name = await showPySharePrompt({
+        title: 'Name This PC',
+        message: 'Phones see this name in chat and when they connect. Leave it empty to use "Host (PC)".',
+        defaultValue: current === 'Host (PC)' ? '' : current,
+        placeholder: "e.g. Pratik's Laptop",
+        confirmText: 'Save Name',
+        maxLength: 32
+    });
+    if (name === null || name === undefined) return;   // cancelled
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ host_name: name })
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        setHostNameDisplays(data.host_name);
+        pyshareNotify(`This PC is now called "${data.host_name}"`, 'success');
+    } catch (e) {
+        pyshareNotify('Could not rename this PC', 'warning');
+    }
+}
+
 // Upload queue: "minimize" folds it into a small bar that keeps showing status, overall progress and
 // speed; tapping the bar opens it again. (It used to hide the queue with no way to bring it back.)
 function toggleUploadQueue(event, expand) {
@@ -904,6 +945,8 @@ if (typeof document !== 'undefined') {
 if (typeof window !== 'undefined') {
     window.toggleUploadQueue = toggleUploadQueue;
     window.downloadDesktopApp = downloadDesktopApp;
+    window.promptRenameHost = promptRenameHost;
+    window.setHostNameDisplays = setHostNameDisplays;
     window.checkForUpdates = checkForUpdates;
     window.closeUpdateModal = closeUpdateModal;
     window.pyshareMode = pyshareMode;

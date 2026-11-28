@@ -114,7 +114,11 @@ window.toggleHostAutoClipboardSync = toggleHostAutoClipboardSync;
     cb.checked = true;  // server default
     try {
         const res = await fetch('/api/settings');
-        if (res.ok) cb.checked = !!(await res.json()).auto_clipboard;
+        if (res.ok) {
+            const settings = await res.json();
+            cb.checked = !!settings.auto_clipboard;
+            if (typeof setHostNameDisplays === 'function') setHostNameDisplays(settings.host_name);
+        }
     } catch (e) {}
     try { localStorage.removeItem('pyshare_host_auto_clipboard'); } catch (e) {}  // old browser-side flag
 })();

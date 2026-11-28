@@ -108,7 +108,13 @@
         <!-- Column 1: Connect Device + Add to Shared -->
         <div class="col-connect">
             <div class="connect-hub-card card-panel">
-                <div class="hub-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Connect Device</div>
+                <div class="hub-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Connect Device
+                    <!-- This PC's name, as phones see it in chat and "Connected to …" -->
+                    <button type="button" class="host-name-chip" onclick="promptRenameHost()" title="Rename this PC" aria-label="Rename this PC">
+                        <span data-host-name>Host (PC)</span>
+                        <svg class="host-name-edit" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                </div>
 
                 <!-- Network Mode Switcher: Local Wi-Fi vs Public Internet -->
                 <div class="network-mode-pill">
