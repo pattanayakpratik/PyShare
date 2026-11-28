@@ -1,6 +1,18 @@
 {
   "outputDirectory": "frontend",
   "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/:page(host|client|login|landing)",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/:page(host|client|login|landing).html",
+      "destination": "/",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/p2p",

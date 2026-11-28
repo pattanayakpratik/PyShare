@@ -11,3 +11,15 @@ requirements.txt
 backend/
 installer/
 __pycache__/
+tests/
+
+# App-only pages: they need the PyShare server running on the PC, so they would only be broken pages
+# on the web. The web version is the P2P page (index.html) + the guide, with their shared files.
+frontend/host.html
+frontend/host_scripts.js
+frontend/host_styles.css
+frontend/client.html
+frontend/login.html
+frontend/landing.html
+frontend/scripts.js
+frontend/sw.js
