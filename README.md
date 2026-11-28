@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="Screenshots/banner.png" alt="PyShare Banner" width="100%">
+<img src="assets/banner.png" alt="PyShare Banner" width="100%">
 
 <br/><br/>
 
@@ -253,7 +253,7 @@ PyShare/
 │   ├── sw.js             # Service Worker for standalone mobile PWA (Cache v5)
 │   ├── app_icon.png      # Cross-platform web icon for desktop and mobile browsers
 │   └── app_icon.ico      # Web favicon
-├── Screenshots/          # 🖼️ README banner image
+├── assets/               # 🖼️ README banner image
 ├── run.py                # 🚀 Root launcher (Desktop GUI or Headless Server)
 ├── requirements.txt      # 📦 Python dependencies
 ├── vercel.json           # ☁️ 1-click cloud deployment configuration (points to web/)

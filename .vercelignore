@@ -6,6 +6,7 @@ dist
 *.spec
 app
 Screenshots
+assets
 run.py
 requirements.txt
 backend/
