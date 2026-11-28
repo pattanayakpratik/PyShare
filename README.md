@@ -22,7 +22,7 @@
 
 <br/>
 
-[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [💾 **Download Windows Installer**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare-Setup-v4.9.3.exe) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.zip) • [Screenshots](#screenshots) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
+[🌐 **Open Web App (pyshare.vercel.app)**](https://pyshare.vercel.app) • [💾 **Download Windows Installer**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare-Setup-v4.9.3.exe) • [⬇️ **Download Standalone EXE**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.exe) • [📦 **Download ZIP**](https://github.com/pattanayakpratik/PyShare/releases/download/v4.9.3/PyShare.zip) • [Two Ways to Use](#two-ways-to-use-pyshare) • [What's New](#whats-new) • [Key Features](#key-features) • [Architecture](#system-architecture) • [Usage Guide](#usage-guide)
 
 </div>
 
@@ -48,52 +48,6 @@ PyShare is built around complete flexibility: **downloading an app is 100% optio
 > **Data Usage & Offline Sharing Clarification:**
 > * **Want 100% offline sharing with Mobile Data OFF?** Use **`PyShare.exe`** on PC! It starts a local offline web server (`http://192.168.x.x:8010`). Scan the local QR code with your phone — **zero internet is consumed**.
 > * **Using the Web App (`pyshare.vercel.app`)?** It requires ~50 KB of internet to load and exchange the 4-digit PIN room handshake. Once connected on the same Wi-Fi or hotspot, file transfers stay direct P2P — **sending a 3 GB file uses 0 MB of your mobile data balance!**
-
----
-
-<span id="screenshots"></span>
-## 📸 Screenshots
-
-### 🖥️ Native Desktop Application (Cyberpunk Neon Liquid Glass — Zero Browser Dependencies)
-The standalone Windows desktop app runs completely natively without launching any browser tabs or web processes. It includes the exact **Cyberpunk Neon Liquid Glass** studio design, **Dual Host & Client Mode**, and the **Direct Drag & Drop staging engine**.
-
-<p align="center">
-  <img src="Screenshots/desktop_host.png" alt="PyShare Native Desktop Host Studio" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-  <img src="Screenshots/desktop_client.png" alt="PyShare Native Desktop Client Studio" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-</p>
-
-### 🖥️ Desktop Host Studio (Cyberpunk Neon Dark & Luxury Liquid Glass Light)
-The complete workstation command center on PC with multi-stop cyan & violet glows, live dynamic QR code, rotating 4-digit PIN, 1-click Cloudflare Internet Tunnel toggle, Windows OS clipboard push, and received files manager.
-
-<p align="center">
-  <img src="Screenshots/host_dark.png" alt="PyShare Host Studio Cyberpunk Neon Glass" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-  <img src="Screenshots/host_white.png" alt="PyShare Host Studio Luxury Liquid Glass" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-</p>
-
-### 📱 Mobile Phone as Host (Zero PC Required — Dark & Light Mode)
-Your phone can now act as the **Host** directly from any mobile browser! Phone A taps **Create Room** to generate an instant Room PIN and QR code; Phone B or PC connects to send/receive files peer-to-peer over WebRTC with zero app installation.
-
-<p align="center">
-  <img src="Screenshots/mobile_host_dark.png" alt="Mobile Phone Host Cyberpunk Glass" width="46%" style="max-width: 250px; border-radius: 16px; margin: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3);">
-  <img src="Screenshots/mobile_host_white.png" alt="Mobile Phone Host Liquid Glass" width="46%" style="max-width: 250px; border-radius: 16px; margin: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.3);">
-</p>
-
-### 📱 Mobile Client Views & PIN Login
-Touch-friendly mobile interface with PIN keypad authentication, built-in How-To Guide shortcut, media preview lightbox, real-time upload progress, and 1-tap theme switching.
-
-<p align="center">
-  <img src="Screenshots/client_login.png" alt="Mobile PIN Keypad" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-  <img src="Screenshots/client_dark.png" alt="Mobile Client Cyberpunk Glass" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-  <img src="Screenshots/client_white.png" alt="Mobile Client Liquid Glass" width="31%" style="max-width: 210px; border-radius: 16px; margin: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-</p>
-
-### 🌐 Instant Web Transfer & 📖 Interactive How-To Guide
-Left: Direct browser-to-browser WebRTC file sharing in the responsive 2-column Studio layout on desktop with drag-and-drop. Right: Built-in visual user manual and troubleshooting guide precached for offline use.
-
-<p align="center">
-  <img src="Screenshots/web_transfer.png" alt="PyShare Instant Web Transfer Studio" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-  <img src="Screenshots/guide.png" alt="PyShare How-To Guide" width="49%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-</p>
 
 ---
 
@@ -299,7 +253,7 @@ PyShare/
 │   ├── sw.js             # Service Worker for standalone mobile PWA (Cache v5)
 │   ├── app_icon.png      # Cross-platform web icon for desktop and mobile browsers
 │   └── app_icon.ico      # Web favicon
-├── Screenshots/          # 📸 High-resolution dashboard captures
+├── Screenshots/          # 🖼️ README banner image
 ├── run.py                # 🚀 Root launcher (Desktop GUI or Headless Server)
 ├── requirements.txt      # 📦 Python dependencies
 ├── vercel.json           # ☁️ 1-click cloud deployment configuration (points to web/)
