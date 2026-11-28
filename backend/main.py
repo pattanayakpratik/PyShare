@@ -1337,6 +1337,38 @@ class FinalFileHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Suppress default console logs
 
+    def wants_html_page(self):
+        """True for a browser loading a page (typed address, link, opened file), not for API calls or scripts."""
+        if urllib.parse.urlparse(self.path or '').path.startswith('/api/'):
+            return False
+        dest = self.headers.get('Sec-Fetch-Dest') if self.headers else None
+        if dest:
+            return dest == 'document'
+        return 'text/html' in ((self.headers.get('Accept') if self.headers else '') or '')
+
+    def send_error(self, code, message=None, explain=None):
+        """Missing pages and files get PyShare's themed 404 page in the browser instead of Python's plain
+        'Error response'. API calls, fetch() and scripts keep the plain error they expect."""
+        if code == 404 and getattr(self, 'command', None) in ('GET', 'HEAD') and self.wants_html_page():
+            try:
+                with open(os.path.join(get_asset_dir(), "404.html"), "rb") as f:
+                    content = f.read()
+            except OSError:
+                return super().send_error(code, message, explain)
+            try:
+                self.send_response(404)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "no-store")
+                self.send_security_headers()
+                self.end_headers()
+                if self.command != 'HEAD':
+                    self.wfile.write(content)
+            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                pass
+            return
+        return super().send_error(code, message, explain)
+
     def send_security_headers(self):
         """Append defense-in-depth HTTP security headers."""
         self.send_header("X-Content-Type-Options", "nosniff")

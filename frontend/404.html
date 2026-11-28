@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Page not found · PyShare</title>
+    <!-- Absolute paths: this page is shown for missing addresses at any depth (e.g. /view/a/b/photo.jpg) -->
+    <link rel="icon" type="image/x-icon" href="/app_icon.ico">
+    <link rel="apple-touch-icon" href="/app_icon.png">
+    <meta name="theme-color" content="#141d2e">
+    <script>
+        // Apply the saved theme before first paint, like the other pages
+        try {
+            var t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('pyshare_theme');
+            if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+    </script>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            box-sizing: border-box;
+        }
+        .nf-card {
+            position: relative;
+            width: 100%;
+            max-width: 440px;
+            padding: 36px 28px 30px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .nf-logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 800;
+            font-size: 18px;
+            color: var(--text-main);
+            text-decoration: none;
+            margin-bottom: 22px;
+        }
+        .nf-logo img { width: 28px; height: 28px; border-radius: 8px; }
+        .nf-code {
+            font-size: 76px;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -2px;
+            margin: 0 0 10px;
+            background: linear-gradient(135deg, #22d3ee, #2563eb 55%, #8b5cf6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .nf-title { font-size: 20px; font-weight: 800; color: var(--text-main); margin: 0 0 8px; }
+        .nf-text { font-size: 14px; line-height: 1.55; color: var(--text-sub); margin: 0 auto 24px; max-width: 320px; }
+        .nf-path {
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: bottom;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: var(--text-main);
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2px 8px;
+        }
+        .nf-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .nf-actions a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 44px;
+            padding: 0 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+        @media (max-width: 420px) {
+            .nf-actions a { flex: 1 1 100%; }   /* stacked buttons, same width */
+        }
+    </style>
+</head>
+<body>
+    <main class="nf-card card-panel" aria-labelledby="nfTitle">
+        <a class="nf-logo" href="/"><img src="/app_icon.png" alt=""> PyShare</a>
+        <p class="nf-code" aria-hidden="true">404</p>
+        <h1 class="nf-title" id="nfTitle">Page not found</h1>
+        <p class="nf-text">
+            <span id="nfPathLine" hidden><span class="nf-path" id="nfPath"></span><br></span>
+            This link may be old, or the page or file has moved or been removed.
+        </p>
+        <div class="nf-actions">
+            <a class="btn-primary" href="/">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Go to PyShare
+            </a>
+            <a class="btn-secondary" href="/guide.html">How-To Guide</a>
+        </div>
+    </main>
+    <script>
+        // Show which address was missing (as text, never as HTML)
+        (function () {
+            var p = location.pathname || '';
+            try { p = decodeURIComponent(p); } catch (e) {}   // malformed %-escapes: show it as-is
+            if (p && p !== '/' && p !== '/404' && p !== '/404.html') {
+                document.getElementById('nfPath').textContent = p;
+                document.getElementById('nfPath').title = p;
+                document.getElementById('nfPathLine').hidden = false;
+            }
+        })();
+    </script>
+</body>
+</html>

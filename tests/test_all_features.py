@@ -1452,6 +1452,37 @@ class TestPyShareAllFeatures(unittest.TestCase):
         self.assertIn('onclick="toggleUploadQueue(event)"', client)
         print("  [PASS] Step 2.6: Concurrent uploads show one steady Host bar; queue minimizes instead of vanishing")
 
+    def test_31_custom_404_page_for_browsers_only(self):
+        """Missing pages/files show PyShare's themed 404 page in the browser (status stays 404);
+        API calls, fetch() and HEAD keep a plain error."""
+        browser = {"Accept": "text/html,application/xhtml+xml,*/*;q=0.8", "Sec-Fetch-Dest": "document"}
+
+        def get(path, headers, method="GET"):
+            req = urllib.request.Request(f"{self.base_url}{path}", headers=headers, method=method)
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(req, timeout=3)
+            err = cm.exception
+            return err.code, err.headers.get("Content-Type", ""), err.read().decode("utf-8", "replace")
+
+        for path in ("/this-page-does-not-exist", "/view/no-such-photo.jpg", "/download/nope/missing.zip"):
+            code, ctype, body = get(path, browser)
+            self.assertEqual(code, 404, path)
+            self.assertIn("text/html", ctype)
+            self.assertIn("Page not found", body, f"{path}: plain error instead of the PyShare 404 page")
+            self.assertIn('href="/styles.css"', body)
+
+        # API calls and script requests keep the plain error
+        code, _, body = get("/api/no-such-endpoint", browser)
+        self.assertEqual(code, 404)
+        self.assertNotIn("Page not found", body)
+        code, _, body = get("/this-page-does-not-exist", {"Accept": "*/*", "Sec-Fetch-Dest": "empty"})
+        self.assertEqual(code, 404)
+        self.assertNotIn("Page not found", body)
+        # HEAD: status and headers only
+        code, ctype, body = get("/this-page-does-not-exist", browser, method="HEAD")
+        self.assertEqual((code, body), (404, ""))
+        print("  [PASS] Step 3.7: Themed 404 page for browser page loads; API errors unchanged")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)
