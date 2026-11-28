@@ -1483,6 +1483,64 @@ class TestPyShareAllFeatures(unittest.TestCase):
         self.assertEqual((code, body), (404, ""))
         print("  [PASS] Step 3.7: Themed 404 page for browser page loads; API errors unchanged")
 
+    def test_32_host_can_name_this_pc(self):
+        """The PC's name replaces "Host (PC)" in chat and on phones; saved across restarts; host-only to set;
+        never revealed to devices that haven't joined."""
+        sent = []
+        real_broadcast = main.broadcast_sse
+        main.broadcast_sse = lambda ev, data: (sent.append((ev, data)), real_broadcast(ev, data))
+        saved_name = main.HOST_NAME
+
+        def call(method, path, payload=None, headers=None):
+            data = json.dumps(payload).encode() if payload is not None else None
+            req = urllib.request.Request(f"{self.base_url}{path}", data=data, method=method,
+                                         headers={"Content-Type": "application/json", **(headers or {})})
+            with urllib.request.urlopen(req, timeout=3) as res:
+                return json.loads(res.read())
+
+        try:
+            self.assertEqual(main.clean_host_name("  Pratik's   Laptop \x07"), "Pratik's Laptop")
+            self.assertEqual(main.clean_host_name(""), "Host (PC)")
+            self.assertEqual(len(main.clean_host_name("x" * 80)), 32)
+
+            res = call("POST", "/api/settings", {"host_name": "Pratik's Laptop"})
+            self.assertEqual(res["host_name"], "Pratik's Laptop")
+            self.assertEqual(call("GET", "/api/settings")["host_name"], "Pratik's Laptop")
+            self.assertIn(("host_info", {"host_name": "Pratik's Laptop"}), sent, "Phones were not told about the rename")
+            self.assertEqual(main.load_app_config().get("host_name"), "Pratik's Laptop", "Name not saved")
+
+            # The host's chat messages carry the name
+            call("POST", "/api/text", {"text": "hello from the PC"})
+            with main.state_lock:
+                mine = [m for m in main.CHAT_MESSAGES if m.get("text") == "hello from the PC"]
+            self.assertTrue(mine and mine[-1]["sender"] == "Pratik's Laptop", mine[-1:] if mine else "no message")
+
+            # /api/info: the host sees it; a device that hasn't joined does not
+            self.assertEqual(call("GET", "/api/info")["host_name"], "Pratik's Laptop")
+            self.assertNotIn("host_name", call("GET", "/api/info", headers={"X-Forwarded-For": "10.32.0.9"}))
+
+            # Only the host may rename the PC
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                call("POST", "/api/settings", {"host_name": "Hacked"}, {"X-Forwarded-For": "10.32.0.9"})
+            self.assertIn(cm.exception.code, (401, 403))   # refused whether or not the device has joined
+
+            # Survives a restart; empty resets to the default
+            main.HOST_NAME = "Host (PC)"
+            main.apply_saved_settings(main.load_app_config())
+            self.assertEqual(main.HOST_NAME, "Pratik's Laptop")
+            self.assertEqual(call("POST", "/api/settings", {"host_name": "  "})["host_name"], "Host (PC)")
+            self.assertEqual(main.load_app_config().get("host_name"), "")
+        finally:
+            main.broadcast_sse = real_broadcast
+            main.HOST_NAME = saved_name
+
+        with open(os.path.join(main.ASSET_DIR, "index.html"), encoding="utf-8") as f:
+            self.assertIn('onclick="promptDeviceName()"', f.read(), "P2P page has no way to name the device")
+        with open(os.path.join(main.ASSET_DIR, "p2p.js"), encoding="utf-8") as f:
+            p2p = f.read()
+        self.assertIn("name: getDeviceName()", p2p, "P2P join request does not carry the device name")
+        print("  [PASS] Step 4.18: Host names this PC (chat, phones, restart-safe); P2P devices can be named")
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPyShareAllFeatures)
