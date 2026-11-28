@@ -450,6 +450,48 @@ function describeThisDevice() {
     return `${os} (${browser})`;
 }
 
+// --- THIS DEVICE'S NAME ---
+// What the other side sees ("Riya's Phone wants to join"). Same storage key as the app's phone page,
+// so one name follows the device. Empty means automatic ("Android device (Chrome)").
+const DEVICE_NAME_KEY = 'pyshare_device_name';
+
+function cleanDeviceName(value) {
+    return String(value || '').replace(/[\x00-\x1f\x7f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 32).trim();
+}
+
+function getDeviceName() {
+    try { return cleanDeviceName(localStorage.getItem(DEVICE_NAME_KEY)); } catch (e) { return ''; }
+}
+
+function deviceDisplayName() {
+    return getDeviceName() || describeThisDevice();
+}
+
+function renderDeviceName() {
+    const el = document.getElementById('p2pDeviceNameText');
+    if (el) el.textContent = deviceDisplayName();
+}
+
+async function promptDeviceName() {
+    const name = await showPySharePrompt({
+        title: 'Name This Device',
+        message: `The other device sees this name when you connect. Leave it empty to use "${describeThisDevice()}".`,
+        defaultValue: getDeviceName(),
+        placeholder: "e.g. Riya's Phone",
+        confirmText: 'Save Name',
+        maxLength: 32
+    });
+    if (name === null || name === undefined) return;   // cancelled
+    const clean = cleanDeviceName(name);
+    try {
+        if (clean) localStorage.setItem(DEVICE_NAME_KEY, clean);
+        else localStorage.removeItem(DEVICE_NAME_KEY);
+    } catch (e) {}
+    renderDeviceName();
+    showToast(`This device is now "${deviceDisplayName()}"`, 'success');
+}
+window.promptDeviceName = promptDeviceName;
+
 let hostApprovalChain = Promise.resolve();  // One approval dialog at a time
 
 function askHostToApprove(conn, deviceLabel) {
@@ -470,8 +512,8 @@ function askHostToApprove(conn, deviceLabel) {
         if (allowed) {
             conn._approved = true;
             if (!activeConnections.includes(conn)) activeConnections.push(conn);
-            try { conn.send({ type: 'join_accepted' }); } catch (e) {}
-            updateConnectionStatus('Connected to Client Peer!', 'green');
+            try { conn.send({ type: 'join_accepted', name: deviceDisplayName() }); } catch (e) {}
+            updateConnectionStatus(`Connected to ${conn._peerName || 'device'}!`, 'green');
             document.getElementById('hostConnectedBadge').style.display = 'flex';
             showToast('Peer connected! Ready to transfer.', 'success');
             syncSharedFilesToPeer(conn);  // Send the current shared-files catalog
@@ -483,10 +525,10 @@ function askHostToApprove(conn, deviceLabel) {
     });
 }
 
-function markJoinedHost(conn) {
+function markJoinedHost(conn, hostName) {
     conn._approved = true;
     if (!activeConnections.includes(conn)) activeConnections.push(conn);
-    updateClientStatus('Connected to Host!', 'green');
+    updateClientStatus(`Connected to ${hostName || 'Host'}!`, 'green');
     showToast('Connected! Ready to transfer.', 'success');
 }
 
@@ -501,14 +543,20 @@ function setupConnectionHandlers(conn) {
             conn._approvalTimer = setTimeout(() => askHostToApprove(conn, null), 2500);
         } else {
             updateClientStatus('Waiting for Host to accept...', 'yellow');
-            try { conn.send({ type: 'join_request', device: describeThisDevice() }); } catch (e) {}
+            try { conn.send({ type: 'join_request', device: describeThisDevice(), name: getDeviceName() }); } catch (e) {}
         }
     });
 
     conn.on('data', (data) => {
         if (isHost && !conn._approved) {
             // Until approved, the only thing a device may send is its introduction.
-            if (data && data.type === 'join_request') askHostToApprove(conn, data.device);
+            if (data && data.type === 'join_request') {
+                // The guest's chosen name (if any) first, then what kind of device it is
+                const name = cleanDeviceName(data.name);
+                const kind = cleanDeviceName(data.device);
+                conn._peerName = name || kind || 'device';
+                askHostToApprove(conn, name && kind ? `${name} · ${kind}` : (name || kind));
+            }
             return;
         }
         if (!isHost && !conn._approved) {
@@ -519,7 +567,7 @@ function setupConnectionHandlers(conn) {
                 return;
             }
             // 'join_accepted', or any data from a host on an older version, means we're in.
-            markJoinedHost(conn);
+            markJoinedHost(conn, data && data.type === 'join_accepted' ? cleanDeviceName(data.name) : '');
             if (data && data.type === 'join_accepted') return;
         }
         handleIncomingData(data, conn);
@@ -1452,6 +1500,7 @@ function setupDragAndDrop() {
 // Auto-check URL for ?room=XXXX or ?mode=host on page load & setup drag/drop
 window.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop();
+    renderDeviceName();
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
     if (roomParam && roomParam.length === 4) {
